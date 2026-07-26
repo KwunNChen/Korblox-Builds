@@ -54,7 +54,33 @@ StarterPlayer/StarterPlayerScripts
     └── WeatherAudio         ← wind ambience
 ```
 
-## Setup for testing
+## Installing in a game
+
+Drag `VariableSnowstorm.rbxm` into **ServerScriptService**.
+
+That's the whole install. The system spans four services, but a model file can
+only be inserted into one place, so the package ships with an `Installer` script
+that distributes the folders on first server start and then deletes itself.
+Press Play once to run it, then **Stop and Play again** to start from the
+installed copy.
+
+After installing, the only file you touch is
+`ReplicatedStorage.Weather.WeatherConfig`.
+
+The installer never overwrites. If a name already exists at its destination it
+keeps the existing instance and warns instead — so it merges safely into a
+`ServerScriptService.Common` folder your game already uses for other systems.
+
+### Rebuilding the package
+
+```bash
+rojo build package.project.json -o VariableSnowstorm.rbxm
+```
+
+`package.project.json` reads the same `src/` as the dev project, so there is no
+second copy of the code to keep in sync.
+
+## Setup for development
 
 Requires [Rokit](https://github.com/rojo-rbx/rokit/releases). From this folder:
 

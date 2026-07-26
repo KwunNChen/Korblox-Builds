@@ -1,0 +1,30 @@
+{
+  "name": "VariableSnowstorm",
+  "tree": {
+    "$className": "Folder",
+
+    "Installer": {
+      "$path": "src/package/Installer.server.luau"
+    },
+
+    "Shared": {
+      "$className": "Folder",
+      "$path": "src/shared"
+    },
+
+    "Server": {
+      "$className": "Folder",
+      "$path": "src/server"
+    },
+
+    "ServerCommon": {
+      "$className": "Folder",
+      "$path": "src/server-common"
+    },
+
+    "Client": {
+      "$className": "Folder",
+      "$path": "src/client"
+    }
+  }
+}
