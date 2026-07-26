@@ -19,7 +19,7 @@ WeatherService.start()
 -- the change actually reached the server.
 local weatherFolder = ReplicatedStorage:WaitForChild("Weather")
 
-local function applyDebugIntensity(value: unknown)
+local function applyDebugIntensity(value: any)
 	if typeof(value) ~= "number" or value < 0 then
 		WeatherService.setOverride(nil)
 		print("[Weather] debug override cleared -- cycle resumed")
