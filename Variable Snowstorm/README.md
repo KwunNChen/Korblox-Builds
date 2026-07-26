@@ -56,20 +56,69 @@ StarterPlayer/StarterPlayerScripts
 
 ## Installing in a game
 
-Drag `VariableSnowstorm.rbxm` into **ServerScriptService**.
+The system lives in three services, but a model file inserts into only one, so
+you place the folders yourself. Takes about a minute.
 
-That's the whole install. The system spans four services, but a model file can
-only be inserted into one place, so the package ships with an `Installer` script
-that distributes the folders on first server start and then deletes itself.
-Press Play once to run it, then **Stop and Play again** to start from the
-installed copy.
+Inside `VariableSnowstorm.rbxm` the folders are **named after where they go**.
 
-After installing, the only file you touch is
+**1.** Drag `VariableSnowstorm.rbxm` into **ServerStorage**.
+
+Use ServerStorage specifically — it's a staging area where `Script` instances
+don't execute. Dropping it straight into `ServerScriptService` or `Workspace`
+would start the server scripts from the wrong place before the shared modules
+exist.
+
+**2.** Move both children of its `ReplicatedStorage` folder into the real
+**ReplicatedStorage**:
+
+- `Weather`
+- `WeatherState`
+
+**3.** Move both children of its `ServerScriptService` folder into the real
+**ServerScriptService**:
+
+- `Weather`
+- `Common` — if your game already has a `Common` folder, drag `SpeedService`
+  into the existing one instead of replacing it
+
+**4.** Move the `Weather` folder from its `StarterPlayerScripts` folder into
+**StarterPlayer → StarterPlayerScripts**.
+
+**Don't skip this step.** It's the one that renders snow. Miss it and the storm
+still runs, the wind still blows, players still get slowed — but nobody sees
+anything, and it looks exactly like a broken install.
+
+**5.** Delete the now-empty `VariableSnowstorm` folder in ServerStorage.
+
+### Final layout
+
+```
+ReplicatedStorage
+├── Weather                ← WeatherConfig, WeatherShared
+└── WeatherState           ← replicated attributes
+
+ServerScriptService
+├── Weather                ← WeatherService, WeatherRuntime
+└── Common                 ← SpeedService
+
+StarterPlayer/StarterPlayerScripts
+└── Weather                ← WeatherClient, WeatherAudio
+```
+
+Press Play. The only file you touch afterwards is
 `ReplicatedStorage.Weather.WeatherConfig`.
 
-The installer never overwrites. If a name already exists at its destination it
-keeps the existing instance and warns instead — so it merges safely into a
-`ServerScriptService.Common` folder your game already uses for other systems.
+### Wind audio needs your own asset
+
+`WeatherConfig.WindSoundId` ships pointing at an asset that may not be
+accessible from your game — Roblox audio has been private-by-default since 2022,
+and an id that works in one place is silent in another with no error.
+
+In Studio: **View → Toolbox → Audio**, search `wind loop`, right-click →
+**Copy Asset ID**, paste it into `WindSoundId`. Pick one that loops
+**seamlessly**, since it plays continuously.
+
+Set it to `""` to disable audio cleanly — the system warns once and runs silent.
 
 ### Rebuilding the package
 

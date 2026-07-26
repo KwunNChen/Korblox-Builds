@@ -3,28 +3,43 @@
   "tree": {
     "$className": "Folder",
 
-    "Installer": {
-      "$path": "src/package/Installer.server.luau"
+    "ReplicatedStorage": {
+      "$className": "Folder",
+
+      "Weather": {
+        "$path": "src/shared"
+      },
+
+      "WeatherState": {
+        "$className": "Configuration",
+        "$attributes": {
+          "Intensity": 0,
+          "Phase": "Clear",
+          "WindX": 0,
+          "WindZ": 0,
+          "InstantCue": 0
+        }
+      }
     },
 
-    "Shared": {
+    "ServerScriptService": {
       "$className": "Folder",
-      "$path": "src/shared"
+
+      "Weather": {
+        "$path": "src/server"
+      },
+
+      "Common": {
+        "$path": "src/server-common"
+      }
     },
 
-    "Server": {
+    "StarterPlayerScripts": {
       "$className": "Folder",
-      "$path": "src/server"
-    },
 
-    "ServerCommon": {
-      "$className": "Folder",
-      "$path": "src/server-common"
-    },
-
-    "Client": {
-      "$className": "Folder",
-      "$path": "src/client"
+      "Weather": {
+        "$path": "src/client"
+      }
     }
   }
 }
