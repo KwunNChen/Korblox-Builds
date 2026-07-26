@@ -93,14 +93,14 @@ local function computeWind(intensity: number): Vector3
 	return Vector3.new(math.cos(heading) * speed, 0, math.sin(heading) * speed)
 end
 
-local function publish(intensity: number, wind: Vector3)
+local function publish(intensity: number, wind: Vector3, force: boolean?)
 	if intensity < Config.IntensityEpsilon then
 		intensity = 0
 	end
 
 	local movedEnough = math.abs(intensity - state.intensity) > Config.IntensityEpsilon
 	local crossedZero = (intensity == 0) ~= (state.intensity == 0)
-	if movedEnough or crossedZero then
+	if force or movedEnough or crossedZero then
 		state.intensity = intensity
 		stateHolder:SetAttribute(Attr.Intensity, intensity)
 		intensityChanged:Fire(intensity)
@@ -154,7 +154,7 @@ function WeatherService.setOverride(intensity: number?, instant: boolean?)
 		end
 
 		local i = computeIntensity()
-		publish(i, computeWind(i))
+		publish(i, computeWind(i), true)
 
 		state.instantNonce += 1
 		stateHolder:SetAttribute(Attr.InstantCue, state.instantNonce)

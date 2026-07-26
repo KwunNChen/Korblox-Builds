@@ -9,7 +9,7 @@ local WeatherService = require(script.Parent:WaitForChild("WeatherService"))
 local SpeedService = require(ServerScriptService:WaitForChild("Common"):WaitForChild("SpeedService"))
 
 WeatherService.start()
-
+_G.WeatherService = WeatherService
 local STORM_MODIFIER = "Storm"
 
 local function updatePlayerSpeed(player: Player, intensity: number)
@@ -53,7 +53,7 @@ if Config.EnableStormSlowdown then
 	end)
 end
 
--- Cold damage example. Uncomment to enable.
+-- Cold damage
 --[[
 
 local COLD_THRESHOLD = 0.6

@@ -293,7 +293,15 @@ stateHolder:GetAttributeChangedSignal(Attr.InstantCue):Connect(function()
 		applyBucketedLook(intensity)
 		positionRig(wind)
 
-		emitter.Enabled = true
-		emitter:Emit(math.floor(Config.ParticleBudget * intensity * exposure))
+		-- Top up to the target density rather than assuming an empty sky, so an
+		-- override fired mid-storm lands at the same density as one fired from clear.
+		local targetLive = Config.ParticleBudget * intensity * exposure
+		local currentLive = math.max(lastRate, 0) * averageLifetime
+		local burst = math.floor(targetLive - currentLive)
+
+		if burst > 0 then
+			emitter.Enabled = true
+			emitter:Emit(burst)
+		end
 	end)
 end)

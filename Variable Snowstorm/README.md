@@ -32,19 +32,6 @@ CLIENT  StarterPlayerScripts.Weather
                     ──► local Lighting / Atmosphere / wind audio
 ```
 
-### Why rendering is not on the server
-
-The roof feature *cannot* work server-side. A ParticleEmitter created on the
-server replicates to every client, and there is no way to hide a server-owned
-instance from one player but not another — disabling Player A's snow would
-disable it for everyone. Server raycasts also scale with player count and eat
-the single-threaded server budget.
-
-What *is* server-side, and has to be: the storm cycle (so everyone shares the
-same weather), global wind, and the movement penalty. A client could simply
-decline to slow itself down, so that check uses the server's own raycast and
-never a value reported by a client.
-
 ## Layout
 
 ```
@@ -67,7 +54,7 @@ StarterPlayer/StarterPlayerScripts
     └── WeatherAudio         ← wind ambience
 ```
 
-## Setup
+## Setup for testing
 
 Requires [Rokit](https://github.com/rojo-rbx/rokit/releases). From this folder:
 
@@ -85,40 +72,28 @@ rojo serve
 
 Then hit **Connect** in the Rojo plugin in Studio.
 
-### Wind audio
-
-`WindSoundId` ships empty — Roblox audio is private-by-default since 2022, so no
-id can be safely hardcoded. In Studio open **View → Toolbox → Audio**, search
-`wind loop`, right-click → **Copy Asset ID**, and paste it into
-`WeatherConfig.WindSoundId`. Pick one that loops **seamlessly** — it plays
-continuously, so a seam is very audible.
-
-Until an id is set the system warns once at startup and runs silently.
-
 ## Testing
 
-The cycle opens with 60–120s of clear weather, so don't wait it out. Press Play,
-switch the Client/Server toggle in the toolbar to **Server**, and run:
+The cycle opens with 60–120s of clear weather. Press Play. To jump to a peak
+storm instantly (for testing), switch the Client/Server toggle in the toolbar
+to **Server** and run:
 
 ```lua
-require(game.ServerScriptService.Weather.WeatherService).setOverride(1, true)
+_G.WeatherService.setOverride(1, true)
 ```
 
-The `true` skips the visual ramp-up so the storm appears immediately.
-
-> The Command Bar runs in whichever context that toggle is set to.
-> `ServerScriptService` is never replicated to clients, so on **Client** this
-> errors with "Weather is not a valid member of ServerScriptService".
-
-Other helpers:
+The `true` skips the visual ramp-up so the storm appears immediately. Other
+commands:
 
 ```lua
-local W = require(game.ServerScriptService.Weather.WeatherService)
-W.setOverride(nil)      -- resume the automatic cycle
-W.forceStorm()          -- jump to Building
-W.forceClear()          -- jump to Fading
-W.getPhase()
+_G.WeatherService.setOverride(nil)      -- resume the automatic cycle
+_G.WeatherService.forceStorm()          -- jump to Building Phase
+_G.WeatherService.forceClear()          -- jump to Fading
+_G.WeatherService.getPhase()
 ```
+
+`_G.WeatherService` is exposed in `WeatherRuntime.server.luau` for testing
+convenience.
 
 ## Tuning
 
@@ -199,7 +174,3 @@ never a value reported by a client. `WeatherService.PhaseChanged` and
   body matches player intuition.
 - **Lighting is driven by intensity only**, not shelter, so fog still reads
   indoors. Tying it to shelter pops every time you cross a doorway.
-- **`WindAffectsDrag` is flagged deprecated** while still being the documented
-  way to make particles follow `GlobalWind`. It's set inside a `pcall`; the
-  snow's horizontal motion comes from `Acceleration`, so nothing breaks if it
-  goes away.
