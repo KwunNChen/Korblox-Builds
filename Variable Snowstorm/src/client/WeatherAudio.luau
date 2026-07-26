@@ -1,15 +1,4 @@
---[[
-	WeatherAudio  (client only)
-
-	Wind ambience layer. Reads nothing itself -- WeatherClient feeds it the same
-	intensity/shelter/wind values it uses for the visuals, so audio and picture
-	can never disagree.
-
-	The Sound is parented to SoundService, NOT to the snow rig. A Sound parented
-	to a BasePart or Attachment becomes 3D positional with distance falloff; a
-	Sound anywhere else plays globally at uniform volume, which is what ambience
-	wants. The rig is a BasePart, so parenting there would quietly break this.
-]]
+-- Wind ambience. Fed by WeatherClient; owns no state of its own.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
@@ -20,18 +9,23 @@ local Shared = require(WeatherFolder:WaitForChild("WeatherShared"))
 
 local WeatherAudio = {}
 
+-- Raise to write engine properties less often, lower for finer steps.
+local VOLUME_EPSILON = 0.004
+local PITCH_EPSILON = 0.004
+local GAIN_EPSILON = 0.3
+
 local sound: Sound? = nil
 local equalizer: EqualizerSoundEffect? = nil
 
 local currentVolume = 0
-local currentMuffle = 0 -- smoothed copy of shelter, 0 = open sky, 1 = covered
-local currentWindSpeed = 0 -- smoothed; the raw value arrives in ~4Hz steps
+local currentMuffle = 0
+local currentWindSpeed = 0
 
---[[
-	Builds the sound rig. Safe to call when no asset is configured -- it warns
-	once and leaves every later call a no-op, rather than spamming errors or
-	silently pretending to work.
-]]
+local lastVolume = -1
+local lastPlaybackSpeed = -1
+local lastHighGain = math.huge
+local lastMidGain = math.huge
+
 function WeatherAudio.init()
 	if not Config.EnableWindAudio then
 		return
@@ -51,24 +45,19 @@ function WeatherAudio.init()
 	newSound.SoundId = Config.WindSoundId
 	newSound.Looped = true
 	newSound.Volume = 0
-	newSound.Parent = SoundService -- global, non-positional
+	-- SoundService keeps it global; parenting to a BasePart would make it 3D.
+	newSound.Parent = SoundService
 
 	local newEqualizer = Instance.new("EqualizerSoundEffect")
 	newEqualizer.Name = "ShelterMuffle"
-	-- A SoundEffect applies to the Sound it is parented to.
 	newEqualizer.Parent = newSound
 
 	sound = newSound
 	equalizer = newEqualizer
 end
 
---[[
-	Computes the volume the wind should sit at. Shared by update() and snap() so
-	the instant test override can never drift from the normal path.
-]]
 local function targetVolume(intensity: number, shelter: number): number
-	local exposure = 1 - shelter * Config.WindIndoorVolumeDrop
-	return Config.WindMaxVolume * intensity * exposure
+	return Config.WindMaxVolume * intensity * (1 - shelter * Config.WindIndoorVolumeDrop)
 end
 
 local function applyLevels()
@@ -77,22 +66,33 @@ local function applyLevels()
 		return
 	end
 
-	activeSound.Volume = currentVolume
-
-	-- Pitch tracks the smoothed wind, not the raw value. The server only
-	-- publishes wind a few times a second, so using it directly would step the
-	-- pitch in audible jumps rather than gliding between gusts.
-	local windAlpha = math.clamp(currentWindSpeed / Config.WindStormSpeed, 0, 1)
-	activeSound.PlaybackSpeed = Shared.lerp(Config.WindPitchCalm, Config.WindPitchStorm, windAlpha)
-
-	if equalizer then
-		equalizer.HighGain = Shared.lerp(0, Config.WindIndoorHighGain, currentMuffle)
-		equalizer.MidGain = Shared.lerp(0, Config.WindIndoorMidGain, currentMuffle)
+	local volume = if currentVolume < VOLUME_EPSILON then 0 else currentVolume
+	if math.abs(volume - lastVolume) > VOLUME_EPSILON or (volume == 0 and lastVolume ~= 0) then
+		lastVolume = volume
+		activeSound.Volume = volume
 	end
 
-	-- Don't hold a voice for a sound nobody can hear. The start and stop
-	-- thresholds differ on purpose: a single cutoff would let the sound flap on
-	-- and off while the volume sits right at the boundary.
+	local windAlpha = math.clamp(currentWindSpeed / Config.WindStormSpeed, 0, 1)
+	local playbackSpeed = Shared.lerp(Config.WindPitchCalm, Config.WindPitchStorm, windAlpha)
+	if math.abs(playbackSpeed - lastPlaybackSpeed) > PITCH_EPSILON then
+		lastPlaybackSpeed = playbackSpeed
+		activeSound.PlaybackSpeed = playbackSpeed
+	end
+
+	if equalizer then
+		local highGain = Shared.lerp(0, Config.WindIndoorHighGain, currentMuffle)
+		if math.abs(highGain - lastHighGain) > GAIN_EPSILON then
+			lastHighGain = highGain
+			equalizer.HighGain = highGain
+		end
+
+		local midGain = Shared.lerp(0, Config.WindIndoorMidGain, currentMuffle)
+		if math.abs(midGain - lastMidGain) > GAIN_EPSILON then
+			lastMidGain = midGain
+			equalizer.MidGain = midGain
+		end
+	end
+
 	if activeSound.Playing and currentVolume < 0.001 then
 		activeSound.Playing = false
 	elseif not activeSound.Playing and currentVolume > 0.005 then
@@ -100,11 +100,6 @@ local function applyLevels()
 	end
 end
 
---[[
-	Per-frame update. `dt` drives the same framerate-independent smoothing the
-	lighting and shelter fades use, so the wind ramps at the same rate on a 30fps
-	laptop and a 240fps desktop.
-]]
 function WeatherAudio.update(intensity: number, shelter: number, windSpeed: number, dt: number)
 	if not sound then
 		return
@@ -112,19 +107,11 @@ function WeatherAudio.update(intensity: number, shelter: number, windSpeed: numb
 
 	currentVolume = Shared.damp(currentVolume, targetVolume(intensity, shelter), Config.WindAudioSmoothing, dt)
 	currentMuffle = Shared.damp(currentMuffle, shelter, Config.WindAudioSmoothing, dt)
-
-	-- Pitch gets its own, shorter time constant. Smoothing it as slowly as the
-	-- volume fade would flatten the gusts into a monotone.
 	currentWindSpeed = Shared.damp(currentWindSpeed, windSpeed, Config.WindPitchSmoothing, dt)
 
 	applyLevels()
 end
 
---[[
-	Jumps straight to the target levels with no easing. Used only by the
-	setOverride(intensity, true) test path, so a command-bar override sounds
-	instant instead of fading up over a second.
-]]
 function WeatherAudio.snap(intensity: number, shelter: number, windSpeed: number)
 	if not sound then
 		return

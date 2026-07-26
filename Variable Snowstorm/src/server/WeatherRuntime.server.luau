@@ -1,34 +1,62 @@
---[[
-	WeatherRuntime
-	Thin entry point. All the logic lives in WeatherService (a ModuleScript) so
-	other server code can require it and hook into the storm without this script
-	having to know about them.
-
-	Gameplay effects go in the hooks below -- they are intentionally empty for now.
-]]
-
-local WeatherService = require(script.Parent:WaitForChild("WeatherService"))
-
-WeatherService.start()
-
--- ============================================================
--- Gameplay hooks -- nothing wired up yet
--- ============================================================
---
--- Everything below is a working example, commented out. Uncomment and fill in
--- when you want the storm to actually do something to players.
---
--- Note that the shelter check here is the SERVER's own raycast. Never trust a
--- client's report of whether it is indoors -- that is trivially exploitable.
---
---[[
+-- Entry point plus the storm's gameplay effects.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
-local Config = require(ReplicatedStorage.Weather.WeatherConfig)
+local Config = require(ReplicatedStorage:WaitForChild("Weather"):WaitForChild("WeatherConfig"))
+local WeatherService = require(script.Parent:WaitForChild("WeatherService"))
+local SpeedService = require(ServerScriptService:WaitForChild("Common"):WaitForChild("SpeedService"))
 
-local COLD_THRESHOLD = 0.6   -- intensity above which exposure hurts
+WeatherService.start()
+
+local STORM_MODIFIER = "Storm"
+
+local function updatePlayerSpeed(player: Player, intensity: number)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return
+	end
+
+	if intensity <= 0 or WeatherService.isPlayerSheltered(player) then
+		SpeedService.clearModifier(humanoid, STORM_MODIFIER)
+		return
+	end
+
+	local multiplier = 1 + (Config.StormSpeedMultiplier - 1) * intensity
+	SpeedService.setModifier(humanoid, STORM_MODIFIER, { mul = multiplier })
+end
+
+if Config.EnableStormSlowdown then
+	task.spawn(function()
+		local wasClear = true
+
+		while true do
+			task.wait(Config.StormSlowdownInterval)
+
+			local intensity = WeatherService.getIntensity()
+
+			-- Skip the whole sweep in clear weather once everyone is released.
+			if intensity <= 0 and wasClear then
+				continue
+			end
+			wasClear = intensity <= 0
+
+			for _, player in Players:GetPlayers() do
+				local ok, err = pcall(updatePlayerSpeed, player, intensity)
+				if not ok then
+					warn("[WeatherRuntime] slowdown failed for", player.Name, err)
+				end
+			end
+		end
+	end)
+end
+
+-- Cold damage example. Uncomment to enable.
+--[[
+
+local COLD_THRESHOLD = 0.6
 local DAMAGE_PER_TICK = 2
 
 task.spawn(function()
@@ -47,16 +75,11 @@ task.spawn(function()
 				continue
 			end
 
-			local sheltered = WeatherService.isPlayerSheltered(player)
-			if not sheltered then
+			if not WeatherService.isPlayerSheltered(player) then
 				humanoid:TakeDamage(DAMAGE_PER_TICK * intensity)
 			end
 		end
 	end
-end)
-
-WeatherService.PhaseChanged:Connect(function(phase)
-	print("[Weather] phase ->", phase)
 end)
 
 ]]

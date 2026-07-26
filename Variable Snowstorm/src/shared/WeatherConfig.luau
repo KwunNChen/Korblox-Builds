@@ -172,4 +172,27 @@ WeatherConfig.WindAudioSmoothing = 1.2
 -- pitch still sounds jumpy, lower it if gusts feel sluggish.
 WeatherConfig.WindPitchSmoothing = 0.4
 
+-- ============================================================
+-- GAMEPLAY: STORM SLOWDOWN  (server only -- must be, or clients could ignore it)
+-- ============================================================
+
+WeatherConfig.EnableStormSlowdown = true
+
+-- Speed multiplier applied at full intensity while out in the open.
+--
+-- This is a multiplier rather than a flat subtraction so it stacks correctly
+-- with sprinting: 0.875 costs a walking player exactly 2 studs/sec at Roblox's
+-- default WalkSpeed of 16 (16 -> 14), while a sprinter at 1.5x lands on
+-- 16 * 1.5 * 0.875 = 21 instead of 24. You lose proportionally more the faster
+-- you are moving, which reads as fighting through the wind.
+--
+-- Scales with intensity, so light snow barely slows you and only a peak
+-- blizzard costs the full amount.
+WeatherConfig.StormSpeedMultiplier = 0.875
+
+-- How often the server re-evaluates. Each pass costs one raycast per player, so
+-- this is cheap; it is separate from ServerShelterInterval because movement
+-- wants to feel more responsive than damage ticks do.
+WeatherConfig.StormSlowdownInterval = 0.5
+
 return table.freeze(WeatherConfig)

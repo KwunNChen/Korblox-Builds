@@ -1,192 +1,205 @@
-# Korblox Snowstorm
+# Variable Snowstorm
 
-A server-authoritative snowstorm with per-player roof detection. Snow stops when
-you walk under cover and resumes when you step back into the open.
+A weather system for Korblox Confederacy. Storms cycle on their own, snow stops
+when you step under a roof, and being caught outside slows you down.
+
+## What it does
+
+- **Automatic storm cycle** — Clear → Building → Peak → Fading, with randomized
+  durations so it never feels metronomic.
+- **Per-player roof detection** — snow, wind volume, and the speed penalty all
+  fade out under cover and return when you step back into the open.
+- **Wind audio** — volume scales with the storm; indoors it drops and gets
+  muffled, like a storm heard through a wall.
+- **Movement penalty** — exposed players move slower, scaling with intensity.
+- **Local lighting** — fog and Atmosphere shift with the storm, per client.
 
 ## Architecture
 
 The storm's **state** is server-owned; its **appearance** is client-rendered.
 
 ```
-SERVER  (ServerScriptService.Weather)
-  WeatherService ──► publishes 4 attributes on ReplicatedStorage.WeatherState
-                     Intensity · Phase · WindX · WindZ
-                     also sets workspace.GlobalWind (foliage + clouds)
+SERVER  ServerScriptService.Weather
+  WeatherService ──► 5 attributes on ReplicatedStorage.WeatherState
+                     Intensity · Phase · WindX · WindZ · InstantCue
+                     also sets workspace.GlobalWind
 
                               │ replicates automatically
                               ▼
-CLIENT  (StarterPlayerScripts.WeatherClient)
-  reads those 4 numbers ──► particle rig parented to Camera
-                       ──► its own roof raycasts
-                       ──► local Lighting / Atmosphere
+CLIENT  StarterPlayerScripts.Weather
+  reads those values ──► particle rig parented to Camera
+                    ──► its own roof raycasts
+                    ──► local Lighting / Atmosphere / wind audio
 ```
 
 ### Why rendering is not on the server
 
 The roof feature *cannot* work server-side. A ParticleEmitter created on the
 server replicates to every client, and there is no way to hide a server-owned
-instance from one player but not another. Disabling Player A's snow would
-disable it for everyone; giving each player their own emitter means all clients
-render all emitters.
+instance from one player but not another — disabling Player A's snow would
+disable it for everyone. Server raycasts also scale with player count and eat
+the single-threaded server budget.
 
-Server raycasts also scale with player count and consume the single-threaded
-server budget — the scarcest resource in a Roblox game — and add 50–150 ms of
-replication lag before snow cuts off when you step under an awning.
+What *is* server-side, and has to be: the storm cycle (so everyone shares the
+same weather), global wind, and the movement penalty. A client could simply
+decline to slow itself down, so that check uses the server's own raycast and
+never a value reported by a client.
 
-What *is* server-side, correctly: the storm cycle (so everyone shares the same
-weather), global wind, and a coarse shelter check reserved for gameplay effects,
-since a client's claim about being indoors is trivially spoofable.
+## Layout
+
+```
+ReplicatedStorage
+├── Weather
+│   ├── WeatherConfig        ← all tuning lives here
+│   └── WeatherShared
+└── WeatherState             ← replicated attributes
+
+ServerScriptService
+├── Weather
+│   ├── WeatherService       ← state machine + hooks
+│   └── WeatherRuntime       ← entry point + gameplay effects
+└── Common
+    └── SpeedService         ← owns Humanoid.WalkSpeed
+
+StarterPlayer/StarterPlayerScripts
+└── Weather
+    ├── WeatherClient        ← rendering + roof detection
+    └── WeatherAudio         ← wind ambience
+```
 
 ## Setup
 
-You have Studio but no Rojo yet. Pick either path.
-
-**Option A — Rokit (recommended, pins the version for the whole team)**
-
-Install Rokit from https://github.com/rojo-rbx/rokit/releases, then:
+Requires [Rokit](https://github.com/rojo-rbx/rokit/releases). From this folder:
 
 ```bash
 rokit install
 ```
 
-**Option B — direct install**
-
-Download the `rojo` binary from https://github.com/rojo-rbx/rojo/releases and
-put it on your PATH.
-
-**Then, for either path:**
-
-1. Install the Rojo *Studio plugin*: `rojo plugin install`
-2. Start the server from this folder: `rojo serve`
-3. In Studio, open the Rojo plugin and click **Connect**.
-
-The tree appears in Studio automatically. Edit the `.luau` files in your editor
-and Studio updates live.
-
-## Explorer layout after sync
-
-```
-ReplicatedStorage
-├── Weather                  (Folder)
-│   ├── WeatherConfig        (ModuleScript)  ← all tuning lives here
-│   └── WeatherShared        (ModuleScript)
-└── WeatherState             (Configuration) ← replicated attributes
-
-ServerScriptService
-└── Weather                  (Folder)
-    ├── WeatherService       (ModuleScript)  ← state machine + hooks API
-    └── WeatherRuntime       (Script)        ← entry point
-
-StarterPlayer/StarterPlayerScripts
-└── Weather                  (Folder)
-    ├── WeatherClient        (LocalScript)   ← rendering + roof detection
-    └── WeatherAudio         (ModuleScript)  ← wind ambience
+```bash
+rojo plugin install
 ```
 
-## Testing it
-
-The default cycle opens with 60–120 s of clear weather, so don't wait it out.
-Run a **Local Server** test (Test → Clients and Servers, 2 players), switch to
-the **Server** view, and use the command bar:
-
-```lua
-require(game.ServerScriptService.Weather.WeatherService).setOverride(1)
+```bash
+rojo serve
 ```
 
-That pins full intensity. Then switch to a client window and walk under a roof —
-snow should fade out over about a third of a second and return when you step out.
+Then hit **Connect** in the Rojo plugin in Studio.
 
-Note that the storm still takes a few seconds to visually ramp up (particle
-density needs time to fill in, lighting eases in) — that's intentional so a
-real storm doesn't snap on like a light switch. For faster iteration while
-testing, pass `true` as a second argument to skip the ramp-up entirely:
+### Wind audio
+
+`WindSoundId` ships empty — Roblox audio is private-by-default since 2022, so no
+id can be safely hardcoded. In Studio open **View → Toolbox → Audio**, search
+`wind loop`, right-click → **Copy Asset ID**, and paste it into
+`WeatherConfig.WindSoundId`. Pick one that loops **seamlessly** — it plays
+continuously, so a seam is very audible.
+
+Until an id is set the system warns once at startup and runs silently.
+
+## Testing
+
+The cycle opens with 60–120s of clear weather, so don't wait it out. Press Play,
+switch the Client/Server toggle in the toolbar to **Server**, and run:
 
 ```lua
 require(game.ServerScriptService.Weather.WeatherService).setOverride(1, true)
 ```
 
-Other command-bar helpers:
+The `true` skips the visual ramp-up so the storm appears immediately.
+
+> The Command Bar runs in whichever context that toggle is set to.
+> `ServerScriptService` is never replicated to clients, so on **Client** this
+> errors with "Weather is not a valid member of ServerScriptService".
+
+Other helpers:
 
 ```lua
 local W = require(game.ServerScriptService.Weather.WeatherService)
-W.setOverride(nil)   -- resume the automatic cycle
-W.setOverride(1, true) -- instant full storm, testing only
-W.forceStorm()       -- jump straight to Building
-W.forceClear()       -- jump straight to Fading
+W.setOverride(nil)      -- resume the automatic cycle
+W.forceStorm()          -- jump to Building
+W.forceClear()          -- jump to Fading
 W.getPhase()
 ```
 
 ## Tuning
 
-Everything is in `src/shared/WeatherConfig.luau`. The ones you'll actually touch:
+Everything is in `src/shared/WeatherConfig.luau`.
 
 | Setting | Effect |
 | --- | --- |
-| `ParticleBudget` | Hard cap on live flakes. **The one knob for performance.** Max emission rate is derived from it. |
-| `PhaseDurations` | How long each phase of the cycle lasts. |
+| `ParticleBudget` | Cap on live flakes. **The main performance knob.** |
+| `PhaseDurations` | Length of each phase of the cycle. |
 | `WindStormSpeed` | How hard a full blizzard blows. |
 | `ShelterSmoothing` | How fast snow fades when you step under cover. |
-| `ShelterRespectCanCollide` | On by default, so decorative non-collidable parts don't count as roofs. **Turn off if your builders make real roofs non-collidable.** |
-| `FlakeTexture` | Swap for a custom snowflake asset when art provides one. |
+| `ShelterRespectCanCollide` | On by default, so decorative non-collidable parts aren't roofs. **Turn off if your builders make real roofs non-collidable.** |
+| `FlakeTexture` | Swap for a custom snowflake asset. |
+| `WindSoundId` | Required for audio — see above. |
+| `WindMaxVolume` | Wind loudness at full storm. |
+| `WindPitchSmoothing` | Raise if pitch sounds jumpy, lower if gusts feel sluggish. |
+| `StormSpeedMultiplier` | Speed multiplier at full intensity. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
-| `WindSoundId` | **Required for audio.** See "Wind audio" below — empty by default. |
-| `WindMaxVolume` | Loudness of the wind at full storm. |
-| `WindIndoorVolumeDrop` | How much quieter the wind gets under a roof. |
 
-## Wind audio
+## Speed modifiers
 
-The wind loop needs an asset you supply — `WindSoundId` ships empty. Roblox
-audio has been private-by-default since the 2022 permission changes, so there is
-no ID that can be safely hardcoded; a wrong one just fails silently.
+`SpeedService` is the only thing that may assign `Humanoid.WalkSpeed`. Systems
+register named modifiers and it folds them together:
 
-To wire it up:
+```
+final = base × (all multipliers) + (all additions)
+```
 
-1. In Studio, open **View → Toolbox → Audio** and search for something like
-   `wind loop` or `blizzard`. Filter to audio you're allowed to use.
-2. Right-click the result → **Copy Asset ID**.
-3. Paste it into `src/shared/WeatherConfig.luau`:
-   ```lua
-   WeatherConfig.WindSoundId = "rbxassetid://1234567890"
-   ```
+A sprint system integrates like this, and needs to know nothing about weather:
 
-Pick something that **loops seamlessly** — the sound plays continuously for the
-whole storm, so an audible seam every few seconds is very noticeable.
+```lua
+local SpeedService = require(game.ServerScriptService.Common.SpeedService)
 
-Until an ID is set, the system prints one warning on startup and runs silently;
-nothing errors and the snow is unaffected.
+SpeedService.setModifier(humanoid, "Sprint", { mul = 1.5 })
+SpeedService.clearModifier(humanoid, "Sprint")
+```
 
-Behaviour once configured: volume scales with storm intensity, and under a roof
-the wind both drops in volume and gets muffled (an `EqualizerSoundEffect` cuts
-the high frequencies) so it reads as a storm heard through walls. Pitch tracks
-the replicated wind speed, so the gusts you hear are the gusts you see.
+Multipliers compose, so the storm applies on top automatically:
 
-### Known trade-offs
+| Situation | Math | Speed |
+| --- | --- | --- |
+| Walking, clear | `16` | 16 |
+| Walking, peak storm | `16 × 0.875` | 14 |
+| Sprinting, clear | `16 × 1.5` | 24 |
+| Sprinting, peak storm | `16 × 1.5 × 0.875` | 21 |
 
-- **Shelter is measured from the character, not the camera.** In third person the
-  camera often floats outside the building you're in; measuring from the body
-  matches player intuition. The cost is that snow stops while the camera is
-  outdoors looking in.
-- **Lighting is driven by intensity only**, not by shelter, so fog still reads
-  indoors. Tying it to shelter looks worse — it pops every time you cross a
-  doorway.
-- **`WindAffectsDrag` is flagged deprecated** in the API dump while still being
-  the documented way to make particles follow `GlobalWind`. It's set inside a
-  `pcall`; the snow's actual horizontal motion comes from `Acceleration`, so
-  nothing breaks if it goes away.
+`{ add = -2 }` is also supported for flat modifiers. There's a `MinWalkSpeed`
+floor so stacked penalties can't leave a player unable to move.
+
+**The one rule:** never assign `WalkSpeed` directly once a humanoid is managed
+here — outside writes get overwritten on the next recompute.
+
+## Gameplay hooks
+
+`WeatherRuntime.server.luau` has a commented-out cold damage example. Use
+`WeatherService.isPlayerSheltered(player)` — the server's own raycast — and
+never a value reported by a client. `WeatherService.PhaseChanged` and
+`IntensityChanged` are available for anything else.
 
 ## Performance notes
 
-- The rig is parented to `workspace.CurrentCamera`, so it never replicates.
-- Total network cost is 4 numbers a few times a second, and only when they
-  change by more than a threshold — independent of player count.
-- Raycasts: 5 per client every 0.2 s, and **zero** when no storm is active.
-  `RaycastParams` is built once and reused.
-- `NumberSequence` properties allocate on assignment, so they're rebuilt only
-  when intensity crosses a bucket boundary, not every frame.
-- The whole loop early-outs when there's no storm and nothing left to fade.
+- The particle rig is parented to `workspace.CurrentCamera`, so it never
+  replicates.
+- Network cost is a handful of numbers a few times a second, and only when they
+  change past a threshold — independent of player count.
+- Raycasts: 5 per client every 0.2s, and **zero** when no storm is active.
+- Engine property writes (Lighting, particle rate, sound volume, pitch, EQ) are
+  all epsilon-gated. Smoothing is asymptotic and never exactly settles, so
+  writing every frame would churn the renderer and audio DSP for changes too
+  small to perceive.
+- Both the render loop and the server's slowdown sweep fully idle in clear
+  weather.
 
-## Adding gameplay effects
+## Known trade-offs
 
-`WeatherRuntime.server.luau` has a commented-out, working example of cold damage.
-Use `WeatherService.isPlayerSheltered(player)` — the server's own raycast — and
-never a value reported by the client.
+- **Shelter is measured from the character, not the camera.** In third person
+  the camera often floats outside the building you're in; measuring from the
+  body matches player intuition.
+- **Lighting is driven by intensity only**, not shelter, so fog still reads
+  indoors. Tying it to shelter pops every time you cross a doorway.
+- **`WindAffectsDrag` is flagged deprecated** while still being the documented
+  way to make particles follow `GlobalWind`. It's set inside a `pcall`; the
+  snow's horizontal motion comes from `Acceleration`, so nothing breaks if it
+  goes away.

@@ -27,6 +27,10 @@
 
       "Weather": {
         "$path": "src/server"
+      },
+
+      "Common": {
+        "$path": "src/server-common"
       }
     },
 
