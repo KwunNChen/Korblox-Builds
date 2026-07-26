@@ -141,4 +141,29 @@ WeatherConfig.StormAtmosphereHaze = 3.2
 -- Seconds of smoothing on lighting changes.
 WeatherConfig.LightingSmoothing = 1.5
 
+-- ============================================================
+-- WIND AUDIO  (client only)
+-- ============================================================
+
+WeatherConfig.EnableWindAudio = true
+WeatherConfig.WindSoundId = "rbxassetid://4175285709"
+
+WeatherConfig.WindMaxVolume = 0.5
+
+-- Fraction of the volume removed at full shelter. 0.65 means indoors you hear
+-- 35% of the outdoor volume -- present, but clearly outside.
+WeatherConfig.WindIndoorVolumeDrop = 0.65
+
+-- Equalizer gains (dB) applied at full shelter. Cutting the highs is what makes
+-- it read as "storm heard through a wall" rather than just quieter.
+WeatherConfig.WindIndoorHighGain = -25
+WeatherConfig.WindIndoorMidGain = -8
+
+-- PlaybackSpeed is driven off the replicated wind magnitude, so audio gusts line
+-- up with the visual ones instead of drifting on a separate noise source.
+WeatherConfig.WindPitchCalm = 0.85
+WeatherConfig.WindPitchStorm = 1.2
+
+WeatherConfig.WindAudioSmoothing = 1.2
+
 return table.freeze(WeatherConfig)

@@ -78,7 +78,9 @@ ServerScriptService
     └── WeatherRuntime       (Script)        ← entry point
 
 StarterPlayer/StarterPlayerScripts
-└── WeatherClient            (LocalScript)   ← rendering + roof detection
+└── Weather                  (Folder)
+    ├── WeatherClient        (LocalScript)   ← rendering + roof detection
+    └── WeatherAudio         (ModuleScript)  ← wind ambience
 ```
 
 ## Testing it
@@ -127,6 +129,36 @@ Everything is in `src/shared/WeatherConfig.luau`. The ones you'll actually touch
 | `ShelterRespectCanCollide` | On by default, so decorative non-collidable parts don't count as roofs. **Turn off if your builders make real roofs non-collidable.** |
 | `FlakeTexture` | Swap for a custom snowflake asset when art provides one. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
+| `WindSoundId` | **Required for audio.** See "Wind audio" below — empty by default. |
+| `WindMaxVolume` | Loudness of the wind at full storm. |
+| `WindIndoorVolumeDrop` | How much quieter the wind gets under a roof. |
+
+## Wind audio
+
+The wind loop needs an asset you supply — `WindSoundId` ships empty. Roblox
+audio has been private-by-default since the 2022 permission changes, so there is
+no ID that can be safely hardcoded; a wrong one just fails silently.
+
+To wire it up:
+
+1. In Studio, open **View → Toolbox → Audio** and search for something like
+   `wind loop` or `blizzard`. Filter to audio you're allowed to use.
+2. Right-click the result → **Copy Asset ID**.
+3. Paste it into `src/shared/WeatherConfig.luau`:
+   ```lua
+   WeatherConfig.WindSoundId = "rbxassetid://1234567890"
+   ```
+
+Pick something that **loops seamlessly** — the sound plays continuously for the
+whole storm, so an audible seam every few seconds is very noticeable.
+
+Until an ID is set, the system prints one warning on startup and runs silently;
+nothing errors and the snow is unaffected.
+
+Behaviour once configured: volume scales with storm intensity, and under a roof
+the wind both drops in volume and gets muffled (an `EqualizerSoundEffect` cuts
+the high frequencies) so it reads as a storm heard through walls. Pitch tracks
+the replicated wind speed, so the gusts you hear are the gusts you see.
 
 ### Known trade-offs
 

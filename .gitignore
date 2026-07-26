@@ -1,0 +1,13 @@
+# Rojo build output
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Toolchain binaries -- rokit installs itself to ~/.rokit/bin, so a copy
+# sitting in the repo is redundant and should never be committed.
+rokit.exe
+
+# OS noise
+Thumbs.db
+.DS_Store

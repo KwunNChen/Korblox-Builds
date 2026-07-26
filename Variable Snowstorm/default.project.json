@@ -36,8 +36,8 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
 
-        "WeatherClient": {
-          "$path": "src/client/WeatherClient.client.luau"
+        "Weather": {
+          "$path": "src/client"
         }
       }
     }

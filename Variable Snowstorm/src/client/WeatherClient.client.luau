@@ -25,6 +25,8 @@ local WeatherFolder = ReplicatedStorage:WaitForChild("Weather")
 local Config = require(WeatherFolder:WaitForChild("WeatherConfig"))
 local Shared = require(WeatherFolder:WaitForChild("WeatherShared"))
 
+local WeatherAudio = require(script.Parent:WaitForChild("WeatherAudio"))
+
 local Attr = Shared.Attr
 local player = Players.LocalPlayer
 
@@ -57,6 +59,10 @@ rig.CastShadow = false
 rig.Locked = true
 rig.TopSurface = Enum.SurfaceType.Smooth
 rig.BottomSurface = Enum.SurfaceType.Smooth
+-- Start it on the camera rather than at the default (0,0,0). The render loop
+-- early-outs while no storm is active and never touches CFrame, so without this
+-- a burst fired before the first storm would spawn at world origin.
+rig.CFrame = CFrame.new(camera.CFrame.Position + Vector3.new(0, Config.RigHeightOffset, 0))
 rig.Parent = camera -- never replicates
 
 local emitter = Instance.new("ParticleEmitter")
@@ -172,6 +178,8 @@ end
 -- Main loop
 -- ============================================================
 
+WeatherAudio.init()
+
 local shelter = 0 -- smoothed, 0 = open sky, 1 = fully covered
 local shelterTarget = 0
 local lightingAlpha = 0
@@ -198,6 +206,30 @@ local function applyBucketedLook(intensity: number)
 end
 
 --[[
+	Parks the emission volume around the camera.
+
+	Extracted rather than inlined in the render loop because the instant-override
+	handler also has to position the rig before it bursts -- otherwise the burst
+	spawns wherever the rig was last left.
+]]
+local function positionRig(wind: Vector3)
+	local lookahead = smoothedVelocity * Config.LookaheadTime
+	if lookahead.Magnitude > Config.LookaheadMaxDistance then
+		lookahead = lookahead.Unit * Config.LookaheadMaxDistance
+	end
+
+	-- Offset the volume upwind so flakes blow into view rather than away from it.
+	local windBias = -wind * 0.3
+	if windBias.Magnitude > 40 then
+		windBias = windBias.Unit * 40
+	end
+
+	rig.CFrame = CFrame.new(
+		camera.CFrame.Position + Vector3.new(0, Config.RigHeightOffset, 0) + lookahead + windBias
+	)
+end
+
+--[[
 	Bound just after the camera updates rather than on RenderStepped.
 
 	RenderStepped fires *before* the default camera moves, so reading the camera
@@ -209,6 +241,7 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 	local intensity = (stateHolder:GetAttribute(Attr.Intensity) :: number?) or 0
 	local windX = (stateHolder:GetAttribute(Attr.WindX) :: number?) or 0
 	local windZ = (stateHolder:GetAttribute(Attr.WindZ) :: number?) or 0
+	local wind = Vector3.new(windX, 0, windZ)
 
 	-- Lighting keeps easing even at zero intensity so a storm ending still fades
 	-- out smoothly instead of snapping back to clear skies.
@@ -216,6 +249,12 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 		lightingAlpha = Shared.damp(lightingAlpha, intensity, Config.LightingSmoothing, dt)
 		applyLighting(lightingAlpha)
 	end
+
+	-- Audio updates before the idle early-out for the same reason as lighting:
+	-- otherwise the wind would freeze at whatever volume it held when the storm
+	-- ended instead of fading out. `shelter` here is last frame's value, which is
+	-- imperceptible at these smoothing rates.
+	WeatherAudio.update(intensity, shelter, wind.Magnitude, dt)
 
 	-- Fully idle: no storm and nothing left to fade. Skip every raycast and every
 	-- property write until the weather actually changes.
@@ -264,19 +303,7 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 	end
 	lastCameraPos = cameraPos
 
-	local lookahead = smoothedVelocity * Config.LookaheadTime
-	if lookahead.Magnitude > Config.LookaheadMaxDistance then
-		lookahead = lookahead.Unit * Config.LookaheadMaxDistance
-	end
-
-	-- Offset the volume upwind so flakes blow into view rather than away from it.
-	local wind = Vector3.new(windX, 0, windZ)
-	local windBias = -wind * 0.3
-	if windBias.Magnitude > 40 then
-		windBias = windBias.Unit * 40
-	end
-
-	rig.CFrame = CFrame.new(cameraPos + Vector3.new(0, Config.RigHeightOffset, 0) + lookahead + windBias)
+	positionRig(wind)
 
 	-- ---- Cheap per-frame properties ----
 	local exposure = 1 - shelter
@@ -311,15 +338,53 @@ end)
 	catch up. Production storms never touch this path.
 ]]
 stateHolder:GetAttributeChangedSignal(Attr.InstantCue):Connect(function()
-	local intensity = (stateHolder:GetAttribute(Attr.Intensity) :: number?) or 0
-	if intensity <= 0 then
-		return
-	end
+	-- Attribute ordering within a replication batch is not guaranteed. Deferring
+	-- a step lets Intensity land before we read it -- otherwise, if InstantCue
+	-- arrives first, we read a stale 0 and bail without doing anything.
+	task.defer(function()
+		local intensity = (stateHolder:GetAttribute(Attr.Intensity) :: number?) or 0
+		if intensity <= 0 then
+			return
+		end
 
-	if Config.EnableLightingEffects then
-		lightingAlpha = intensity
-		applyLighting(lightingAlpha)
-	end
+		local wind = Vector3.new(
+			(stateHolder:GetAttribute(Attr.WindX) :: number?) or 0,
+			0,
+			(stateHolder:GetAttribute(Attr.WindZ) :: number?) or 0
+		)
 
-	emitter:Emit(Config.ParticleBudget)
+		if Config.EnableLightingEffects then
+			lightingAlpha = intensity
+			applyLighting(lightingAlpha)
+		end
+
+		-- Measure shelter before bursting so a test override fired indoors is
+		-- scaled down instead of flashing a lungful of snow through the ceiling.
+		shelterTarget = measureShelter()
+		shelter = shelterTarget
+		wasActive = true
+
+		WeatherAudio.snap(intensity, shelter, wind.Magnitude)
+
+		local exposure = 1 - shelter
+		if exposure <= 0.01 then
+			return
+		end
+
+		-- Match flake sizing to the new intensity first, or the burst spawns
+		-- using whatever look the calm bucket last applied.
+		lastBucket = math.floor(intensity * Config.IntensityBuckets + 0.5)
+		applyBucketedLook(intensity)
+
+		-- The rig is only repositioned inside the render loop, which early-outs
+		-- while idle. Park it on the camera now or the whole burst lands
+		-- wherever the rig was last left.
+		positionRig(wind)
+
+		-- Roblox's own docs pair Emit() with Enabled = false, but that behaviour
+		-- isn't spelled out anywhere, so don't depend on it. The render loop
+		-- recomputes Enabled from Rate on the very next frame regardless.
+		emitter.Enabled = true
+		emitter:Emit(math.floor(Config.ParticleBudget * intensity * exposure))
+	end)
 end)
