@@ -146,7 +146,7 @@ WeatherConfig.LightingSmoothing = 1.5
 -- ============================================================
 
 WeatherConfig.EnableWindAudio = true
-WeatherConfig.WindSoundId = "rbxassetid://4175285709"
+WeatherConfig.WindSoundId = "rbxassetid://71284123166666"
 
 WeatherConfig.WindMaxVolume = 0.5
 
@@ -194,5 +194,13 @@ WeatherConfig.StormSpeedMultiplier = 0.875
 -- this is cheap; it is separate from ServerShelterInterval because movement
 -- wants to feel more responsive than damage ticks do.
 WeatherConfig.StormSlowdownInterval = 0.5
+
+-- ============================================================
+-- DEBUG
+-- ============================================================
+
+-- Set 0-1 to skip the cycle and start every playtest at that intensity.
+-- -1 runs the normal cycle. Needs no Command Bar -- edit, save, press Play.
+WeatherConfig.DebugStartIntensity = -1
 
 return table.freeze(WeatherConfig)

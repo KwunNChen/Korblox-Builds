@@ -8,9 +8,38 @@ local Config = require(ReplicatedStorage:WaitForChild("Weather"):WaitForChild("W
 local WeatherService = require(script.Parent:WaitForChild("WeatherService"))
 local SpeedService = require(ServerScriptService:WaitForChild("Common"):WaitForChild("SpeedService"))
 
-WeatherService.start()
-_G.WeatherService = WeatherService
 local STORM_MODIFIER = "Storm"
+local DEBUG_ATTRIBUTE = "DebugStartIntensity"
+
+WeatherService.start()
+
+-- Live debug knob on ReplicatedStorage.Weather. 0-1 forces that intensity,
+-- negative resumes the cycle. WeatherConfig.DebugStartIntensity seeds it; set
+-- the attribute at runtime to change it without a re-sync. The print confirms
+-- the change actually reached the server.
+local weatherFolder = ReplicatedStorage:WaitForChild("Weather")
+
+local function applyDebugIntensity(value: unknown)
+	if typeof(value) ~= "number" or value < 0 then
+		WeatherService.setOverride(nil)
+		print("[Weather] debug override cleared -- cycle resumed")
+	else
+		local intensity = math.clamp(value, 0, 1)
+		WeatherService.setOverride(intensity, true)
+		print(string.format("[Weather] debug override -> intensity %.2f", intensity))
+	end
+end
+
+-- Seeded before connecting so a normal boot does not log a spurious clear.
+weatherFolder:SetAttribute(DEBUG_ATTRIBUTE, Config.DebugStartIntensity)
+
+weatherFolder:GetAttributeChangedSignal(DEBUG_ATTRIBUTE):Connect(function()
+	applyDebugIntensity(weatherFolder:GetAttribute(DEBUG_ATTRIBUTE))
+end)
+
+if Config.DebugStartIntensity >= 0 then
+	applyDebugIntensity(Config.DebugStartIntensity)
+end
 
 local function updatePlayerSpeed(player: Player, intensity: number)
 	local character = player.Character
