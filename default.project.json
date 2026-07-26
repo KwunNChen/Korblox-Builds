@@ -1,0 +1,45 @@
+{
+  "name": "KorbloxSnowstorm",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "Weather": {
+        "$path": "src/shared"
+      },
+
+      "WeatherState": {
+        "$className": "Configuration",
+        "$attributes": {
+          "Intensity": 0,
+          "Phase": "Clear",
+          "WindX": 0,
+          "WindZ": 0,
+          "InstantCue": 0
+        }
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "Weather": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "WeatherClient": {
+          "$path": "src/client/WeatherClient.client.luau"
+        }
+      }
+    }
+  }
+}
