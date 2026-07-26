@@ -166,4 +166,10 @@ WeatherConfig.WindPitchStorm = 1.2
 
 WeatherConfig.WindAudioSmoothing = 1.2
 
+-- Separate, shorter time constant for pitch. The server only publishes wind a
+-- few times a second, so without smoothing the pitch steps audibly; smoothing it
+-- as slowly as the volume would instead flatten the gusts out. Raise it if the
+-- pitch still sounds jumpy, lower it if gusts feel sluggish.
+WeatherConfig.WindPitchSmoothing = 0.4
+
 return table.freeze(WeatherConfig)

@@ -25,6 +25,7 @@ local equalizer: EqualizerSoundEffect? = nil
 
 local currentVolume = 0
 local currentMuffle = 0 -- smoothed copy of shelter, 0 = open sky, 1 = covered
+local currentWindSpeed = 0 -- smoothed; the raw value arrives in ~4Hz steps
 
 --[[
 	Builds the sound rig. Safe to call when no asset is configured -- it warns
@@ -70,7 +71,7 @@ local function targetVolume(intensity: number, shelter: number): number
 	return Config.WindMaxVolume * intensity * exposure
 end
 
-local function applyLevels(windSpeed: number)
+local function applyLevels()
 	local activeSound = sound
 	if not activeSound then
 		return
@@ -78,9 +79,10 @@ local function applyLevels(windSpeed: number)
 
 	activeSound.Volume = currentVolume
 
-	-- Drive pitch off the actual replicated wind magnitude so a gust you can see
-	-- in the snow is the same gust you hear.
-	local windAlpha = math.clamp(windSpeed / Config.WindStormSpeed, 0, 1)
+	-- Pitch tracks the smoothed wind, not the raw value. The server only
+	-- publishes wind a few times a second, so using it directly would step the
+	-- pitch in audible jumps rather than gliding between gusts.
+	local windAlpha = math.clamp(currentWindSpeed / Config.WindStormSpeed, 0, 1)
 	activeSound.PlaybackSpeed = Shared.lerp(Config.WindPitchCalm, Config.WindPitchStorm, windAlpha)
 
 	if equalizer then
@@ -88,10 +90,13 @@ local function applyLevels(windSpeed: number)
 		equalizer.MidGain = Shared.lerp(0, Config.WindIndoorMidGain, currentMuffle)
 	end
 
-	-- Don't hold a voice for a sound nobody can hear.
-	local shouldPlay = currentVolume > 0.001
-	if activeSound.Playing ~= shouldPlay then
-		activeSound.Playing = shouldPlay
+	-- Don't hold a voice for a sound nobody can hear. The start and stop
+	-- thresholds differ on purpose: a single cutoff would let the sound flap on
+	-- and off while the volume sits right at the boundary.
+	if activeSound.Playing and currentVolume < 0.001 then
+		activeSound.Playing = false
+	elseif not activeSound.Playing and currentVolume > 0.005 then
+		activeSound.Playing = true
 	end
 end
 
@@ -108,7 +113,11 @@ function WeatherAudio.update(intensity: number, shelter: number, windSpeed: numb
 	currentVolume = Shared.damp(currentVolume, targetVolume(intensity, shelter), Config.WindAudioSmoothing, dt)
 	currentMuffle = Shared.damp(currentMuffle, shelter, Config.WindAudioSmoothing, dt)
 
-	applyLevels(windSpeed)
+	-- Pitch gets its own, shorter time constant. Smoothing it as slowly as the
+	-- volume fade would flatten the gusts into a monotone.
+	currentWindSpeed = Shared.damp(currentWindSpeed, windSpeed, Config.WindPitchSmoothing, dt)
+
+	applyLevels()
 end
 
 --[[
@@ -123,8 +132,9 @@ function WeatherAudio.snap(intensity: number, shelter: number, windSpeed: number
 
 	currentVolume = targetVolume(intensity, shelter)
 	currentMuffle = shelter
+	currentWindSpeed = windSpeed
 
-	applyLevels(windSpeed)
+	applyLevels()
 end
 
 return WeatherAudio
