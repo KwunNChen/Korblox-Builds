@@ -130,6 +130,7 @@
 	    EnableThunderstorm        lightning window inside each Peak
 	    ThunderSafeRadius         fairness knob, see THUNDERSTORMS below
 	    ThunderStrikeInterval     seconds between strikes near one player
+	    ThunderAnchorCount        how many players the storm hunts at once
 	    ThunderDarkenExposure     how dark the sky goes, lower is darker
 	    ThunderDarkenBrightness   sun brightness multiplier during a storm
 	    EnableLightingEffects     false if your map drives its own fog
@@ -147,18 +148,24 @@
 	The sky darkens as the window opens, before the first strike lands, so the
 	darkening is itself the warning. Flashes punch harder against it.
 
+	The storm hunts ThunderAnchorCount players at a time and re-rolls that set
+	every few seconds, so total strike rate stays the same whether two or thirty
+	people are on the map.
+
 	Standing still is always survivable. Strikes land in a ring 20 to 45 studs
-	out and are rejected if they would land near anyone, so you die by walking
-	into a marked strike rather than by bad luck. That is why the marker is
-	subtle -- a few motes gathering, not a warning decal.
+	out and are rejected if they would land near ANY player, not just the one
+	they were aimed at, so you die by walking into a marked strike rather than by
+	bad luck. That is why the marker is subtle -- a few motes gathering, not a
+	warning decal.
 
 	Bolts never pass through roofs. The impact point comes from a raycast down
 	from cloud height, so it stops at the first surface: a strike over a
 	building hits the roof. Immunity is checked fresh at the instant the strike
 	lands, so running through a doorway during the telegraph saves you.
 
-	Thunder needs your own audio ids in ThunderWarningSoundId and
-	ThunderCrackSoundId, for the same reason WindSoundId does.
+	Thunder needs one audio id of your own in ThunderCrackSoundId, for the same
+	reason WindSoundId does. The opening rumble is that same asset slowed down,
+	so there is nothing else to source.
 
 	To test one without waiting for a Peak, on SERVER:
 

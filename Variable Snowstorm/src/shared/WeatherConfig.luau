@@ -221,8 +221,17 @@ WeatherConfig.EnableThunderstorm = true
 WeatherConfig.ThunderDuration = 30
 WeatherConfig.ThunderWarningLead = 4
 
--- Seconds between strikes near one exposed player. Roughly 12 across a window.
+-- Seconds between strikes near one targeted player.
 WeatherConfig.ThunderStrikeInterval = NumberRange.new(2, 3)
+
+-- How many players the storm hunts at once. Total strike rate is roughly
+-- ThunderAnchorCount / ThunderStrikeInterval, so it stays constant whether two
+-- or thirty people are on the map.
+WeatherConfig.ThunderAnchorCount = 4
+
+-- Seconds before the target set is re-rolled, so the storm roams the map
+-- instead of picking on the same four players for a whole window.
+WeatherConfig.ThunderAnchorRotate = 6
 
 -- THE FAIRNESS KNOB. Strikes never land within this of any player, so standing
 -- still is always survivable. Below ThunderKillRadius, lightning starts killing
@@ -252,17 +261,21 @@ WeatherConfig.ThunderCloudHeight = 300
 -- Studs/sec used to delay the crack by distance, the way real thunder lags.
 WeatherConfig.ThunderSoundSpeed = 400
 
--- Your own asset ids. Roblox audio is private by default, so ids from another
+-- Your own asset id. Roblox audio is private by default, so an id from another
 -- game will not play here.
-WeatherConfig.ThunderWarningSoundId = "rbxassetid://140089926923698"
-WeatherConfig.ThunderCrackSoundId = "rbxassetid://9126068998"
+WeatherConfig.ThunderCrackSoundId = "rbxassetid://137673547776909"
+
+-- The warning rumble is the same asset slowed down, so there is only one sound
+-- to source. Lower pitch is a longer, deeper roll.
+WeatherConfig.ThunderWarningPitch = 0.3
+WeatherConfig.ThunderWarningVolume = 0.8
 
 -- Strikes past this are never sent to a client at all.
 WeatherConfig.ThunderAudibleDistance = 500
 
--- Hard ceilings on client cost. Past these, a strike is drawn without a visual
--- or without sound rather than growing the pool.
-WeatherConfig.ThunderVisualPool = 10
+-- Hard ceilings on client cost. Past these, a strike recycles an older visual
+-- rather than growing the pool. Raise if you run very high player counts.
+WeatherConfig.ThunderVisualPool = 16
 WeatherConfig.ThunderMaxConcurrentSounds = 4
 
 -- Sky darkening while a window is open. It ramps in across ThunderWarningLead,

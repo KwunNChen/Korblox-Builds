@@ -34,6 +34,7 @@ type Strike = { position: Vector3 }
 
 local nextStrikeAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
 local spawnedAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
+local anchors: { Player } = {}
 
 local pending: { Strike } = {}
 
@@ -168,7 +169,36 @@ local function spawnStrike(player: Player, generation: number)
 	end
 end
 
+-- The storm hunts a fixed number of players rather than everyone, so a full
+-- server is not proportionally more dangerous than an empty one.
+local function rotateAnchors(now: number)
+	table.clear(anchors)
+
+	local candidates = {}
+	for _, player in Players:GetPlayers() do
+		if CharacterCache.get(player) then
+			table.insert(candidates, player)
+		end
+	end
+
+	local count = math.min(Config.ThunderAnchorCount, #candidates)
+	for index = 1, count do
+		local pick = math.random(#candidates)
+		local player = candidates[pick]
+		candidates[pick] = candidates[#candidates]
+		candidates[#candidates] = nil
+
+		table.insert(anchors, player)
+
+		-- Staggered so a fresh target set does not fire all at once.
+		local range = Config.ThunderStrikeInterval
+		nextStrikeAt[player] = now + (index / count) * range.Min
+	end
+end
+
 local function scheduleLoop(generation: number)
+	local nextRotateAt = 0
+
 	while running and windowActive and generation == windowGeneration do
 		task.wait(SCHEDULE_INTERVAL)
 
@@ -178,10 +208,14 @@ local function scheduleLoop(generation: number)
 
 		local now = os.clock()
 
-		for _, player in Players:GetPlayers() do
-			if not nextStrikeAt[player] then
-				nextStrikeAt[player] = now + rollInterval(false)
-			elseif now >= nextStrikeAt[player] then
+		if now >= nextRotateAt then
+			nextRotateAt = now + Config.ThunderAnchorRotate
+			rotateAnchors(now)
+		end
+
+		for _, player in anchors do
+			local due = nextStrikeAt[player]
+			if due and now >= due then
 				local ok, sheltered = pcall(WeatherService.isPlayerSheltered, player)
 				nextStrikeAt[player] = now + rollInterval(ok and sheltered or false)
 
@@ -201,6 +235,7 @@ local function endWindow()
 	windowActive = false
 	windowGeneration += 1
 	table.clear(pending)
+	table.clear(anchors)
 	stateHolder:SetAttribute(Attr.ThunderActive, false)
 end
 

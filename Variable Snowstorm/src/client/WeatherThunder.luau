@@ -1,5 +1,6 @@
 -- Lightning visuals, thunder audio, and the storm-dark sky.
 
+local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -50,7 +51,7 @@ type Active = {
 
 local container: Folder
 local atmosphere: Atmosphere?
-local warningSound: Sound?
+local rumbleSound: Sound?
 local soundPool: { Sound } = {}
 
 local pool: { Rig } = {}
@@ -157,7 +158,29 @@ local function buildRig(): Rig
 	}
 end
 
-local function playCrack(distance: number)
+-- Roblox audio is private by default and fails silently, so say so out loud.
+local function verifySound(sound: Sound)
+	task.spawn(function()
+		local ok = pcall(function()
+			ContentProvider:PreloadAsync({ sound })
+		end)
+
+		if ok and sound.IsLoaded and sound.TimeLength > 0 then
+			return
+		end
+
+		warn(
+			string.format("[WeatherThunder] Thunder audio failed to load (%s) -- it will be silent.", sound.SoundId)
+				.. "\n  Roblox audio is private by default: an id only plays if you uploaded it, or the"
+				.. "\n  uploader marked it public. Grabbing an id off a Toolbox MODEL also fails here --"
+				.. "\n  you need the audio asset's own id, not the model wrapping it."
+				.. "\n  To confirm: drop a Sound into Workspace, paste the id in, and press the play"
+				.. "\n  arrow next to SoundId in Properties. If it is silent there, it is the asset."
+		)
+	end)
+end
+
+local function playPooled(volume: number, pitch: number)
 	if activeSounds >= Config.ThunderMaxConcurrentSounds then
 		return
 	end
@@ -167,9 +190,8 @@ local function playCrack(distance: number)
 		return
 	end
 
-	local alpha = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
-	sound.Volume = alpha * alpha
-	sound.PlaybackSpeed = Shared.lerp(0.75, 1.05, alpha)
+	sound.Volume = volume
+	sound.PlaybackSpeed = pitch
 
 	activeSounds += 1
 
@@ -198,6 +220,57 @@ local function playCrack(distance: number)
 	end)
 end
 
+local function playCrack(distance: number)
+	local alpha = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
+	playPooled(alpha * alpha, Shared.lerp(0.75, 1.05, alpha))
+end
+
+-- Its own instance rather than a pooled one, so a long rumble cannot starve the
+-- cracks that follow it.
+local function playWarning()
+	if rumbleSound then
+		(rumbleSound :: Sound):Play()
+	end
+end
+
+local function resetRig(rig: Rig)
+	rig.marker.Enabled = false
+	rig.marker.Rate = 0
+	rig.bolt.Enabled = false
+	rig.bolt.Transparency = BOLT_HIDDEN
+	rig.light.Enabled = false
+	rig.light.Brightness = 0
+end
+
+-- A strike with no marker cannot be dodged, so an exhausted pool steals from a
+-- strike that has already landed, or failing that the one furthest from
+-- landing. Never the one about to hit -- that is the warning that matters most.
+local function acquireRig(): Rig?
+	local rig = table.remove(pool)
+	if rig then
+		return rig
+	end
+
+	local victim, newest = nil, -math.huge
+	for index, entry in active do
+		if entry.struck then
+			victim = index
+			break
+		end
+		if entry.startedAt > newest then
+			victim, newest = index, entry.startedAt
+		end
+	end
+
+	if not victim then
+		return nil
+	end
+
+	local entry = table.remove(active, victim)
+	resetRig(entry.rig)
+	return entry.rig
+end
+
 local function strikeAt(position: Vector3)
 	local camera = workspace.CurrentCamera
 	local viewer = if camera then camera.CFrame.Position else position
@@ -205,7 +278,7 @@ local function strikeAt(position: Vector3)
 
 	task.delay(distance / math.max(Config.ThunderSoundSpeed, 1), playCrack, distance)
 
-	local rig = table.remove(pool)
+	local rig = acquireRig()
 	if not rig then
 		return
 	end
@@ -287,11 +360,7 @@ local function step(dt: number)
 
 			flashStrength = math.max(flashStrength, entry.strength)
 		elseif elapsed >= telegraph + BOLT_LIFETIME then
-			rig.bolt.Enabled = false
-			rig.bolt.Transparency = BOLT_HIDDEN
-			rig.light.Enabled = false
-			rig.light.Brightness = 0
-
+			resetRig(rig)
 			table.insert(pool, rig)
 			table.remove(active, index)
 		end
@@ -339,30 +408,30 @@ function WeatherThunder.init()
 	end
 
 	if Config.ThunderCrackSoundId ~= "" then
-		for _ = 1, Config.ThunderMaxConcurrentSounds do
+		for index = 1, Config.ThunderMaxConcurrentSounds do
 			local sound = Instance.new("Sound")
 			sound.Name = "ThunderCrack"
 			sound.SoundId = Config.ThunderCrackSoundId
 			sound.Volume = 0
 			sound.Parent = SoundService
 			table.insert(soundPool, sound)
+
+			if index == 1 then
+				verifySound(sound)
+			end
 		end
-	end
 
-	if Config.ThunderWarningSoundId ~= "" then
-		local sound = Instance.new("Sound")
-		sound.Name = "ThunderWarning"
-		sound.SoundId = Config.ThunderWarningSoundId
-		sound.Volume = 0.7
-		sound.Parent = SoundService
-		warningSound = sound
-	end
-
-	if Config.ThunderCrackSoundId == "" and Config.ThunderWarningSoundId == "" then
+		local rumble = Instance.new("Sound")
+		rumble.Name = "ThunderRumble"
+		rumble.SoundId = Config.ThunderCrackSoundId
+		rumble.Volume = Config.ThunderWarningVolume
+		rumble.PlaybackSpeed = Config.ThunderWarningPitch
+		rumble.Parent = SoundService
+		rumbleSound = rumble
+	else
 		warn(
-			"[WeatherThunder] No thunder sound ids set in WeatherConfig -- lightning runs silent. "
-				.. "Grab thunder assets from Toolbox > Audio and paste their ids into "
-				.. "ThunderWarningSoundId and ThunderCrackSoundId (see the README)."
+			"[WeatherThunder] ThunderCrackSoundId is empty in WeatherConfig -- lightning runs silent. "
+				.. "Grab a thunder asset from Toolbox > Audio and paste its id in (see the README)."
 		)
 	end
 
@@ -370,8 +439,8 @@ function WeatherThunder.init()
 		local isActive = stateHolder:GetAttribute(Attr.ThunderActive) == true
 		darknessTarget = if isActive then 1 else 0
 
-		if isActive and warningSound then
-			(warningSound :: Sound):Play()
+		if isActive then
+			playWarning()
 		end
 	end
 

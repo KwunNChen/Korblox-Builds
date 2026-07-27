@@ -204,9 +204,11 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `EnableThunderstorm` | Lightning window inside each Peak. |
 | `ThunderSafeRadius` | The fairness knob. Strikes never land this close to any player, so standing still is always survivable. Drop it below `ThunderKillRadius` and lightning starts killing stationary players. |
 | `ThunderTelegraph` | Seconds the charge marker shows before a strike lands. |
-| `ThunderStrikeInterval` | Seconds between strikes near one exposed player. |
-| `ThunderWarningSoundId` | Rumble that opens the window. Your own asset, same as `WindSoundId`. |
-| `ThunderCrackSoundId` | Per-strike crack. |
+| `ThunderStrikeInterval` | Seconds between strikes near one targeted player. |
+| `ThunderAnchorCount` | How many players the storm hunts at once. Total strike rate stays constant regardless of server size. |
+| `ThunderAnchorRotate` | Seconds before the target set is re-rolled. |
+| `ThunderCrackSoundId` | The only thunder asset you need. Your own id, same as `WindSoundId`. |
+| `ThunderWarningPitch` | How far the opening rumble is slowed from the crack. Lower is deeper and longer. |
 | `ThunderDarkenExposure` | How far the sky darkens during a thunderstorm. Lower is darker. |
 | `ThunderDarkenBrightness` | Sun brightness multiplier during a thunderstorm. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
@@ -280,10 +282,18 @@ each flash punch harder by contrast. Only `Brightness`, `Ambient`,
 stay with the snowstorm, so the two lighting owners never fight. Exposure is
 what darkens the skybox itself, which fog alone never touches.
 
+The storm hunts `ThunderAnchorCount` players at a time rather than everyone, and
+re-rolls that set every `ThunderAnchorRotate` seconds so it roams. Total strike
+rate is therefore roughly `ThunderAnchorCount / ThunderStrikeInterval` — about
+1.6 a second — whether there are two people on the map or thirty. A full server
+is not proportionally more dangerous, and the storm reads as weather picking
+victims rather than as something following every player individually.
+
 The design rule is that **standing still is always survivable.** Strikes land in
 a ring 20 to 45 studs out and are rejected if they would land within
-`ThunderSafeRadius` of anyone, so you cannot be killed by bad luck — only by
-walking into a strike that has already been marked. That turns a thunderstorm
+`ThunderSafeRadius` of anyone — not just the player they were aimed at, so being
+near someone the storm is hunting cannot get you killed while stationary. You
+die only by walking into a strike that has already been marked. That turns a thunderstorm
 into a reason to stop moving or get indoors, rather than a coin flip. It also
 means the marker can stay subtle: a few motes gathering at the impact point that
 build over `ThunderTelegraph` seconds, not a warning decal.
