@@ -91,7 +91,7 @@ WeatherConfig.ServerShelterInterval = 2
 -- Rate * average Lifetime, so MaxRate is derived from this -- tune this ONE
 -- number to trade quality for framerate. Live particle count (and roughly its
 -- render cost) scales linearly with this value, so raise it in small steps.
-WeatherConfig.ParticleBudget = 1000
+WeatherConfig.ParticleBudget = 1200
 
 WeatherConfig.FlakeLifetime = NumberRange.new(2.5, 4)
 
@@ -111,16 +111,21 @@ WeatherConfig.RigHeightOffset = 14 -- studs above the camera
 WeatherConfig.LookaheadTime = 0.45
 WeatherConfig.LookaheadMaxDistance = 45
 
-WeatherConfig.FlakeGravity = 22 -- downward acceleration
+-- Terminal fall speed is FlakeGravity / FlakeDrag. Raising gravity spreads the
+-- same flake count down a taller column, so it costs some visible density.
+WeatherConfig.FlakeGravity = 26 -- downward acceleration
 WeatherConfig.FlakeDrag = 1.6 -- >0 required for wind to affect particles
-WeatherConfig.FlakeSpeed = NumberRange.new(1, 4)
+WeatherConfig.FlakeSpeed = NumberRange.new(0.5, 2.5)
 
 -- Flakes stretch into streaks as the storm peaks.
 WeatherConfig.SquashAtCalm = 0
-WeatherConfig.SquashAtPeak = 2.5
+WeatherConfig.SquashAtPeak = 1.6
 
-WeatherConfig.FlakeSizeCalm = 0.35
-WeatherConfig.FlakeSizePeak = 0.6
+-- Peak size is the main framerate risk here, not ParticleBudget: overdraw
+-- scales with flake area, so this is the first thing to lower if Peak drops
+-- below your target framerate. Kept small enough to aim through.
+WeatherConfig.FlakeSizeCalm = 0.3
+WeatherConfig.FlakeSizePeak = 0.55
 
 -- NumberSequence/ColorSequence properties allocate on every assignment, so we
 -- only rebuild them when intensity moves into a new bucket rather than every
@@ -133,11 +138,11 @@ WeatherConfig.IntensityBuckets = 20
 
 WeatherConfig.EnableLightingEffects = true
 
-WeatherConfig.StormFogEnd = 380 -- FogEnd at full intensity -- lower reads as thicker
+WeatherConfig.StormFogEnd = 250 -- FogEnd at full intensity -- lower reads as thicker
 WeatherConfig.StormFogColor = Color3.fromRGB(198, 210, 226)
 WeatherConfig.StormOutdoorAmbient = Color3.fromRGB(105, 115, 130)
-WeatherConfig.StormAtmosphereDensity = 0.55
-WeatherConfig.StormAtmosphereHaze = 4.2
+WeatherConfig.StormAtmosphereDensity = 0.65
+WeatherConfig.StormAtmosphereHaze = 5.0
 
 -- Seconds of smoothing on lighting changes.
 WeatherConfig.LightingSmoothing = 1.5
@@ -191,10 +196,36 @@ WeatherConfig.EnableStormSlowdown = true
 -- blizzard costs the full amount.
 WeatherConfig.StormSpeedMultiplier = 0.875
 
--- How often the server re-evaluates. Each pass costs one raycast per player, so
--- this is cheap; it is separate from ServerShelterInterval because movement
--- wants to feel more responsive than damage ticks do.
+-- Jump height multiplier at full intensity, out in the open. Not directional
+-- the way the speed penalty is -- heading already shows up mid-air through
+-- WindAirborneAccel, which blows you downwind once you leave the ground.
+WeatherConfig.StormJumpMultiplier = 0.85
+
+-- How often the server re-checks shelter. Each pass costs one raycast per
+-- player, so this is cheap; it is separate from ServerShelterInterval because
+-- movement wants to feel more responsive than damage ticks do.
 WeatherConfig.StormSlowdownInterval = 0.5
+
+-- How far heading moves the multiplier at full wind. Against the 0.875 base,
+-- 0.175 gives 0.70 walking into the wind and 1.05 with it at your back.
+--
+-- Scaled by live wind speed rather than intensity alone, so the gust noise
+-- makes the penalty pulse instead of sitting flat. 0 restores a heading-blind
+-- storm that slows you the same in every direction.
+WeatherConfig.WindDirectionalSwing = 0.175
+
+-- How often heading is re-evaluated. Shelter raycasts stay on
+-- StormSlowdownInterval, so lowering this only buys arithmetic -- it exists
+-- because turning into the wind should register faster than shelter changes.
+WeatherConfig.StormDirectionInterval = 0.15
+
+-- Humanoids resist force while grounded but not mid-air, so a jump is where a
+-- real shove actually lands. Blows players downwind while they are airborne.
+WeatherConfig.EnableWindAirborneDrift = true
+
+-- Sideways acceleration (studs/sec^2) applied while airborne at full wind.
+-- Roughly 5-6 studs of drift across a default jump arc at 12.
+WeatherConfig.WindAirborneAccel = 12
 
 -- ============================================================
 -- DEBUG

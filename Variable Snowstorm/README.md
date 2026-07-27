@@ -160,10 +160,10 @@ The first two are correct behavior, not bugs.
    `1` means the server and replication are fine and the problem is local
    rendering or shelter. `0` means the override never applied.
 
-3. Too sparse to notice? `ParticleBudget` (1000) spreads across a 140x50x140
-   stud volume. Push it further in small steps if you want it denser still,
-   since live particle count scales linearly with it, and watch frame rate on
-   your lowest-end target device as you go.
+3. Too sparse to notice? `ParticleBudget` (1200) spreads across the
+   `RigSize` volume (100x50x100). Raising the budget or shrinking the volume
+   both make it denser, but reach for `FlakeSizePeak` first -- it reads as
+   heavier snow without adding a single particle.
 
 A faster check than any of these: look for fog. Lighting is applied before
 anything else in the client render loop, so fog at high intensity proves the
@@ -178,6 +178,10 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | Setting | Effect |
 | --- | --- |
 | `ParticleBudget` | Cap on live flakes. The main performance knob. |
+| `FlakeSizePeak` | Flake size at full storm. The other performance knob -- overdraw scales with area, so this can cost more framerate than `ParticleBudget` does. |
+| `SquashAtPeak` | How far flakes stretch into streaks at full storm. Free drama. |
+| `RigSize` | Volume flakes spawn in. Smaller reads as denser at no extra cost, but don't go below ~100 studs wide -- `positionRig` pushes the box up to 40 studs upwind, and a smaller box leaves the camera near its edge with a bare patch on one side. |
+| `FlakeGravity` | Fall speed, as `FlakeGravity / FlakeDrag`. Faster flakes read as heavier snow but spread the same budget down a taller column, so it trades away some density. |
 | `PhaseDurations` | Length of each phase of the cycle. |
 | `WindStormSpeed` | How hard a full blizzard blows. |
 | `ShelterSmoothing` | How fast snow fades when you step under cover. |
@@ -186,14 +190,18 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `WindSoundId` | Required for audio. See above. |
 | `WindMaxVolume` | Wind loudness at full storm. |
 | `WindPitchSmoothing` | Raise if pitch sounds jumpy, lower if gusts feel sluggish. |
-| `StormSpeedMultiplier` | Speed multiplier at full intensity. |
+| `StormSpeedMultiplier` | Speed multiplier at full intensity, before heading is applied. |
+| `WindDirectionalSwing` | How far heading moves that multiplier. 0 makes the storm slow you the same in every direction. |
+| `WindAirborneAccel` | How hard wind shoves you while airborne. |
+| `StormJumpMultiplier` | Jump height at full intensity. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
 | `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
 
 ## Speed modifiers
 
-`SpeedService` is the only thing allowed to assign `Humanoid.WalkSpeed`. Systems
-register named modifiers and it folds them together:
+`SpeedService` is the only thing allowed to assign `Humanoid.WalkSpeed` or the
+character's jump height. Systems register named modifiers and it folds them
+together:
 
 ```
 final = base × (all multipliers) + (all additions)
@@ -213,12 +221,36 @@ Multipliers compose, so the storm stacks on top by itself:
 | Situation | Math | Speed |
 | --- | --- | --- |
 | Walking, clear | `16` | 16 |
-| Walking, peak storm | `16 × 0.875` | 14 |
+| Walking, peak storm, crosswind | `16 × 0.875` | 14 |
+| Walking, peak storm, into the wind | `16 × 0.70` | 11.2 |
+| Walking, peak storm, wind behind | `16 × 1.05` | 16.8 |
 | Sprinting, clear | `16 × 1.5` | 24 |
-| Sprinting, peak storm | `16 × 1.5 × 0.875` | 21 |
+| Sprinting, peak storm, into the wind | `16 × 1.5 × 0.70` | 16.8 |
 
 `{ add = -2 }` also works for flat modifiers. A `MinWalkSpeed` floor keeps
 stacked penalties from leaving a player unable to move.
+
+A single modifier can carry jump alongside speed, so one name registers and
+clears both:
+
+```lua
+SpeedService.setModifier(humanoid, "Storm", { mul = 0.875, jumpMul = 0.85 })
+```
+
+`jumpMul` and `jumpAdd` fold exactly like `mul` and `add`. Roblox reads either
+`JumpPower` or `JumpHeight` depending on `Humanoid.UseJumpPower`, so the service
+records both baselines and writes whichever one the character actually obeys --
+you do not have to care which mode your rig uses.
+
+The storm's own multiplier is not a single number: it swings with your heading
+relative to the wind, between `StormSpeedMultiplier - WindDirectionalSwing`
+walking into it and `+ WindDirectionalSwing` with it at your back. Both terms
+scale with intensity, and the swing also scales with live wind speed, so the
+penalty pulses as gusts roll through rather than sitting flat.
+
+Jumping in the open during a storm blows you downwind, since a Humanoid resists
+force while grounded but not mid-air. Turn that off with
+`EnableWindAirborneDrift`.
 
 One rule: never assign `WalkSpeed` directly once a humanoid is managed here.
 Outside writes get overwritten on the next recompute.

@@ -103,8 +103,9 @@
 	  2. Are you under a roof? Shelter detection kills snow on purpose. Anything
 	     solid within 250 studs overhead counts. Walk into the open.
 
-	  3. Too sparse to notice? Raise WeatherConfig.ParticleBudget. 450 is light
-	     snow, 1500 to 2000 reads as a blizzard.
+	  3. Too sparse to notice? Raise WeatherConfig.FlakeSizePeak before you
+	     raise ParticleBudget. Bigger flakes read as heavier snow without
+	     adding any, though both cost framerate in the end.
 
 
 	========================================================
@@ -112,10 +113,15 @@
 	========================================================
 
 	    ParticleBudget            live flake cap, main performance knob
+	    FlakeSizePeak             flake size at full storm, the other perf knob
+	    SquashAtPeak              how far flakes streak at full storm
 	    PhaseDurations            how long each phase of the cycle lasts
 	    WindStormSpeed            how hard a full blizzard blows
 	    ShelterRespectCanCollide  turn off if your roofs are non-collidable
 	    StormSpeedMultiplier      speed multiplier at full intensity
+	    WindDirectionalSwing      how much heading matters, 0 to disable
+	    WindAirborneAccel         how hard wind shoves you mid-jump
+	    StormJumpMultiplier       jump height at full intensity
 	    EnableLightingEffects     false if your map drives its own fog
 	    DebugStartIntensity       0 to 1 starts every playtest at that intensity
 
@@ -124,10 +130,14 @@
 	SPEED MODIFIERS
 	========================================================
 
-	SpeedService is the only thing allowed to assign Humanoid.WalkSpeed.
-	Systems register named modifiers and it folds them together:
+	SpeedService is the only thing allowed to assign Humanoid.WalkSpeed or the
+	character's jump height. Systems register named modifiers and it folds them
+	together:
 
 	    final = base * (all multipliers) + (all additions)
+
+	Pass jumpMul / jumpAdd in the same modifier to affect jumping as well. It
+	writes JumpPower or JumpHeight to match the rig's UseJumpPower setting.
 
 	A sprint system plugs in like this and needs to know nothing about weather:
 
@@ -138,6 +148,10 @@
 
 	The storm stacks on top by itself, so sprinting in a blizzard lands on
 	16 * 1.5 * 0.875 = 21 rather than 24.
+
+	That 0.875 is the crosswind value. The storm multiplier swings with your
+	heading, down to 0.70 walking into the wind and up to 1.05 with it behind
+	you, and pulses as gusts pass. Jumping in the open blows you downwind too.
 
 	One rule: never assign WalkSpeed directly once a humanoid is managed here.
 	Outside writes get overwritten on the next recompute.
