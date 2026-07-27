@@ -15,10 +15,10 @@ local WeatherConfig = {}
 -- How long each phase lasts, in seconds. A random value inside the range is
 -- rolled every time the phase is entered, so the cycle never feels metronomic.
 WeatherConfig.PhaseDurations = {
-	Clear = NumberRange.new(60, 120),
-	Building = NumberRange.new(20, 35),
-	Peak = NumberRange.new(45, 90),
-	Fading = NumberRange.new(25, 40),
+	Clear = NumberRange.new(90, 150),
+	Building = NumberRange.new(35, 55),
+	Peak = NumberRange.new(75, 140),
+	Fading = NumberRange.new(40, 60),
 }
 
 -- How often the server recomputes storm state. This is NOT a render loop --
@@ -89,8 +89,9 @@ WeatherConfig.ServerShelterInterval = 2
 
 -- Hard ceiling on live flakes at full intensity. Live count is roughly
 -- Rate * average Lifetime, so MaxRate is derived from this -- tune this ONE
--- number to trade quality for framerate.
-WeatherConfig.ParticleBudget = 450
+-- number to trade quality for framerate. Live particle count (and roughly its
+-- render cost) scales linearly with this value, so raise it in small steps.
+WeatherConfig.ParticleBudget = 700
 
 WeatherConfig.FlakeLifetime = NumberRange.new(2.5, 4)
 
@@ -132,11 +133,11 @@ WeatherConfig.IntensityBuckets = 20
 
 WeatherConfig.EnableLightingEffects = true
 
-WeatherConfig.StormFogEnd = 550 -- FogEnd at full intensity
+WeatherConfig.StormFogEnd = 380 -- FogEnd at full intensity -- lower reads as thicker
 WeatherConfig.StormFogColor = Color3.fromRGB(198, 210, 226)
 WeatherConfig.StormOutdoorAmbient = Color3.fromRGB(105, 115, 130)
-WeatherConfig.StormAtmosphereDensity = 0.42
-WeatherConfig.StormAtmosphereHaze = 3.2
+WeatherConfig.StormAtmosphereDensity = 0.55
+WeatherConfig.StormAtmosphereHaze = 4.2
 
 -- Seconds of smoothing on lighting changes.
 WeatherConfig.LightingSmoothing = 1.5

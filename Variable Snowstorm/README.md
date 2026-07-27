@@ -160,8 +160,9 @@ The first two are correct behavior, not bugs.
    `1` means the server and replication are fine and the problem is local
    rendering or shelter. `0` means the override never applied.
 
-3. Too sparse to notice? `ParticleBudget` (450) spreads across a 140x50x140 stud
-   volume. Raise it to 1500 or 2000 for a dense blizzard.
+3. Too sparse to notice? `ParticleBudget` (700) spreads across a 140x50x140 stud
+   volume. Raise it toward 1500 to 2000 for a dense blizzard, in small steps,
+   since live particle count scales linearly with it.
 
 A faster check than any of these: look for fog. Lighting is applied before
 anything else in the client render loop, so fog at high intensity proves the
