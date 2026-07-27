@@ -3,6 +3,10 @@
   "tree": {
     "$className": "Folder",
 
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
     "ReplicatedStorage": {
       "$className": "Folder",
 

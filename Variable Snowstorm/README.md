@@ -1,124 +1,97 @@
 # Variable Snowstorm
 
-A weather system for Korblox Confederacy. Storms cycle on their own, snow stops
-when you step under a roof, and being caught outside slows you down.
+Weather system for Korblox Confederacy. Storms run on a cycle, snow stops when
+you walk under a roof, and getting caught out in one slows you down.
 
 ## What it does
 
-- **Automatic storm cycle** — Clear → Building → Peak → Fading, with randomized
-  durations so it never feels metronomic.
-- **Per-player roof detection** — snow, wind volume, and the speed penalty all
-  fade out under cover and return when you step back into the open.
-- **Wind audio** — volume scales with the storm; indoors it drops and gets
-  muffled, like a storm heard through a wall.
-- **Movement penalty** — exposed players move slower, scaling with intensity.
-- **Local lighting** — fog and Atmosphere shift with the storm, per client.
+Storms cycle through Clear, Building, Peak, and Fading, with randomized phase
+lengths so it never feels metronomic. Every player gets their own roof check, so
+snow, wind volume, and the speed penalty all fade under cover and come back when
+they step outside. Wind audio scales with intensity and goes muffled indoors.
+Fog and Atmosphere shift with the storm, per client.
 
 ## Architecture
 
-The storm's **state** is server-owned; its **appearance** is client-rendered.
+Server-based code, clients will pull from it
 
 ```
-SERVER  ServerScriptService.Weather
-  WeatherService ──► 5 attributes on ReplicatedStorage.WeatherState
-                     Intensity · Phase · WindX · WindZ · InstantCue
-                     also sets workspace.GlobalWind
-
-                              │ replicates automatically
-                              ▼
-CLIENT  StarterPlayerScripts.Weather
-  reads those values ──► particle rig parented to Camera
-                    ──► its own roof raycasts
-                    ──► local Lighting / Atmosphere / wind audio
+SERVER   ServerScriptService.Weather
+  WeatherService  ->  5 attributes on ReplicatedStorage.WeatherState
+                      Intensity, Phase, WindX, WindZ, InstantCue
+                      also sets workspace.GlobalWind
+                              |
+                              |  replicates automatically
+                              v
+CLIENT   StarterPlayerScripts.Weather
+  reads those      ->  particle rig parented to Camera
+                   ->  its own roof raycasts
+                   ->  local Lighting, Atmosphere, wind audio
 ```
+
+Roof detection cannot work server side. A ParticleEmitter made on the server
+replicates to everyone, and there's no way to hide a server-owned instance from
+one player but not another, so turning off one person's snow turns off
+everyone's. Server raycasts also scale with player count.
+
+The cycle itself, so everyone shares
+weather, plus global wind and the movement penalty. A client could simply
+decline to slow itself down, so that check uses the server's own raycast and
+never a value a client reports.
 
 ## Layout
 
 ```
 ReplicatedStorage
 ├── Weather
-│   ├── WeatherConfig        ← all tuning lives here
+│   ├── WeatherConfig        all tuning lives here
 │   └── WeatherShared
-└── WeatherState             ← replicated attributes
+└── WeatherState             replicated attributes
 
 ServerScriptService
 ├── Weather
-│   ├── WeatherService       ← state machine + hooks
-│   └── WeatherRuntime       ← entry point + gameplay effects
+│   ├── WeatherService       state machine + hooks
+│   └── WeatherRuntime       entry point + gameplay effects
 └── Common
-    └── SpeedService         ← owns Humanoid.WalkSpeed
+    └── SpeedService         owns Humanoid.WalkSpeed
 
 StarterPlayer/StarterPlayerScripts
 └── Weather
-    ├── WeatherClient        ← rendering + roof detection
-    └── WeatherAudio         ← wind ambience
+    ├── WeatherClient        rendering + roof detection
+    └── WeatherAudio         wind ambience
 ```
 
 ## Installing in a game
 
-The system lives in three services, but a model file inserts into only one, so
-you place the folders yourself. Takes about a minute.
+Three services, one model file, so you place the folders yourself. The folders
+inside the .rbxm are named after where they go.
 
-Inside `VariableSnowstorm.rbxm` the folders are **named after where they go**.
+1. Drag `VariableSnowstorm.rbxm` into **ServerStorage**. Scripts don't execute
+   there. Drop it into ServerScriptService or Workspace instead and the server
+   scripts start running before the shared modules exist.
 
-**1.** Drag `VariableSnowstorm.rbxm` into **ServerStorage**.
+2. From its `ReplicatedStorage` folder, move `Weather` and `WeatherState` into
+   the real ReplicatedStorage.
 
-Use ServerStorage specifically — it's a staging area where `Script` instances
-don't execute. Dropping it straight into `ServerScriptService` or `Workspace`
-would start the server scripts from the wrong place before the shared modules
-exist.
+3. From its `ServerScriptService` folder, move `Weather` and `Common` into the
+   real ServerScriptService. If your game already has a `Common` folder, drag
+   `SpeedService` into that one rather than replacing it.
 
-**2.** Move both children of its `ReplicatedStorage` folder into the real
-**ReplicatedStorage**:
+4. From its `StarterPlayerScripts` folder, move `Weather` into StarterPlayer >
+   StarterPlayerScripts. Skip this step and the storm still runs and still slows
+   players, but nothing draws. That failure looks exactly like a broken install,
+   so it's worth double checking.
 
-- `Weather`
-- `WeatherState`
+5. Delete the empty `VariableSnowstorm` folder.
 
-**3.** Move both children of its `ServerScriptService` folder into the real
-**ServerScriptService**:
-
-- `Weather`
-- `Common` — if your game already has a `Common` folder, drag `SpeedService`
-  into the existing one instead of replacing it
-
-**4.** Move the `Weather` folder from its `StarterPlayerScripts` folder into
-**StarterPlayer → StarterPlayerScripts**.
-
-**Don't skip this step.** It's the one that renders snow. Miss it and the storm
-still runs, the wind still blows, players still get slowed — but nobody sees
-anything, and it looks exactly like a broken install.
-
-**5.** Delete the now-empty `VariableSnowstorm` folder in ServerStorage.
-
-### Final layout
-
-```
-ReplicatedStorage
-├── Weather                ← WeatherConfig, WeatherShared
-└── WeatherState           ← replicated attributes
-
-ServerScriptService
-├── Weather                ← WeatherService, WeatherRuntime
-└── Common                 ← SpeedService
-
-StarterPlayer/StarterPlayerScripts
-└── Weather                ← WeatherClient, WeatherAudio
-```
-
-Press Play. The only file you touch afterwards is
+Press Play. After that the only file you edit is
 `ReplicatedStorage.Weather.WeatherConfig`.
 
 ### Wind audio needs your own asset
 
-`WeatherConfig.WindSoundId` ships pointing at an asset that may not be
-accessible from your game — Roblox audio has been private-by-default since 2022,
-and an id that works in one place is silent in another with no error.
-
-In Studio: **View → Toolbox → Audio**, search `wind loop`, right-click →
-**Copy Asset ID**, paste it into `WindSoundId`. Pick one that loops
-**seamlessly**, since it plays continuously.
-
-Set it to `""` to disable audio cleanly — the system warns once and runs silent.
+`WindSoundId` ships pointing at an asset your game may not have access to.
+Roblox audio has been private by default since 2022, and an id that works in one
+place is silent in another with no error at all.
 
 ### Rebuilding the package
 
@@ -126,8 +99,8 @@ Set it to `""` to disable audio cleanly — the system warns once and runs silen
 rojo build package.project.json -o VariableSnowstorm.rbxm
 ```
 
-`package.project.json` reads the same `src/` as the dev project, so there is no
-second copy of the code to keep in sync.
+This reads the same `src/` as the dev project, so there's no second copy of the
+code to keep in sync.
 
 ## Setup for development
 
@@ -145,74 +118,56 @@ rojo plugin install
 rojo serve
 ```
 
-Then hit **Connect** in the Rojo plugin in Studio.
+Then hit Connect in the Rojo plugin in Studio.
 
 ## Testing
 
-The cycle opens with 60–120s of clear weather, so force a storm instead of
-waiting it out.
+The cycle opens with 60 to 120 seconds of clear weather, so force a storm rather
+than waiting it out.
 
-`DebugStartIntensity` is the single knob: `0`–`1` pins the storm at that
-intensity, anything negative runs the normal cycle. It exists in two places for
-the same value — the config seeds it at boot, the attribute changes it live.
+`DebugStartIntensity` is the only knob. Values from 0 to 1 pin the storm at that
+intensity, anything negative runs the normal cycle. The config seeds it at boot
+and the attribute changes it live.
 
-### By command, mid-playtest
-
-Switch the Client/Server toggle in the toolbar to **Server**:
+Mid playtest, with the Client/Server toggle in the toolbar set to Server:
 
 ```lua
 game.ReplicatedStorage.Weather:SetAttribute("DebugStartIntensity", 1)
 ```
 
-Back to the automatic cycle:
+Negative resumes the cycle. The server prints
+`[Weather] debug override -> intensity 1.00` when it lands. No print means the
+command never reached the server, which is almost always the toggle sitting on
+Client. You can also edit the attribute directly on `ReplicatedStorage.Weather`
+in Explorer during a playtest.
 
-```lua
-game.ReplicatedStorage.Weather:SetAttribute("DebugStartIntensity", -1)
-```
+To bake it in instead, set `WeatherConfig.DebugStartIntensity = 1` and every
+playtest opens at a full storm. That runs as ordinary server code at boot, so
+nothing Command Bar related can break it.
 
-The server prints `[Weather] debug override -> intensity 1.00` when it lands.
-**No print means the command never reached the server** — almost always the
-toggle was on Client. You can also select `ReplicatedStorage.Weather` in
-Explorer during a playtest and edit `DebugStartIntensity` under Attributes.
+### BUG: Storm running but no snow
 
-### Or bake it in
+The first two are correct behavior, not bugs.
 
-In `WeatherConfig.luau`:
+1. Are you under a roof? Shelter detection mutes snow on purpose. Anything solid
+   within `ShelterRayLength` (250 studs) overhead counts, so a large ceiling in
+   a test place suppresses everything. Walk into the open.
 
-```lua
-WeatherConfig.DebugStartIntensity = 1
-```
-
-Every playtest now opens at a full storm. This runs as ordinary server code at
-boot, so it works regardless of anything Command Bar related.
-
-### If a storm is running but you see no snow
-
-Check these in order — the first two are correct behavior, not bugs.
-
-1. **Are you under a roof?** Shelter detection kills the snow on purpose. Walk
-   into the open. Anything solid within `ShelterRayLength` (250 studs) above you
-   counts, so a large ceiling in a Studio test place will suppress everything.
-2. **Confirm the storm reached your client.** On **Client** context:
+2. Did it reach your client? Run this on Client context:
    ```lua
    print(game.ReplicatedStorage.WeatherState:GetAttribute("Intensity"))
    ```
    `1` means the server and replication are fine and the problem is local
    rendering or shelter. `0` means the override never applied.
-3. **Snow too sparse to notice?** `ParticleBudget` (450) spreads over a
-   140×50×140 stud volume. Raise it to 1500–2000 for a dense blizzard.
 
-### Why not `require()` from the Command Bar
+3. Too sparse to notice? `ParticleBudget` (450) spreads across a 140x50x140 stud
+   volume. Raise it to 1500 or 2000 for a dense blizzard.
 
-The Command Bar shares the **instance tree** with your running scripts, but it
-executes in a separate Luau VM. Module caches and `_G` are per-VM, so
-`require(WeatherService)` there builds a brand-new, disconnected copy of the
-module — one that never had `start()` called on it — and `_G` values set by
-server scripts read back as `nil`. Attributes live on the Instance itself, so
-they cross the boundary cleanly.
-
-The same applies to `forceStorm()` / `forceClear()` — reach them from a real
-script (a gameplay hook, an admin command), not the Command Bar.
+A faster check than any of these: look for fog. Lighting is applied before
+anything else in the client render loop, so fog at high intensity proves the
+client is alive and the problem is elsewhere. Clear sky at full intensity means
+the client scripts aren't running at all, which usually means install step 4 got
+missed.
 
 ## Tuning
 
@@ -220,28 +175,29 @@ Everything is in `src/shared/WeatherConfig.luau`.
 
 | Setting | Effect |
 | --- | --- |
-| `ParticleBudget` | Cap on live flakes. **The main performance knob.** |
+| `ParticleBudget` | Cap on live flakes. The main performance knob. |
 | `PhaseDurations` | Length of each phase of the cycle. |
 | `WindStormSpeed` | How hard a full blizzard blows. |
 | `ShelterSmoothing` | How fast snow fades when you step under cover. |
-| `ShelterRespectCanCollide` | On by default, so decorative non-collidable parts aren't roofs. **Turn off if your builders make real roofs non-collidable.** |
+| `ShelterRespectCanCollide` | On by default, so decorative non-collidable parts aren't roofs. Turn off if your builders make real roofs non-collidable. |
 | `FlakeTexture` | Swap for a custom snowflake asset. |
-| `WindSoundId` | Required for audio — see above. |
+| `WindSoundId` | Required for audio. See above. |
 | `WindMaxVolume` | Wind loudness at full storm. |
 | `WindPitchSmoothing` | Raise if pitch sounds jumpy, lower if gusts feel sluggish. |
 | `StormSpeedMultiplier` | Speed multiplier at full intensity. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
+| `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
 
 ## Speed modifiers
 
-`SpeedService` is the only thing that may assign `Humanoid.WalkSpeed`. Systems
+`SpeedService` is the only thing allowed to assign `Humanoid.WalkSpeed`. Systems
 register named modifiers and it folds them together:
 
 ```
 final = base × (all multipliers) + (all additions)
 ```
 
-A sprint system integrates like this, and needs to know nothing about weather:
+A sprint system plugs in like this and needs to know nothing about weather:
 
 ```lua
 local SpeedService = require(game.ServerScriptService.Common.SpeedService)
@@ -250,7 +206,7 @@ SpeedService.setModifier(humanoid, "Sprint", { mul = 1.5 })
 SpeedService.clearModifier(humanoid, "Sprint")
 ```
 
-Multipliers compose, so the storm applies on top automatically:
+Multipliers compose, so the storm stacks on top by itself:
 
 | Situation | Math | Speed |
 | --- | --- | --- |
@@ -259,37 +215,29 @@ Multipliers compose, so the storm applies on top automatically:
 | Sprinting, clear | `16 × 1.5` | 24 |
 | Sprinting, peak storm | `16 × 1.5 × 0.875` | 21 |
 
-`{ add = -2 }` is also supported for flat modifiers. There's a `MinWalkSpeed`
-floor so stacked penalties can't leave a player unable to move.
+`{ add = -2 }` also works for flat modifiers. A `MinWalkSpeed` floor keeps
+stacked penalties from leaving a player unable to move.
 
-**The one rule:** never assign `WalkSpeed` directly once a humanoid is managed
-here — outside writes get overwritten on the next recompute.
+One rule: never assign `WalkSpeed` directly once a humanoid is managed here.
+Outside writes get overwritten on the next recompute.
 
 ## Gameplay hooks
 
-`WeatherRuntime.server.luau` has a commented-out cold damage example. Use
-`WeatherService.isPlayerSheltered(player)` — the server's own raycast — and
-never a value reported by a client. `WeatherService.PhaseChanged` and
-`IntensityChanged` are available for anything else.
+`WeatherRuntime.server.luau` has a commented out cold damage example. Use
+`WeatherService.isPlayerSheltered(player)`, which is the server's own raycast,
+and never a value reported by a client. `WeatherService.PhaseChanged` and
+`IntensityChanged` are there for anything else.
 
 ## Performance notes
 
 - The particle rig is parented to `workspace.CurrentCamera`, so it never
   replicates.
 - Network cost is a handful of numbers a few times a second, and only when they
-  change past a threshold — independent of player count.
-- Raycasts: 5 per client every 0.2s, and **zero** when no storm is active.
+  move past a threshold. It doesn't scale with player count.
+- Raycasts run 5 per client every 0.2s, and none at all when no storm is active.
 - Engine property writes (Lighting, particle rate, sound volume, pitch, EQ) are
-  all epsilon-gated. Smoothing is asymptotic and never exactly settles, so
-  writing every frame would churn the renderer and audio DSP for changes too
-  small to perceive.
-- Both the render loop and the server's slowdown sweep fully idle in clear
+  epsilon gated. Smoothing is asymptotic and never exactly settles, so writing
+  every frame would churn the renderer and audio DSP for changes too small to
+  perceive.
+- The render loop and the server's slowdown sweep both idle fully in clear
   weather.
-
-## Known trade-offs
-
-- **Shelter is measured from the character, not the camera.** In third person
-  the camera often floats outside the building you're in; measuring from the
-  body matches player intuition.
-- **Lighting is driven by intensity only**, not shelter, so fog still reads
-  indoors. Tying it to shelter pops every time you cross a doorway.
