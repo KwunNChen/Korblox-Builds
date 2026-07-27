@@ -31,6 +31,7 @@ local state = {
 	intensity = 0,
 	wind = Vector3.zero,
 	phaseName = "Clear",
+	secondsLeft = -1,
 	override = nil :: number?,
 	instantNonce = 0,
 }
@@ -55,6 +56,16 @@ local function rollDuration(phaseName: string): number
 	return math.max(range.Min + math.random() * (range.Max - range.Min), 0.1)
 end
 
+-- Republishes only when the whole second changes, so this costs about one
+-- write a second rather than one every tick.
+local function publishSecondsLeft()
+	local secondsLeft = math.max(math.floor(state.duration - state.elapsed), 0)
+	if secondsLeft ~= state.secondsLeft then
+		state.secondsLeft = secondsLeft
+		stateHolder:SetAttribute(Attr.PhaseSecondsLeft, secondsLeft)
+	end
+end
+
 local function advancePhase(dt: number)
 	state.elapsed += dt
 
@@ -64,6 +75,7 @@ local function advancePhase(dt: number)
 		state.phaseName = PHASE_ORDER[state.phaseIndex]
 		state.duration = rollDuration(state.phaseName)
 		stateHolder:SetAttribute(Attr.Phase, state.phaseName)
+		publishSecondsLeft()
 		phaseChanged:Fire(state.phaseName)
 	end
 end
@@ -129,6 +141,11 @@ function WeatherService.getWind(): Vector3
 	return state.wind
 end
 
+-- Seconds left in the current phase, for server-side gameplay hooks.
+function WeatherService.getPhaseTimeRemaining(): number
+	return math.max(state.duration - state.elapsed, 0)
+end
+
 -- Server-side check for gameplay. Never trust a client's version of this.
 function WeatherService.isPlayerSheltered(player: Player): (boolean, number)
 	local character = player.Character
@@ -167,6 +184,7 @@ local function jumpToPhase(phaseName: string)
 	state.elapsed = 0
 	state.duration = rollDuration(phaseName)
 	stateHolder:SetAttribute(Attr.Phase, phaseName)
+	publishSecondsLeft()
 	phaseChanged:Fire(phaseName)
 end
 
@@ -189,6 +207,7 @@ function WeatherService.start()
 	state.phaseName = PHASE_ORDER[state.phaseIndex]
 	state.duration = rollDuration(state.phaseName)
 	stateHolder:SetAttribute(Attr.Phase, state.phaseName)
+	publishSecondsLeft()
 
 	task.spawn(function()
 		while running do
@@ -196,6 +215,7 @@ function WeatherService.start()
 			state.clock += dt
 
 			advancePhase(dt)
+			publishSecondsLeft()
 
 			local intensity = computeIntensity()
 			publish(intensity, computeWind(intensity))

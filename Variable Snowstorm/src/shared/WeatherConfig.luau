@@ -91,7 +91,7 @@ WeatherConfig.ServerShelterInterval = 2
 -- Rate * average Lifetime, so MaxRate is derived from this -- tune this ONE
 -- number to trade quality for framerate. Live particle count (and roughly its
 -- render cost) scales linearly with this value, so raise it in small steps.
-WeatherConfig.ParticleBudget = 700
+WeatherConfig.ParticleBudget = 1000
 
 WeatherConfig.FlakeLifetime = NumberRange.new(2.5, 4)
 
@@ -104,7 +104,7 @@ WeatherConfig.FlakeColor = ColorSequence.new(Color3.fromRGB(255, 255, 255), Colo
 -- The emission volume that rides along with the camera. Flakes spawn
 -- throughout this box, so snow is already mid-air when a storm starts
 -- instead of taking several seconds to fall into view.
-WeatherConfig.RigSize = Vector3.new(140, 50, 140)
+WeatherConfig.RigSize = Vector3.new(100, 50, 100) -- this makes snow more compact
 WeatherConfig.RigHeightOffset = 14 -- studs above the camera
 
 -- Push the volume ahead of the camera so you cannot outrun your own snow.

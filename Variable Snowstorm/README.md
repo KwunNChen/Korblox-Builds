@@ -160,9 +160,10 @@ The first two are correct behavior, not bugs.
    `1` means the server and replication are fine and the problem is local
    rendering or shelter. `0` means the override never applied.
 
-3. Too sparse to notice? `ParticleBudget` (700) spreads across a 140x50x140 stud
-   volume. Raise it toward 1500 to 2000 for a dense blizzard, in small steps,
-   since live particle count scales linearly with it.
+3. Too sparse to notice? `ParticleBudget` (1000) spreads across a 140x50x140
+   stud volume. Push it further in small steps if you want it denser still,
+   since live particle count scales linearly with it, and watch frame rate on
+   your lowest-end target device as you go.
 
 A faster check than any of these: look for fog. Lighting is applied before
 anything else in the client render loop, so fog at high intensity proves the
@@ -228,6 +229,23 @@ Outside writes get overwritten on the next recompute.
 `WeatherService.isPlayerSheltered(player)`, which is the server's own raycast,
 and never a value reported by a client. `WeatherService.PhaseChanged` and
 `IntensityChanged` are there for anything else.
+
+### Countdown to the next phase
+
+`WeatherService.getPhaseTimeRemaining()` returns seconds left in the current
+phase, for server scripts. From the client, or anywhere else, read the same
+value off `ReplicatedStorage.WeatherState.PhaseSecondsLeft`:
+
+```lua
+local Shared = require(game.ReplicatedStorage.Weather.WeatherShared)
+local stateHolder = Shared.getStateHolder()
+
+local secondsLeft = Shared.getPhaseTimeRemaining(stateHolder)
+```
+
+`PhaseSecondsLeft` is a plain integer, visible in Explorer too, and updates
+about once a second rather than every tick, since nothing here needs finer
+resolution than that.
 
 ## Performance notes
 

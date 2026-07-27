@@ -14,10 +14,21 @@ WeatherShared.Attr = table.freeze({
 	WindX = "WindX",
 	WindZ = "WindZ",
 	InstantCue = "InstantCue",
+	PhaseSecondsLeft = "PhaseSecondsLeft",
 })
 
 function WeatherShared.getStateHolder(): Instance
 	return ReplicatedStorage:WaitForChild("WeatherState")
+end
+
+-- Updates roughly once a second, since that's the resolution PhaseSecondsLeft
+-- replicates at.
+function WeatherShared.getPhaseTimeRemaining(stateHolder: Instance): number
+	local secondsLeft = stateHolder:GetAttribute(WeatherShared.Attr.PhaseSecondsLeft)
+	if typeof(secondsLeft) ~= "number" then
+		return 0
+	end
+	return secondsLeft
 end
 
 -- Framerate-independent smoothing. `smoothing` is a time constant in seconds.

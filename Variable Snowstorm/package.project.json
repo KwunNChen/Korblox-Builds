@@ -21,7 +21,8 @@
           "Phase": "Clear",
           "WindX": 0,
           "WindZ": 0,
-          "InstantCue": 0
+          "InstantCue": 0,
+          "PhaseSecondsLeft": 0
         }
       }
     },
