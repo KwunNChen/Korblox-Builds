@@ -1,20 +1,5 @@
---[[
-	Single owner of Humanoid.WalkSpeed and jump height.
-
-		final = base * (all multipliers) + (all additions)
-
-	Register a named modifier instead of assigning either directly:
-
-		SpeedService.setModifier(humanoid, "Sprint", { mul = 1.5 })
-		SpeedService.setModifier(humanoid, "Storm", { mul = 0.875, jumpMul = 0.85 })
-		SpeedService.clearModifier(humanoid, "Sprint")
-
-	One modifier can carry both, so a system that affects movement and jumping
-	registers and clears them together under a single name.
-
-	Re-using a name replaces that system's value. Once a humanoid is managed
-	here, nothing else may assign its WalkSpeed, JumpPower, or JumpHeight.
-]]
+-- Single owner of Humanoid.WalkSpeed and jump height. Register named modifiers
+-- instead of assigning either directly -- see the README for the full API.
 
 local SpeedService = {}
 
@@ -29,8 +14,6 @@ local function getRecord(humanoid: Humanoid)
 	if not record then
 		record = {
 			base = humanoid.WalkSpeed,
-			-- Both jump baselines are captured because UseJumpPower can flip at
-			-- runtime and each property carries its own scale.
 			jumpPowerBase = humanoid.JumpPower,
 			jumpHeightBase = humanoid.JumpHeight,
 			mods = {},
@@ -70,8 +53,6 @@ local function recompute(humanoid: Humanoid)
 		humanoid.WalkSpeed = target
 	end
 
-	-- Roblox reads JumpPower or JumpHeight depending on UseJumpPower, so write
-	-- whichever one this humanoid actually obeys.
 	if humanoid.UseJumpPower then
 		local jumpTarget = math.max(record.jumpPowerBase * jumpMultiplier + jumpAddition, 0)
 		if math.abs(humanoid.JumpPower - jumpTarget) > WRITE_EPSILON then
@@ -91,7 +72,6 @@ function SpeedService.setBase(humanoid: Humanoid, base: number)
 	recompute(humanoid)
 end
 
--- Sets whichever baseline UseJumpPower says this humanoid reads.
 function SpeedService.setJumpBase(humanoid: Humanoid, base: number)
 	local record = getRecord(humanoid)
 	if humanoid.UseJumpPower then

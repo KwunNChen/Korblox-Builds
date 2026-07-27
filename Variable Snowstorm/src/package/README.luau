@@ -21,11 +21,15 @@
 	   ServerScriptService or Workspace and the server scripts start running
 	   before the shared modules exist.
 
-	2. Open the "ReplicatedStorage" folder. Move both children into the real
-	   ReplicatedStorage service:
+	2. Open the "ReplicatedStorage" folder. Move all three children into the
+	   real ReplicatedStorage service:
 
 	       Weather
 	       WeatherState
+	       ThunderStrike
+
+	   Miss ThunderStrike and lightning turns itself off with a warning in
+	   Output. Everything else still runs.
 
 	3. Open the "ServerScriptService" folder. Move both children into the real
 	   ServerScriptService service:
@@ -51,14 +55,15 @@
 
 	    ReplicatedStorage
 	    |-- Weather               WeatherConfig, WeatherShared
-	    +-- WeatherState          replicated attributes
+	    |-- WeatherState          replicated attributes
+	    +-- ThunderStrike         RemoteEvent for lightning
 
 	    ServerScriptService
-	    |-- Weather               WeatherService, WeatherRuntime
+	    |-- Weather               WeatherService, WeatherRuntime, ThunderService
 	    +-- Common                SpeedService
 
 	    StarterPlayer/StarterPlayerScripts
-	    +-- Weather               WeatherClient, WeatherAudio
+	    +-- Weather               WeatherClient, WeatherAudio, WeatherThunder
 
 	Press Play. A storm builds on its own within a couple of minutes.
 
@@ -122,8 +127,42 @@
 	    WindDirectionalSwing      how much heading matters, 0 to disable
 	    WindAirborneAccel         how hard wind shoves you mid-jump
 	    StormJumpMultiplier       jump height at full intensity
+	    EnableThunderstorm        lightning window inside each Peak
+	    ThunderSafeRadius         fairness knob, see THUNDERSTORMS below
+	    ThunderStrikeInterval     seconds between strikes near one player
+	    ThunderDarkenExposure     how dark the sky goes, lower is darker
+	    ThunderDarkenBrightness   sun brightness multiplier during a storm
 	    EnableLightingEffects     false if your map drives its own fog
 	    DebugStartIntensity       0 to 1 starts every playtest at that intensity
+
+
+	========================================================
+	THUNDERSTORMS
+	========================================================
+
+	Somewhere inside every Peak, a 30 second thunderstorm opens with a warning
+	rumble and then drops lightning. A strike kills instantly. Under a roof you
+	are immune.
+
+	The sky darkens as the window opens, before the first strike lands, so the
+	darkening is itself the warning. Flashes punch harder against it.
+
+	Standing still is always survivable. Strikes land in a ring 20 to 45 studs
+	out and are rejected if they would land near anyone, so you die by walking
+	into a marked strike rather than by bad luck. That is why the marker is
+	subtle -- a few motes gathering, not a warning decal.
+
+	Bolts never pass through roofs. The impact point comes from a raycast down
+	from cloud height, so it stops at the first surface: a strike over a
+	building hits the roof. Immunity is checked fresh at the instant the strike
+	lands, so running through a doorway during the telegraph saves you.
+
+	Thunder needs your own audio ids in ThunderWarningSoundId and
+	ThunderCrackSoundId, for the same reason WindSoundId does.
+
+	To test one without waiting for a Peak, on SERVER:
+
+	    game.ReplicatedStorage.Weather:SetAttribute("DebugThunder", true)
 
 
 	========================================================

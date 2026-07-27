@@ -22,8 +22,13 @@
           "WindX": 0,
           "WindZ": 0,
           "InstantCue": 0,
-          "PhaseSecondsLeft": 0
+          "PhaseSecondsLeft": 0,
+          "ThunderActive": false
         }
+      },
+
+      "ThunderStrike": {
+        "$className": "RemoteEvent"
       }
     },
 

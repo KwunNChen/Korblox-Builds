@@ -56,8 +56,6 @@ local function rollDuration(phaseName: string): number
 	return math.max(range.Min + math.random() * (range.Max - range.Min), 0.1)
 end
 
--- Republishes only when the whole second changes, so this costs about one
--- write a second rather than one every tick.
 local function publishSecondsLeft()
 	local secondsLeft = math.max(math.floor(state.duration - state.elapsed), 0)
 	if secondsLeft ~= state.secondsLeft then
@@ -141,12 +139,11 @@ function WeatherService.getWind(): Vector3
 	return state.wind
 end
 
--- Seconds left in the current phase, for server-side gameplay hooks.
 function WeatherService.getPhaseTimeRemaining(): number
 	return math.max(state.duration - state.elapsed, 0)
 end
 
--- Server-side check for gameplay. Never trust a client's version of this.
+-- Use this for gameplay, never a value a client reports.
 function WeatherService.isPlayerSheltered(player: Player): (boolean, number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")

@@ -9,6 +9,7 @@ local WeatherFolder = ReplicatedStorage:WaitForChild("Weather")
 local Config = require(WeatherFolder:WaitForChild("WeatherConfig"))
 local Shared = require(WeatherFolder:WaitForChild("WeatherShared"))
 local WeatherAudio = require(script.Parent:WaitForChild("WeatherAudio"))
+local WeatherThunder = require(script.Parent:WaitForChild("WeatherThunder"))
 
 local Attr = Shared.Attr
 local player = Players.LocalPlayer
@@ -108,8 +109,6 @@ if player.Character then
 end
 player.CharacterAdded:Connect(bindCharacter)
 
--- Measured from the character, not the camera, so backing the camera through a
--- wall does not start snow indoors.
 local function measureShelter(): number
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local origin = if root then (root :: BasePart).Position else camera.CFrame.Position
@@ -132,9 +131,22 @@ local baseHaze = if atmosphere then atmosphere.Haze else 0
 local lastLightingAlpha = 0
 
 local function applyLighting(alpha: number)
-	if math.abs(alpha - lastLightingAlpha) < LIGHTING_EPSILON then
+	if alpha <= 0 then
+		-- Re-read the base so a day/night cycle stays authoritative.
+		if lastLightingAlpha <= 0 then
+			baseFogEnd = math.min(Lighting.FogEnd, 5000)
+			baseFogColor = Lighting.FogColor
+			baseOutdoorAmbient = Lighting.OutdoorAmbient
+			if atmosphere then
+				baseDensity = atmosphere.Density
+				baseHaze = atmosphere.Haze
+			end
+			return
+		end
+	elseif math.abs(alpha - lastLightingAlpha) < LIGHTING_EPSILON then
 		return
 	end
+
 	lastLightingAlpha = alpha
 
 	Lighting.FogEnd = Shared.lerp(baseFogEnd, Config.StormFogEnd, alpha)
@@ -148,6 +160,10 @@ local function applyLighting(alpha: number)
 end
 
 WeatherAudio.init()
+
+if Config.EnableThunderstorm then
+	WeatherThunder.init()
+end
 
 local shelter = 0
 local shelterTarget = 0
@@ -192,6 +208,10 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 
 	if Config.EnableLightingEffects then
 		lightingAlpha = Shared.damp(lightingAlpha, intensity, Config.LightingSmoothing, dt)
+		-- Damping is asymptotic, so it never lands on zero by itself.
+		if intensity <= 0 and lightingAlpha < LIGHTING_EPSILON then
+			lightingAlpha = 0
+		end
 		applyLighting(lightingAlpha)
 	end
 
@@ -263,7 +283,6 @@ workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 	end
 end)
 
--- Fires only from setOverride(intensity, true); skips the ramp-up for testing.
 stateHolder:GetAttributeChangedSignal(Attr.InstantCue):Connect(function()
 	task.defer(function()
 		local intensity = stormIntensity
@@ -293,8 +312,6 @@ stateHolder:GetAttributeChangedSignal(Attr.InstantCue):Connect(function()
 		applyBucketedLook(intensity)
 		positionRig(wind)
 
-		-- Top up to the target density rather than assuming an empty sky, so an
-		-- override fired mid-storm lands at the same density as one fired from clear.
 		local targetLive = Config.ParticleBudget * intensity * exposure
 		local currentLive = math.max(lastRate, 0) * averageLifetime
 		local burst = math.floor(targetLive - currentLive)

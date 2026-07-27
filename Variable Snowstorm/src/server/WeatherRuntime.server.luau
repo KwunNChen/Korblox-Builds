@@ -6,21 +6,24 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Weather"):WaitForChild("WeatherConfig"))
 local WeatherService = require(script.Parent:WaitForChild("WeatherService"))
-local SpeedService = require(ServerScriptService:WaitForChild("Common"):WaitForChild("SpeedService"))
+local ThunderService = require(script.Parent:WaitForChild("ThunderService"))
+local Common = ServerScriptService:WaitForChild("Common")
+local SpeedService = require(Common:WaitForChild("SpeedService"))
+local CharacterCache = require(Common:WaitForChild("CharacterCache"))
 
 local STORM_MODIFIER = "Storm"
 local DEBUG_ATTRIBUTE = "DebugStartIntensity"
+local DEBUG_THUNDER_ATTRIBUTE = "DebugThunder"
 local WIND_FORCE_NAME = "StormWindForce"
 
 -- Raise to replicate the drift force less often, lower for finer steps.
 local FORCE_EPSILON = 8
 
 WeatherService.start()
+ThunderService.start()
 
 -- Live debug knob on ReplicatedStorage.Weather. 0-1 forces that intensity,
--- negative resumes the cycle. WeatherConfig.DebugStartIntensity seeds it; set
--- the attribute at runtime to change it without a re-sync. The print confirms
--- the change actually reached the server.
+-- negative resumes the cycle.
 local weatherFolder = ReplicatedStorage:WaitForChild("Weather")
 
 local function applyDebugIntensity(value: any)
@@ -34,7 +37,6 @@ local function applyDebugIntensity(value: any)
 	end
 end
 
--- Seeded before connecting so a normal boot does not log a spurious clear.
 weatherFolder:SetAttribute(DEBUG_ATTRIBUTE, Config.DebugStartIntensity)
 
 weatherFolder:GetAttributeChangedSignal(DEBUG_ATTRIBUTE):Connect(function()
@@ -45,6 +47,35 @@ if Config.DebugStartIntensity >= 0 then
 	applyDebugIntensity(Config.DebugStartIntensity)
 end
 
+-- Set true to open a thunderstorm window immediately. Resets itself.
+weatherFolder:SetAttribute(DEBUG_THUNDER_ATTRIBUTE, false)
+
+weatherFolder:GetAttributeChangedSignal(DEBUG_THUNDER_ATTRIBUTE):Connect(function()
+	if weatherFolder:GetAttribute(DEBUG_THUNDER_ATTRIBUTE) ~= true then
+		return
+	end
+
+	weatherFolder:SetAttribute(DEBUG_THUNDER_ATTRIBUTE, false)
+
+	if not Config.EnableThunderstorm then
+		warn("[Weather] DebugThunder ignored -- EnableThunderstorm is false.")
+		return
+	end
+	if ThunderService.isActive() then
+		print("[Weather] thunderstorm already running")
+		return
+	end
+
+	ThunderService.triggerNow()
+	print(
+		string.format(
+			"[Weather] thunderstorm -> %.0fs warning, then %.0fs of strikes",
+			Config.ThunderWarningLead,
+			Config.ThunderDuration
+		)
+	)
+end)
+
 -- +1 moving with the wind, -1 straight into it, 0 crosswind or standing still.
 local function windAlignment(humanoid: Humanoid, wind: Vector3): number
 	local move = humanoid.MoveDirection
@@ -54,16 +85,18 @@ local function windAlignment(humanoid: Humanoid, wind: Vector3): number
 	return wind.Unit:Dot(move.Unit)
 end
 
--- Built on demand and left parented to the character, so it dies with them.
-local function getWindForce(character: Model): VectorForce?
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then
-		return nil
+local forceCache = setmetatable({}, { __mode = "k" }) :: { [BasePart]: VectorForce }
+
+local function getWindForce(root: BasePart): VectorForce
+	local existing = forceCache[root]
+	if existing and existing.Parent == root then
+		return existing
 	end
 
-	local existing = root:FindFirstChild(WIND_FORCE_NAME)
-	if existing then
-		return existing :: VectorForce
+	local found = root:FindFirstChild(WIND_FORCE_NAME)
+	if found then
+		forceCache[root] = found :: VectorForce
+		return found :: VectorForce
 	end
 
 	local attachment = Instance.new("Attachment")
@@ -79,25 +112,22 @@ local function getWindForce(character: Model): VectorForce?
 	force.Enabled = false
 	force.Parent = root
 
+	forceCache[root] = force
 	return force
 end
 
-local function updateAirborneDrift(character: Model, humanoid: Humanoid, wind: Vector3, windAlpha: number, exposed: boolean)
-	local force = getWindForce(character)
-	if not force then
-		return
-	end
+local function updateAirborneDrift(root: BasePart, humanoid: Humanoid, wind: Vector3, windAlpha: number, exposed: boolean)
+	local force = getWindForce(root)
 
 	local state = humanoid:GetState()
 	local airborne = state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping
 
-	-- Unit of a zero vector is NaN, and a NaN force breaks the whole assembly.
+	-- Unit of a zero vector is NaN, and a NaN force breaks the assembly.
 	if not (airborne and exposed) or wind.Magnitude < 0.1 then
 		force.Enabled = false
 		return
 	end
 
-	local root = force.Parent :: BasePart
 	local target = wind.Unit * (Config.WindAirborneAccel * windAlpha * root.AssemblyMass)
 
 	if (target - force.Force).Magnitude > FORCE_EPSILON then
@@ -107,17 +137,17 @@ local function updateAirborneDrift(character: Model, humanoid: Humanoid, wind: V
 end
 
 local function updatePlayerSpeed(player: Player, intensity: number, wind: Vector3, sheltered: boolean)
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not character or not humanoid or humanoid.Health <= 0 then
+	local entry = CharacterCache.getAlive(player)
+	if not entry then
 		return
 	end
 
+	local humanoid = entry.humanoid
 	local exposed = intensity > 0 and not sheltered
 	local windAlpha = math.clamp(wind.Magnitude / Config.WindStormSpeed, 0, 1)
 
 	if Config.EnableWindAirborneDrift then
-		updateAirborneDrift(character, humanoid, wind, windAlpha, exposed)
+		updateAirborneDrift(entry.root, humanoid, wind, windAlpha, exposed)
 	end
 
 	if not exposed then
@@ -125,8 +155,6 @@ local function updatePlayerSpeed(player: Player, intensity: number, wind: Vector
 		return
 	end
 
-	-- Swing rides live wind speed rather than intensity, so gusts pulse the
-	-- penalty instead of holding it flat for the whole phase.
 	local base = 1 + (Config.StormSpeedMultiplier - 1) * intensity
 	local swing = Config.WindDirectionalSwing * windAlpha
 	local multiplier = base + windAlignment(humanoid, wind) * swing
@@ -149,8 +177,6 @@ if Config.EnableStormSlowdown then
 		local wasClear = true
 		local sinceShelter = math.huge
 
-		-- Heading changes far faster than shelter does, so the cheap arithmetic
-		-- runs every tick while the raycast stays on its own slower clock.
 		local shelterCache = setmetatable({}, { __mode = "k" })
 
 		while true do
@@ -158,7 +184,6 @@ if Config.EnableStormSlowdown then
 
 			local intensity = WeatherService.getIntensity()
 
-			-- Skip the whole sweep in clear weather once everyone is released.
 			if intensity <= 0 and wasClear then
 				continue
 			end

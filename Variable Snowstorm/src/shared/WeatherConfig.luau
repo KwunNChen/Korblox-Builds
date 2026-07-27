@@ -184,48 +184,94 @@ WeatherConfig.WindPitchSmoothing = 0.4
 
 WeatherConfig.EnableStormSlowdown = true
 
--- Speed multiplier applied at full intensity while out in the open.
---
--- This is a multiplier rather than a flat subtraction so it stacks correctly
--- with sprinting: 0.875 costs a walking player exactly 2 studs/sec at Roblox's
--- default WalkSpeed of 16 (16 -> 14), while a sprinter at 1.5x lands on
--- 16 * 1.5 * 0.875 = 21 instead of 24. You lose proportionally more the faster
--- you are moving, which reads as fighting through the wind.
---
--- Scales with intensity, so light snow barely slows you and only a peak
--- blizzard costs the full amount.
+-- Crosswind speed multiplier at full intensity, out in the open. A multiplier
+-- rather than a subtraction so it stacks with sprinting.
 WeatherConfig.StormSpeedMultiplier = 0.875
 
--- Jump height multiplier at full intensity, out in the open. Not directional
--- the way the speed penalty is -- heading already shows up mid-air through
--- WindAirborneAccel, which blows you downwind once you leave the ground.
+-- Jump height multiplier at full intensity, out in the open.
 WeatherConfig.StormJumpMultiplier = 0.85
 
--- How often the server re-checks shelter. Each pass costs one raycast per
--- player, so this is cheap; it is separate from ServerShelterInterval because
--- movement wants to feel more responsive than damage ticks do.
+-- How often the server re-checks shelter. One raycast per player per pass.
 WeatherConfig.StormSlowdownInterval = 0.5
 
 -- How far heading moves the multiplier at full wind. Against the 0.875 base,
--- 0.175 gives 0.70 walking into the wind and 1.05 with it at your back.
---
--- Scaled by live wind speed rather than intensity alone, so the gust noise
--- makes the penalty pulse instead of sitting flat. 0 restores a heading-blind
--- storm that slows you the same in every direction.
+-- 0.175 gives 0.70 into the wind and 1.05 with it. 0 makes the storm slow you
+-- the same in every direction.
 WeatherConfig.WindDirectionalSwing = 0.175
 
--- How often heading is re-evaluated. Shelter raycasts stay on
--- StormSlowdownInterval, so lowering this only buys arithmetic -- it exists
--- because turning into the wind should register faster than shelter changes.
+-- How often heading is re-evaluated. Costs only arithmetic; shelter raycasts
+-- stay on StormSlowdownInterval.
 WeatherConfig.StormDirectionInterval = 0.15
 
--- Humanoids resist force while grounded but not mid-air, so a jump is where a
--- real shove actually lands. Blows players downwind while they are airborne.
+-- Blows players downwind while they are airborne.
 WeatherConfig.EnableWindAirborneDrift = true
 
--- Sideways acceleration (studs/sec^2) applied while airborne at full wind.
--- Roughly 5-6 studs of drift across a default jump arc at 12.
+-- Sideways acceleration (studs/sec^2) at full wind. Roughly 5-6 studs of drift
+-- across a default jump arc at 12.
 WeatherConfig.WindAirborneAccel = 12
+
+-- ============================================================
+-- GAMEPLAY: THUNDERSTORM
+-- ============================================================
+
+WeatherConfig.EnableThunderstorm = true
+
+-- Seconds of active strikes, and the warning rumble that opens the window
+-- before the first one lands.
+WeatherConfig.ThunderDuration = 30
+WeatherConfig.ThunderWarningLead = 4
+
+-- Seconds between strikes near one exposed player. Roughly 12 across a window.
+WeatherConfig.ThunderStrikeInterval = NumberRange.new(2, 3)
+
+-- THE FAIRNESS KNOB. Strikes never land within this of any player, so standing
+-- still is always survivable. Below ThunderKillRadius, lightning starts killing
+-- stationary players.
+WeatherConfig.ThunderSafeRadius = 20
+WeatherConfig.ThunderSpawnRadius = 45
+WeatherConfig.ThunderKillRadius = 8
+
+-- Seconds the marker shows before the strike lands. Long on purpose, because
+-- the marker is deliberately quiet.
+WeatherConfig.ThunderTelegraph = 1.8
+
+-- Strikes this close to a pending one are skipped, so a crowd does not stack
+-- strikes on the same patch of ground.
+WeatherConfig.ThunderMinSeparation = 14
+
+-- Seconds of immunity after spawning.
+WeatherConfig.ThunderSpawnGrace = 5
+
+-- Sheltered players draw strikes at this fraction of the normal rate. They are
+-- immune, so it is spectacle rather than pressure.
+WeatherConfig.ThunderShelteredRateScale = 0.35
+
+-- How far above the player the bolt starts.
+WeatherConfig.ThunderCloudHeight = 300
+
+-- Studs/sec used to delay the crack by distance, the way real thunder lags.
+WeatherConfig.ThunderSoundSpeed = 400
+
+-- Your own asset ids. Roblox audio is private by default, so ids from another
+-- game will not play here.
+WeatherConfig.ThunderWarningSoundId = "rbxassetid://140089926923698"
+WeatherConfig.ThunderCrackSoundId = "rbxassetid://9126068998"
+
+-- Strikes past this are never sent to a client at all.
+WeatherConfig.ThunderAudibleDistance = 500
+
+-- Hard ceilings on client cost. Past these, a strike is drawn without a visual
+-- or without sound rather than growing the pool.
+WeatherConfig.ThunderVisualPool = 10
+WeatherConfig.ThunderMaxConcurrentSounds = 4
+
+-- Sky darkening while a window is open. It ramps in across ThunderWarningLead,
+-- so the sky going dark is the warning, and flashes punch harder against it.
+WeatherConfig.ThunderDarkenExposure = -1.0 -- added to Lighting.ExposureCompensation
+WeatherConfig.ThunderDarkenBrightness = 0.35 -- multiplier on Lighting.Brightness
+WeatherConfig.ThunderSkyColor = Color3.fromRGB(70, 78, 92)
+WeatherConfig.ThunderAmbientColor = Color3.fromRGB(48, 54, 68)
+WeatherConfig.ThunderDarkenSmoothing = 2.5 -- seconds
 
 -- ============================================================
 -- DEBUG

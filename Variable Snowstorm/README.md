@@ -17,9 +17,11 @@ Server-based code, clients will pull from it
 
 ```
 SERVER   ServerScriptService.Weather
-  WeatherService  ->  5 attributes on ReplicatedStorage.WeatherState
-                      Intensity, Phase, WindX, WindZ, InstantCue
+  WeatherService  ->  attributes on ReplicatedStorage.WeatherState
+                      Intensity, Phase, WindX, WindZ,
+                      InstantCue, PhaseSecondsLeft, ThunderActive
                       also sets workspace.GlobalWind
+  ThunderService  ->  ThunderStrike RemoteEvent, one packet per strike
                               |
                               |  replicates automatically
                               v
@@ -27,6 +29,7 @@ CLIENT   StarterPlayerScripts.Weather
   reads those      ->  particle rig parented to Camera
                    ->  its own roof raycasts
                    ->  local Lighting, Atmosphere, wind audio
+                   ->  lightning bolts, markers, thunder
 ```
 
 Roof detection cannot work server side. A ParticleEmitter made on the server
@@ -46,19 +49,22 @@ ReplicatedStorage
 ├── Weather
 │   ├── WeatherConfig        all tuning lives here
 │   └── WeatherShared
-└── WeatherState             replicated attributes
+├── WeatherState             replicated attributes
+└── ThunderStrike            RemoteEvent, lightning only
 
 ServerScriptService
 ├── Weather
 │   ├── WeatherService       state machine + hooks
+│   ├── ThunderService       lightning window, placement, kills
 │   └── WeatherRuntime       entry point + gameplay effects
 └── Common
-    └── SpeedService         owns Humanoid.WalkSpeed
+    └── SpeedService         owns WalkSpeed and jump height
 
 StarterPlayer/StarterPlayerScripts
 └── Weather
     ├── WeatherClient        rendering + roof detection
-    └── WeatherAudio         wind ambience
+    ├── WeatherAudio         wind ambience
+    └── WeatherThunder       lightning visuals + thunder
 ```
 
 ## Installing in a game
@@ -70,8 +76,9 @@ inside the .rbxm are named after where they go.
    there. Drop it into ServerScriptService or Workspace instead and the server
    scripts start running before the shared modules exist.
 
-2. From its `ReplicatedStorage` folder, move `Weather` and `WeatherState` into
-   the real ReplicatedStorage.
+2. From its `ReplicatedStorage` folder, move `Weather`, `WeatherState`, and
+   `ThunderStrike` into the real ReplicatedStorage. Miss `ThunderStrike` and
+   lightning disables itself with a warning in Output; everything else runs.
 
 3. From its `ServerScriptService` folder, move `Weather` and `Common` into the
    real ServerScriptService. If your game already has a `Common` folder, drag
@@ -194,6 +201,14 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `WindDirectionalSwing` | How far heading moves that multiplier. 0 makes the storm slow you the same in every direction. |
 | `WindAirborneAccel` | How hard wind shoves you while airborne. |
 | `StormJumpMultiplier` | Jump height at full intensity. |
+| `EnableThunderstorm` | Lightning window inside each Peak. |
+| `ThunderSafeRadius` | The fairness knob. Strikes never land this close to any player, so standing still is always survivable. Drop it below `ThunderKillRadius` and lightning starts killing stationary players. |
+| `ThunderTelegraph` | Seconds the charge marker shows before a strike lands. |
+| `ThunderStrikeInterval` | Seconds between strikes near one exposed player. |
+| `ThunderWarningSoundId` | Rumble that opens the window. Your own asset, same as `WindSoundId`. |
+| `ThunderCrackSoundId` | Per-strike crack. |
+| `ThunderDarkenExposure` | How far the sky darkens during a thunderstorm. Lower is darker. |
+| `ThunderDarkenBrightness` | Sun brightness multiplier during a thunderstorm. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
 | `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
 
@@ -251,6 +266,44 @@ penalty pulses as gusts roll through rather than sitting flat.
 Jumping in the open during a storm blows you downwind, since a Humanoid resists
 force while grounded but not mid-air. Turn that off with
 `EnableWindAirborneDrift`.
+
+## Thunderstorms
+
+Somewhere inside every Peak, a 30-second thunderstorm opens with a warning
+rumble and then starts dropping lightning. A strike kills instantly. Being under
+a roof makes you immune.
+
+The sky darkens as the window opens, ramping in across `ThunderWarningLead` so
+it lands before the first strike — the darkening *is* the warning. It also makes
+each flash punch harder by contrast. Only `Brightness`, `Ambient`,
+`ExposureCompensation`, and `Atmosphere.Color` move; fog and Atmosphere density
+stay with the snowstorm, so the two lighting owners never fight. Exposure is
+what darkens the skybox itself, which fog alone never touches.
+
+The design rule is that **standing still is always survivable.** Strikes land in
+a ring 20 to 45 studs out and are rejected if they would land within
+`ThunderSafeRadius` of anyone, so you cannot be killed by bad luck — only by
+walking into a strike that has already been marked. That turns a thunderstorm
+into a reason to stop moving or get indoors, rather than a coin flip. It also
+means the marker can stay subtle: a few motes gathering at the impact point that
+build over `ThunderTelegraph` seconds, not a warning decal.
+
+Bolts cannot pass through roofs, and this is structural rather than a special
+case. The impact point is found by raycasting *down* from `ThunderCloudHeight`,
+so the ray stops at the first surface it meets — a strike over a building lands
+on the roof, and the bolt is drawn to that point. Immunity is a separate check
+using the same shelter raycast the snow uses, taken **fresh at the moment the
+strike lands**, so running through a doorway during the telegraph saves you.
+
+To test one without waiting for a Peak, set the `DebugThunder` attribute on
+`ReplicatedStorage.Weather` to `true` from the server:
+
+```lua
+game.ReplicatedStorage.Weather:SetAttribute("DebugThunder", true)
+```
+
+It resets itself to `false` and prints confirmation. Same toggle rule as
+`DebugStartIntensity` — the Client/Server switch has to be on **Server**.
 
 One rule: never assign `WalkSpeed` directly once a humanoid is managed here.
 Outside writes get overwritten on the next recompute.

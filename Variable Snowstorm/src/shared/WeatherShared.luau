@@ -15,14 +15,19 @@ WeatherShared.Attr = table.freeze({
 	WindZ = "WindZ",
 	InstantCue = "InstantCue",
 	PhaseSecondsLeft = "PhaseSecondsLeft",
+	ThunderActive = "ThunderActive",
 })
 
 function WeatherShared.getStateHolder(): Instance
 	return ReplicatedStorage:WaitForChild("WeatherState")
 end
 
--- Updates roughly once a second, since that's the resolution PhaseSecondsLeft
--- replicates at.
+-- Nil if it is missing; callers disable lightning rather than yield forever.
+function WeatherShared.getStrikeEvent(): RemoteEvent?
+	return ReplicatedStorage:WaitForChild("ThunderStrike", 10) :: RemoteEvent?
+end
+
+-- Whole seconds, the resolution PhaseSecondsLeft replicates at.
 function WeatherShared.getPhaseTimeRemaining(stateHolder: Instance): number
 	local secondsLeft = stateHolder:GetAttribute(WeatherShared.Attr.PhaseSecondsLeft)
 	if typeof(secondsLeft) ~= "number" then
