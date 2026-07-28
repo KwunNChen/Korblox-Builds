@@ -26,12 +26,19 @@ local IMPACT_BRIGHTNESS = 2.5
 local IMPACT_RANGE = 35
 local IMPACT_COLOR = Color3.fromRGB(200, 225, 255)
 
--- Marker emission at the start and end of the telegraph.
-local MARKER_RATE_START = 14
-local MARKER_RATE_END = 80
+-- Marker emission at the start and end of the telegraph. Live spark count is
+-- Rate * average Lifetime, and that lifetime is very short, so these look
+-- higher than they are: roughly 9 and 60 live. Lower the end value first if
+-- Peak framerate suffers.
+local MARKER_RATE_START = 80
+local MARKER_RATE_END = 540
 
 -- Ground glow radius while charging.
 local MARKER_LIGHT_RANGE = 16
+
+-- Half-height of the spark volume. It is lifted by this much so the whole box
+-- sits above the surface instead of half the sparks spawning underground.
+local GROUND_LIFT = 0.3
 
 -- Raise to write Lighting less often, lower for finer steps.
 local FLASH_EPSILON = 0.004
@@ -95,35 +102,46 @@ local function buildRig(): Rig
 	folder.Name = "StrikeRig"
 
 	local ground = newHiddenPart("Impact")
+	--Sized off the kill radius so the crackling patch is exactly the ground
+	--that kills you, and cannot drift out of sync when that value is retuned.
+	local field = Config.ThunderKillRadius * Config.ThunderMarkerSpread * 2
+	ground.Size = Vector3.new(field, GROUND_LIFT * 2, field)
 	ground.Parent = folder
 
 	local groundAttachment = Instance.new("Attachment")
 	groundAttachment.Name = "Impact"
 	groundAttachment.Parent = ground
 
+	--Parented to the part rather than the attachment so it can emit from the
+	--part's volume instead of a single point.
 	local marker = Instance.new("ParticleEmitter")
 	marker.Name = "Charge"
 	marker.Texture = Config.ThunderMarkerTexture
 	marker.Color = ColorSequence.new(Config.ThunderMarkerColor)
-	marker.Lifetime = NumberRange.new(0.4, 0.7)
+	marker.Lifetime = NumberRange.new(0.06, 0.16)
 	marker.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, Config.ThunderMarkerSize * 0.5),
-		NumberSequenceKeypoint.new(0.3, Config.ThunderMarkerSize),
-		NumberSequenceKeypoint.new(1, 0),
+		NumberSequenceKeypoint.new(0, Config.ThunderMarkerSize),
+		NumberSequenceKeypoint.new(1, Config.ThunderMarkerSize),
 	})
+	--Holds solid then snaps out. A linear fade reads as a dying ember.
 	marker.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.75, 0),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	marker.Speed = NumberRange.new(6, 14)
-	marker.EmissionDirection = Enum.NormalId.Top
-	marker.SpreadAngle = Vector2.new(18, 18)
-	marker.Acceleration = Vector3.new(0, -6, 0)
+	marker.Speed = NumberRange.new(0, 2)
+	marker.SpreadAngle = Vector2.new(0, 0)
+	marker.Acceleration = Vector3.zero
+	marker.Rotation = NumberRange.new(0, 360)
+	marker.RotSpeed = NumberRange.new(-250, 250)
+	marker.Shape = Enum.ParticleEmitterShape.Box
+	marker.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	marker.LockedToPart = true
 	marker.LightEmission = 1
 	marker.LightInfluence = 0
 	marker.Rate = 0
 	marker.Enabled = false
-	marker.Parent = groundAttachment
+	marker.Parent = ground
 
 	local light = Instance.new("PointLight")
 	light.Name = "Flash"
@@ -330,7 +348,7 @@ local function strikeAt(position: Vector3)
 		return
 	end
 
-	rig.ground.Position = position
+	rig.ground.Position = position + Vector3.new(0, GROUND_LIFT, 0)
 	rig.sky.Position = position + Vector3.new(0, Config.ThunderCloudHeight, 0)
 	rig.marker.Rate = MARKER_RATE_START
 	rig.marker.Enabled = true

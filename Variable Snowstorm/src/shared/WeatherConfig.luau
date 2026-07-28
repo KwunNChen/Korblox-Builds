@@ -247,13 +247,16 @@ WeatherConfig.ThunderTelegraph = 1.5
 -- The telegraph has to be picked out against 1200 white snowflakes in a
 -- whiteout, so it is a saturated blue rather than another white. Keep it a
 -- colour the storm does not already contain.
+--
+-- This MULTIPLIES the texture rather than replacing it, so a colourful texture
+-- times this blue comes out muddy. Set it white to use a texture's own colours.
 WeatherConfig.ThunderMarkerColor = Color3.fromRGB(80, 165, 255)
 
 -- Texture for the charge sparks. The default ships with Studio so it always
 -- loads. For a Toolbox one: View > Toolbox, set the dropdown to Images, search
 -- "electric" or "lightning", right click a result > Copy Asset ID, and paste it
 -- here as "rbxassetid://<id>". Output warns at startup if the id will not load.
-WeatherConfig.ThunderMarkerTexture = "rbxasset://textures/particles/sparkles_main.dds"
+WeatherConfig.ThunderMarkerTexture = "rbxassetid://1252044337"
 
 -- Spark size at full charge. Snow flakes are 0.55, so anything much smaller
 -- than that disappears into the storm.
@@ -261,6 +264,10 @@ WeatherConfig.ThunderMarkerSize = 0.9
 
 -- Ground glow at full charge. 0 leaves only the sparks.
 WeatherConfig.ThunderMarkerLight = 5
+
+-- Spark field radius as a multiple of ThunderKillRadius. 1.0 marks exactly the
+-- ground that kills you; above 1 over-warns, below 1 under-warns.
+WeatherConfig.ThunderMarkerSpread = 1.0
 
 -- Strikes this close to a pending one are skipped, so a crowd does not stack
 -- strikes on the same patch of ground.
