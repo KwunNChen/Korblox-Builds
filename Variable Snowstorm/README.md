@@ -211,6 +211,10 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `ThunderWarningPitch` | How far the opening rumble is slowed from the crack. Lower is deeper and longer. |
 | `ThunderDarkenExposure` | How far the sky darkens during a thunderstorm. Lower is darker. |
 | `ThunderDarkenBrightness` | Sun brightness multiplier during a thunderstorm. |
+| `ThunderFlashBrightness` | How hard a strike flashes the sky. The main dial for the effect. |
+| `ThunderMarkerTexture` | Image used for the charge sparks. Swap for a Toolbox electric texture; Output warns if the id will not load. |
+| `ThunderMarkerSize` | Spark size. Snow is `0.55`, so smaller than that vanishes into the storm. |
+| `ThunderBoltWidth` | Bolt thickness. Thin reads as a distant streak, thick as a beam beside you. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
 | `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
 
@@ -274,6 +278,12 @@ force while grounded but not mid-air. Turn that off with
 Somewhere inside every Peak, a 30-second thunderstorm opens with a warning
 rumble and then starts dropping lightning. A strike kills instantly. Being under
 a roof makes you immune.
+
+The sky flash is the strike, not the bolt. The bolt is deliberately thin and the
+impact light deliberately dim, so a strike reads as the whole sky lighting up
+rather than a beam landing beside you — `ThunderFlashBrightness` and
+`ThunderBoltWidth` are the two knobs that balance it. The crack follows the
+flash by `distance / ThunderSoundSpeed`, so distant strikes rumble late.
 
 The sky darkens as the window opens, ramping in across `ThunderWarningLead` so
 it lands before the first strike — the darkening *is* the warning. It also makes

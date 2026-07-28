@@ -17,7 +17,7 @@ local WeatherConfig = {}
 WeatherConfig.PhaseDurations = {
 	Clear = NumberRange.new(90, 150),
 	Building = NumberRange.new(35, 55),
-	Peak = NumberRange.new(75, 140),
+	Peak = NumberRange.new(85, 150),
 	Fading = NumberRange.new(40, 60),
 }
 
@@ -218,8 +218,8 @@ WeatherConfig.EnableThunderstorm = true
 
 -- Seconds of active strikes, and the warning rumble that opens the window
 -- before the first one lands.
-WeatherConfig.ThunderDuration = 30
-WeatherConfig.ThunderWarningLead = 4
+WeatherConfig.ThunderDuration = 40
+WeatherConfig.ThunderWarningLead = 5
 
 -- Seconds between strikes near one targeted player.
 WeatherConfig.ThunderStrikeInterval = NumberRange.new(2, 3)
@@ -236,20 +236,38 @@ WeatherConfig.ThunderAnchorRotate = 6
 -- THE FAIRNESS KNOB. Strikes never land within this of any player, so standing
 -- still is always survivable. Below ThunderKillRadius, lightning starts killing
 -- stationary players.
-WeatherConfig.ThunderSafeRadius = 20
-WeatherConfig.ThunderSpawnRadius = 45
-WeatherConfig.ThunderKillRadius = 8
+WeatherConfig.ThunderSafeRadius = 16
+WeatherConfig.ThunderSpawnRadius = 38
+WeatherConfig.ThunderKillRadius = 9
 
 -- Seconds the marker shows before the strike lands. Long on purpose, because
 -- the marker is deliberately quiet.
-WeatherConfig.ThunderTelegraph = 1.8
+WeatherConfig.ThunderTelegraph = 1.5
+
+-- The telegraph has to be picked out against 1200 white snowflakes in a
+-- whiteout, so it is a saturated blue rather than another white. Keep it a
+-- colour the storm does not already contain.
+WeatherConfig.ThunderMarkerColor = Color3.fromRGB(80, 165, 255)
+
+-- Texture for the charge sparks. The default ships with Studio so it always
+-- loads. For a Toolbox one: View > Toolbox, set the dropdown to Images, search
+-- "electric" or "lightning", right click a result > Copy Asset ID, and paste it
+-- here as "rbxassetid://<id>". Output warns at startup if the id will not load.
+WeatherConfig.ThunderMarkerTexture = "rbxasset://textures/particles/sparkles_main.dds"
+
+-- Spark size at full charge. Snow flakes are 0.55, so anything much smaller
+-- than that disappears into the storm.
+WeatherConfig.ThunderMarkerSize = 0.9
+
+-- Ground glow at full charge. 0 leaves only the sparks.
+WeatherConfig.ThunderMarkerLight = 5
 
 -- Strikes this close to a pending one are skipped, so a crowd does not stack
 -- strikes on the same patch of ground.
 WeatherConfig.ThunderMinSeparation = 14
 
 -- Seconds of immunity after spawning.
-WeatherConfig.ThunderSpawnGrace = 5
+WeatherConfig.ThunderSpawnGrace = 10
 
 -- Sheltered players draw strikes at this fraction of the normal rate. They are
 -- immune, so it is spectacle rather than pressure.
@@ -285,6 +303,16 @@ WeatherConfig.ThunderDarkenBrightness = 0.35 -- multiplier on Lighting.Brightnes
 WeatherConfig.ThunderSkyColor = Color3.fromRGB(70, 78, 92)
 WeatherConfig.ThunderAmbientColor = Color3.fromRGB(48, 54, 68)
 WeatherConfig.ThunderDarkenSmoothing = 2.5 -- seconds
+
+-- How hard a strike flashes the whole sky. The main dial for this effect:
+-- raise these and lower ThunderBoltWidth to make the flash the event and the
+-- bolt incidental. Exposure has to clear ThunderDarkenExposure to read at all.
+WeatherConfig.ThunderFlashBrightness = 4.5
+WeatherConfig.ThunderFlashExposure = 1.1
+
+-- Bolt thickness in studs. Thin reads as a distant streak, thick reads as a
+-- beam landing next to you.
+WeatherConfig.ThunderBoltWidth = 0.4
 
 -- ============================================================
 -- DEBUG

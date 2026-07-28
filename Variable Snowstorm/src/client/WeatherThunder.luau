@@ -15,16 +15,23 @@ local Attr = Shared.Attr
 local WeatherThunder = {}
 
 -- Seconds the bolt stays on screen.
-local BOLT_LIFETIME = 0.12
+local BOLT_LIFETIME = 0.08
 
--- Sky flash falloff per second, and how far it lifts brightness and exposure.
+-- Sky flash falloff per second. Amplitude lives in WeatherConfig.
 local FLASH_DECAY = 3.5
-local FLASH_BRIGHTNESS = 2.5
-local FLASH_EXPOSURE = 0.55
+
+-- Impact light. Kept dim on purpose: a bright one lights the ground like a
+-- flare and reads as a strike beside you rather than a flash overhead.
+local IMPACT_BRIGHTNESS = 2.5
+local IMPACT_RANGE = 35
+local IMPACT_COLOR = Color3.fromRGB(200, 225, 255)
 
 -- Marker emission at the start and end of the telegraph.
-local MARKER_RATE_START = 4
-local MARKER_RATE_END = 26
+local MARKER_RATE_START = 14
+local MARKER_RATE_END = 80
+
+-- Ground glow radius while charging.
+local MARKER_LIGHT_RANGE = 16
 
 -- Raise to write Lighting less often, lower for finer steps.
 local FLASH_EPSILON = 0.004
@@ -96,30 +103,32 @@ local function buildRig(): Rig
 
 	local marker = Instance.new("ParticleEmitter")
 	marker.Name = "Charge"
-	marker.Texture = Config.FlakeTexture
-	marker.Color = ColorSequence.new(Color3.fromRGB(150, 200, 255), Color3.fromRGB(235, 245, 255))
-	marker.Lifetime = NumberRange.new(0.35, 0.6)
+	marker.Texture = Config.ThunderMarkerTexture
+	marker.Color = ColorSequence.new(Config.ThunderMarkerColor)
+	marker.Lifetime = NumberRange.new(0.4, 0.7)
 	marker.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.16),
+		NumberSequenceKeypoint.new(0, Config.ThunderMarkerSize * 0.5),
+		NumberSequenceKeypoint.new(0.3, Config.ThunderMarkerSize),
 		NumberSequenceKeypoint.new(1, 0),
 	})
 	marker.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
+		NumberSequenceKeypoint.new(0, 0),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	marker.Speed = NumberRange.new(3, 7)
+	marker.Speed = NumberRange.new(6, 14)
 	marker.EmissionDirection = Enum.NormalId.Top
 	marker.SpreadAngle = Vector2.new(18, 18)
 	marker.Acceleration = Vector3.new(0, -6, 0)
-	marker.LightEmission = 0.8
+	marker.LightEmission = 1
+	marker.LightInfluence = 0
 	marker.Rate = 0
 	marker.Enabled = false
 	marker.Parent = groundAttachment
 
 	local light = Instance.new("PointLight")
 	light.Name = "Flash"
-	light.Color = Color3.fromRGB(200, 225, 255)
-	light.Range = 55
+	light.Color = IMPACT_COLOR
+	light.Range = IMPACT_RANGE
 	light.Brightness = 0
 	light.Shadows = false
 	light.Enabled = false
@@ -139,8 +148,8 @@ local function buildRig(): Rig
 	bolt.Color = ColorSequence.new(Color3.fromRGB(235, 245, 255))
 	bolt.LightEmission = 1
 	bolt.LightInfluence = 0
-	bolt.Width0 = 0.6
-	bolt.Width1 = 1.6
+	bolt.Width0 = Config.ThunderBoltWidth * 0.6
+	bolt.Width1 = Config.ThunderBoltWidth
 	bolt.FaceCamera = true
 	bolt.Transparency = BOLT_HIDDEN
 	bolt.Enabled = false
@@ -176,6 +185,41 @@ local function verifySound(sound: Sound)
 				.. "\n  you need the audio asset's own id, not the model wrapping it."
 				.. "\n  To confirm: drop a Sound into Workspace, paste the id in, and press the play"
 				.. "\n  arrow next to SoundId in Properties. If it is silent there, it is the asset."
+		)
+	end)
+end
+
+-- Same silent-failure trap as the audio: a bad image id renders nothing and
+-- says nothing, which is indistinguishable from the marker being too subtle.
+local function verifyTexture(texture: string)
+	if texture == "" or texture:sub(1, 10) == "rbxasset://" then
+		return
+	end
+
+	task.spawn(function()
+		local probe = Instance.new("Decal")
+		probe.Texture = texture
+
+		pcall(function()
+			ContentProvider:PreloadAsync({ probe })
+		end)
+
+		local ok, fetchStatus = pcall(function()
+			return ContentProvider:GetAssetFetchStatus(texture)
+		end)
+
+		probe:Destroy()
+
+		if not ok or fetchStatus ~= Enum.AssetFetchStatus.Failure then
+			return
+		end
+
+		warn(
+			string.format("[WeatherThunder] Marker texture failed to load (%s).", texture)
+				.. "\n  Toolbox images are private unless the uploader made them public, and a"
+				.. "\n  MODEL id will not work here -- you need an Image or Decal asset id."
+				.. "\n  To check one: put a Decal on a part, paste the id into its Texture, and"
+				.. "\n  see whether it appears in the viewport."
 		)
 	end)
 end
@@ -276,7 +320,10 @@ local function strikeAt(position: Vector3)
 	local viewer = if camera then camera.CFrame.Position else position
 	local distance = (viewer - position).Magnitude
 
-	task.delay(distance / math.max(Config.ThunderSoundSpeed, 1), playCrack, distance)
+	-- Offset by the telegraph so the lag is measured from the bolt, not from the
+	-- marker appearing. Without it the crack lands before the flash.
+	local soundLag = Config.ThunderTelegraph + distance / math.max(Config.ThunderSoundSpeed, 1)
+	task.delay(soundLag, playCrack, distance)
 
 	local rig = acquireRig()
 	if not rig then
@@ -287,6 +334,12 @@ local function strikeAt(position: Vector3)
 	rig.sky.Position = position + Vector3.new(0, Config.ThunderCloudHeight, 0)
 	rig.marker.Rate = MARKER_RATE_START
 	rig.marker.Enabled = true
+
+	--Same light does both jobs: a dim blue charge now, a white flash on impact.
+	rig.light.Color = Config.ThunderMarkerColor
+	rig.light.Range = MARKER_LIGHT_RANGE
+	rig.light.Brightness = 0
+	rig.light.Enabled = Config.ThunderMarkerLight > 0
 
 	table.insert(active, {
 		rig = rig,
@@ -317,10 +370,10 @@ local function applyLighting()
 	lastInfluence = influence
 
 	Lighting.Brightness = baseBrightness * Shared.lerp(1, Config.ThunderDarkenBrightness, darkness)
-		+ flashStrength * FLASH_BRIGHTNESS
+		+ flashStrength * Config.ThunderFlashBrightness
 	Lighting.ExposureCompensation = baseExposure
 		+ darkness * Config.ThunderDarkenExposure
-		+ flashStrength * FLASH_EXPOSURE
+		+ flashStrength * Config.ThunderFlashExposure
 
 	Lighting.Ambient = baseAmbient:Lerp(Config.ThunderAmbientColor, darkness):Lerp(FLASH_TINT, flashStrength * 0.7)
 
@@ -346,8 +399,9 @@ local function step(dt: number)
 		local elapsed = now - entry.startedAt
 
 		if elapsed < telegraph then
-			local alpha = elapsed / telegraph
-			rig.marker.Rate = Shared.lerp(MARKER_RATE_START, MARKER_RATE_END, alpha * alpha)
+			local charge = (elapsed / telegraph) ^ 2
+			rig.marker.Rate = Shared.lerp(MARKER_RATE_START, MARKER_RATE_END, charge)
+			rig.light.Brightness = Config.ThunderMarkerLight * charge
 		elseif not entry.struck then
 			entry.struck = true
 
@@ -355,7 +409,9 @@ local function step(dt: number)
 			rig.marker.Rate = 0
 			rig.bolt.Transparency = BOLT_VISIBLE
 			rig.bolt.Enabled = true
-			rig.light.Brightness = 6
+			rig.light.Color = IMPACT_COLOR
+			rig.light.Range = IMPACT_RANGE
+			rig.light.Brightness = IMPACT_BRIGHTNESS
 			rig.light.Enabled = true
 
 			flashStrength = math.max(flashStrength, entry.strength)
@@ -402,6 +458,8 @@ function WeatherThunder.init()
 	if atmosphere then
 		baseSkyColor = (atmosphere :: Atmosphere).Color
 	end
+
+	verifyTexture(Config.ThunderMarkerTexture)
 
 	for _ = 1, Config.ThunderVisualPool do
 		table.insert(pool, buildRig())

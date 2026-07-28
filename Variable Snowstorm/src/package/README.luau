@@ -1,6 +1,8 @@
 --[[
 
-	VARIABLE SNOWSTORM
+	GIVE CREDIT TO PLAGUEBYTE!!!!! @pb6008 for any inquiries
+
+	VARIABLE SNOWSTORM + THUNDERSTORM
 
 	Storms run on a cycle, snow stops when you walk under a roof, and getting
 	caught out in one slows you down.
