@@ -29,7 +29,7 @@ CLIENT   StarterPlayerScripts.Weather
   reads those      ->  particle rig parented to Camera
                    ->  its own roof raycasts
                    ->  local Lighting, Atmosphere, wind audio
-                   ->  lightning bolts, markers, thunder
+                   ->  sky flash and thunder (no geometry)
 ```
 
 Roof detection cannot work server side. A ParticleEmitter made on the server
@@ -55,7 +55,7 @@ ReplicatedStorage
 ServerScriptService
 ├── Weather
 │   ├── WeatherService       state machine + hooks
-│   ├── ThunderService       lightning window, placement, kills
+│   ├── ThunderService       lightning window and strike placement
 │   └── WeatherRuntime       entry point + gameplay effects
 └── Common
     └── SpeedService         owns WalkSpeed and jump height
@@ -64,7 +64,7 @@ StarterPlayer/StarterPlayerScripts
 └── Weather
     ├── WeatherClient        rendering + roof detection
     ├── WeatherAudio         wind ambience
-    └── WeatherThunder       lightning visuals + thunder
+    └── WeatherThunder       sky flash + thunder, draws no geometry
 ```
 
 ## Installing in a game
@@ -215,8 +215,10 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `StormDarkenAmount` | How far a full blizzard darkens the sky on its own, with no lightning. 1 means Peak snow blots the sun by itself. |
 | `ThunderFlashBrightness` | How hard a strike flashes the sky. The main dial for the effect. |
 | `ThunderHideSun` | Hides the sun disc, glare and god rays. Dimming brightness alone leaves a bright disc in a black sky. |
-| `ThunderCloudGlowHeight` | Height of the lit cloud patch. Must stay inside `StormFogEnd` or fog swallows it. |
-| `ThunderBoltWidth` | Bolt thickness. Thin reads as a distant streak, thick as a beam beside you. |
+| `ThunderSoundSpeed` | Studs/sec the rumble travels. Lower stretches the gap between flash and thunder. |
+| `ThunderFlashExposure` | How far a strike lifts exposure. With no bolt drawn, this and `ThunderFlashBrightness` carry the global flash. |
+| `ThunderScreenFlashStrength` | Peak opacity of the screen-edge wash. The directional half of the effect. |
+| `ThunderScreenFlashSpread` | How far across the screen the wash reaches. Near 1 loses all sense of direction. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
 | `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
 
@@ -284,11 +286,25 @@ couple of minutes of distant lightning.
 never targets anyone. It exists to make a blizzard feel like it has a sky over
 it.
 
-The sky flash is the strike, not the bolt. The bolt is deliberately thin and the
-impact light deliberately dim, so a strike reads as the whole sky lighting up
-rather than a beam landing beside you — `ThunderFlashBrightness` and
-`ThunderBoltWidth` are the two knobs that balance it. The crack follows the
-flash by `distance / ThunderSoundSpeed`, so distant strikes rumble late.
+**A strike draws no geometry at all** — no bolt, no marker, nothing parented
+into Workspace. It is two things instead:
+
+- A **global flash** through Lighting (`ThunderFlashBrightness`,
+  `ThunderFlashExposure`), which brightens everything at once.
+- A **directional wash** at the screen edge nearest the strike, drawn as a
+  `UIGradient` in a ScreenGui. Lightning off to your left brightens the left of
+  your screen.
+
+The wash stores the strike's world position rather than a screen angle, so it
+slides to the correct edge as you turn your head. A gradient also has no edge to
+see, which is exactly what the old glowing sphere got wrong.
+
+The crack then follows by `distance / ThunderSoundSpeed`.
+
+Distance still matters even with nothing to look at. Each strike happens at a
+world position, and every client works out its own distance from it, so two
+players standing apart get different flash strength and a different delay before
+the thunder reaches them.
 
 The sky darkens as the window opens, ramping in across `ThunderWarningLead` so
 it lands before the first strike — the darkening *is* the warning. It also makes
@@ -297,12 +313,9 @@ each flash punch harder by contrast. Only `Brightness`, `Ambient`,
 stay with the snowstorm, so the two lighting owners never fight. Exposure is
 what darkens the skybox itself, which fog alone never touches.
 
-Strikes land somewhere between `ThunderMinDistance` and `ThunderMaxDistance`
-from a player — well past `StormFogEnd`, on purpose. Fog does the falloff for
-free: the far ones reach you as nothing but a flash across the sky and a rumble
-that arrives seconds later, while only the nearest show an actual bolt and a lit
-patch of cloud. You get variety without any distance logic beyond picking a
-radius.
+Strikes happen between `ThunderMinDistance` and `ThunderMaxDistance` from a
+player. Nearer ones flash harder and rumble sooner; further ones are a faint
+wash of light followed by a late roll.
 
 Players are picked only to decide *where* in the world a strike happens, so it
 lands somewhere someone can see or hear it rather than in an empty corner of the

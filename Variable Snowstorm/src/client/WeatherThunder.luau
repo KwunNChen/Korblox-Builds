@@ -1,19 +1,19 @@
 --[[
-	Lightning visuals, thunder audio, and the storm-dark sky.
+	Thunder audio and the storm-dark sky.
 
-	Lightning is environmental only -- it never damages anyone, so there is no
-	telegraph and nothing to dodge. A strike is a bolt, a lit patch of cloud, a
-	flash across the whole sky, and a rumble that arrives late.
+	Lightning is environmental only -- it never damages anyone -- and it draws no
+	geometry at all. A strike is a flash across the whole sky and a rumble that
+	arrives late, both scaled by how far off it happened. Nothing is parented
+	into Workspace, because nothing needs to be rendered.
 
-	Strikes land past StormFogEnd on purpose, so fog reduces most of them to a
-	flash on the horizon and only the nearest show an actual bolt.
-
-	Visual rigs are pooled and capped. When the pool is empty the oldest is
-	recycled, so a busy window has a hard ceiling instead of a frame hitch.
+	Distance still matters even with no bolt to look at: two players standing
+	apart get different flash strength and a different delay before the thunder
+	reaches them.
 ]]
 
 local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
@@ -26,57 +26,31 @@ local Attr = Shared.Attr
 
 local WeatherThunder = {}
 
--- Seconds the bolt and the lit cloud stay on screen.
-local BOLT_LIFETIME = 0.12
-local GLOW_LIFETIME = 0.45
-
 -- Sky flash falloff per second. Amplitude lives in WeatherConfig.
 local FLASH_DECAY = 3.5
 
 -- Raise to write Lighting less often, lower for finer steps.
 local FLASH_EPSILON = 0.004
 
--- Impact light. Kept dim on purpose: the sky flash is the event, not a flare
--- on the ground.
-local IMPACT_BRIGHTNESS = 2.5
-local IMPACT_RANGE = 35
-local IMPACT_COLOR = Color3.fromRGB(200, 225, 255)
-
--- Cloud glow transparency at its brightest. Lower is brighter.
-local GLOW_STRIKE = 0.35
-
-local BOLT_VISIBLE = NumberSequence.new(0)
-local BOLT_HIDDEN = NumberSequence.new(1)
 local FLASH_TINT = Color3.fromRGB(190, 210, 245)
 
-type Rig = {
-	folder: Folder,
-	ground: BasePart,
-	sky: BasePart,
-	glow: BasePart,
-	light: PointLight,
-	bolt: Beam,
-}
-
-type Active = {
-	rig: Rig,
-	startedAt: number,
-	boltDone: boolean,
-}
-
-local container: Folder
 local atmosphere: Atmosphere?
 local sky: Sky?
 local sunRays: SunRaysEffect?
 local rumbleSound: Sound?
 local soundPool: { Sound } = {}
-
-local pool: { Rig } = {}
-local active: { Active } = {}
 local activeSounds = 0
+
+local edgeFrame: Frame?
+local edgeGradient: UIGradient?
+local edgeStrength = 0
+local edgePosition: Vector3?
+local lastEdgeWritten = -1
 
 local darkness = 0
 local darknessTarget = 0
+local sunHide = 0
+local sunHideTarget = 0
 local flashStrength = 0
 
 local thunderActive = false
@@ -91,99 +65,6 @@ local baseSunSize = 0
 local baseMoonSize = 0
 local baseGlare = 0
 local baseSunRays = 0
-
-local function newHiddenPart(name: string): BasePart
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = Vector3.one
-	part.Transparency = 1
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CastShadow = false
-	part.Locked = true
-	return part
-end
-
-local function buildRig(): Rig
-	local folder = Instance.new("Folder")
-	folder.Name = "StrikeRig"
-
-	local ground = newHiddenPart("Impact")
-	ground.Parent = folder
-
-	local groundAttachment = Instance.new("Attachment")
-	groundAttachment.Name = "Impact"
-	groundAttachment.Parent = ground
-
-	local light = Instance.new("PointLight")
-	light.Name = "Flash"
-	light.Color = IMPACT_COLOR
-	light.Range = IMPACT_RANGE
-	light.Brightness = 0
-	light.Shadows = false
-	light.Enabled = false
-	light.Parent = ground
-
-	local skyPart = newHiddenPart("Cloud")
-	skyPart.Parent = folder
-
-	local skyAttachment = Instance.new("Attachment")
-	skyAttachment.Name = "Cloud"
-	skyAttachment.Parent = skyPart
-
-	local bolt = Instance.new("Beam")
-	bolt.Name = "Bolt"
-	bolt.Attachment0 = skyAttachment
-	bolt.Attachment1 = groundAttachment
-	bolt.Color = ColorSequence.new(Color3.fromRGB(235, 245, 255))
-	bolt.LightEmission = 1
-	bolt.LightInfluence = 0
-	bolt.Width0 = Config.ThunderBoltWidth * 0.6
-	bolt.Width1 = Config.ThunderBoltWidth
-	bolt.FaceCamera = true
-	bolt.Transparency = BOLT_HIDDEN
-	bolt.Enabled = false
-	bolt.Parent = skyPart
-
-	--The lit patch of cloud the bolt drops out of. Sits below the bolt's origin
-	--so it stays inside fog range, and the fog is what smears it from a sphere
-	--into something cloud-shaped.
-	local glow = Instance.new("Part")
-	glow.Name = "CloudGlow"
-	glow.Shape = Enum.PartType.Ball
-	glow.Material = Enum.Material.Neon
-	glow.Color = Config.ThunderCloudGlowColor
-	glow.Size = Vector3.one * Config.ThunderCloudGlowSize
-	glow.Transparency = 1
-	glow.Anchored = true
-	glow.CanCollide = false
-	glow.CanQuery = false
-	glow.CanTouch = false
-	glow.CastShadow = false
-	glow.Locked = true
-	glow.Parent = folder
-
-	folder.Parent = container
-
-	return {
-		folder = folder,
-		ground = ground,
-		sky = skyPart,
-		glow = glow,
-		light = light,
-		bolt = bolt,
-	}
-end
-
-local function resetRig(rig: Rig)
-	rig.bolt.Enabled = false
-	rig.bolt.Transparency = BOLT_HIDDEN
-	rig.light.Enabled = false
-	rig.light.Brightness = 0
-	rig.glow.Transparency = 1
-end
 
 -- Roblox audio is private by default and fails silently, so say so out loud.
 local function verifySound(sound: Sound)
@@ -259,63 +140,57 @@ local function playWarning()
 	end
 end
 
-local function acquireRig(): Rig?
-	local rig = table.remove(pool)
-	if rig then
-		return rig
-	end
-
-	local oldest, oldestAt = nil, math.huge
-	for index, entry in active do
-		if entry.startedAt < oldestAt then
-			oldest, oldestAt = index, entry.startedAt
-		end
-	end
-
-	if not oldest then
-		return nil
-	end
-
-	local entry = table.remove(active, oldest)
-	resetRig(entry.rig)
-	return entry.rig
-end
-
 local function strikeAt(position: Vector3)
 	local camera = workspace.CurrentCamera
 	local viewer = if camera then camera.CFrame.Position else position
 	local distance = (viewer - position).Magnitude
 
-	-- Light first, then the roll arrives. This is the whole point of
-	-- ThunderSoundSpeed and is what makes distance readable.
+	-- Light first, then the roll arrives. This is what makes distance readable
+	-- now that there is no bolt to judge it by.
 	task.delay(distance / math.max(Config.ThunderSoundSpeed, 1), playCrack, distance)
 
-	local rig = acquireRig()
-	if not rig then
+	local strength = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
+	flashStrength = math.max(flashStrength, strength)
+
+	-- The brighter strike wins the screen, and its world position is kept rather
+	-- than a screen angle so the wash follows the correct edge as you turn.
+	if strength >= edgeStrength then
+		edgeStrength = strength
+		edgePosition = position
+	end
+end
+
+local function applyEdgeFlash()
+	local frame = edgeFrame
+	if not frame then
 		return
 	end
 
-	rig.ground.Position = position
-	rig.sky.Position = position + Vector3.new(0, Config.ThunderCloudHeight, 0)
-	rig.glow.Position = position + Vector3.new(0, Config.ThunderCloudGlowHeight, 0)
+	local alpha = edgeStrength * Config.ThunderScreenFlashStrength
 
-	rig.bolt.Transparency = BOLT_VISIBLE
-	rig.bolt.Enabled = true
-	rig.glow.Transparency = GLOW_STRIKE
-	rig.light.Brightness = IMPACT_BRIGHTNESS
-	rig.light.Enabled = true
+	if math.abs(alpha - lastEdgeWritten) >= FLASH_EPSILON then
+		lastEdgeWritten = alpha
+		frame.BackgroundTransparency = 1 - alpha
+	end
 
-	flashStrength = math.max(flashStrength, math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1))
+	if alpha <= 0 then
+		return
+	end
 
-	table.insert(active, {
-		rig = rig,
-		startedAt = os.clock(),
-		boltDone = false,
-	})
+	local camera = workspace.CurrentCamera
+	local gradient = edgeGradient
+	if not camera or not gradient or not edgePosition then
+		return
+	end
+
+	-- Gradient runs bright-to-clear from its start, so point it AWAY from the
+	-- strike to leave the bright end on the strike's side of the screen.
+	local offset = camera.CFrame:PointToObjectSpace(edgePosition :: Vector3)
+	gradient.Rotation = math.deg(math.atan2(offset.Y, -offset.X))
 end
 
 local function applyLighting()
-	local influence = math.max(darkness, flashStrength)
+	local influence = math.max(darkness, flashStrength, sunHide)
 
 	if influence <= 0 then
 		-- Re-read the base so a day/night cycle stays authoritative.
@@ -354,10 +229,11 @@ local function applyLighting()
 		(atmosphere :: Atmosphere).Color = baseSkyColor:Lerp(Config.ThunderSkyColor, darkness)
 	end
 
-	-- Dimming Brightness alone leaves a bright sun disc hanging in a black sky,
-	-- so the disc, its glare and its god rays all go with it.
+	-- Kept separate from darkness: thick cloud blots the sun disc completely
+	-- while the scene stays grey-bright, so lightening the storm must not put
+	-- the sun back in the sky.
 	if Config.ThunderHideSun then
-		local clear = 1 - darkness
+		local clear = 1 - sunHide
 
 		if sky then
 			(sky :: Sky).SunAngularSize = baseSunSize * clear;
@@ -372,44 +248,22 @@ local function applyLighting()
 	end
 end
 
--- A thunderstorm darkens fully; a blizzard darkens on its own by intensity, so
--- Peak snow blots the sun even with no lightning running.
 local function refreshDarknessTarget()
-	local fromStorm = stormIntensity * Config.StormDarkenAmount
-	darknessTarget = math.max(if thunderActive then 1 else 0, math.clamp(fromStorm, 0, 1))
+	local thunder = if thunderActive then 1 else 0
+
+	darknessTarget = math.max(thunder, math.clamp(stormIntensity * Config.StormDarkenAmount, 0, 1))
+	sunHideTarget = math.max(thunder, math.clamp(stormIntensity * Config.StormSunHideAmount, 0, 1))
 end
 
 local function step(dt: number)
-	local settled = #active == 0 and flashStrength <= 0 and math.abs(darkness - darknessTarget) < FLASH_EPSILON
+	local settled = flashStrength <= 0
+		and edgeStrength <= 0
+		and math.abs(darkness - darknessTarget) < FLASH_EPSILON
+		and math.abs(sunHide - sunHideTarget) < FLASH_EPSILON
 
-	if settled and lastInfluence <= 0 and darknessTarget <= 0 then
+	if settled and lastInfluence <= 0 and darknessTarget <= 0 and sunHideTarget <= 0 then
 		applyLighting()
 		return
-	end
-
-	local now = os.clock()
-
-	for index = #active, 1, -1 do
-		local entry = active[index]
-		local rig = entry.rig
-		local elapsed = now - entry.startedAt
-
-		if not entry.boltDone and elapsed >= BOLT_LIFETIME then
-			entry.boltDone = true
-			rig.bolt.Enabled = false
-			rig.bolt.Transparency = BOLT_HIDDEN
-			rig.light.Enabled = false
-			rig.light.Brightness = 0
-		end
-
-		if elapsed >= GLOW_LIFETIME then
-			resetRig(rig)
-			table.insert(pool, rig)
-			table.remove(active, index)
-		else
-			--The cloud keeps glowing a beat after the bolt has gone.
-			rig.glow.Transparency = Shared.lerp(GLOW_STRIKE, 1, elapsed / GLOW_LIFETIME)
-		end
 	end
 
 	darkness = Shared.damp(darkness, darknessTarget, Config.ThunderDarkenSmoothing, dt)
@@ -417,11 +271,24 @@ local function step(dt: number)
 		darkness = 0
 	end
 
+	sunHide = Shared.damp(sunHide, sunHideTarget, Config.ThunderDarkenSmoothing, dt)
+	if sunHideTarget <= 0 and sunHide < FLASH_EPSILON then
+		sunHide = 0
+	end
+
 	if flashStrength > 0 then
 		flashStrength = math.max(flashStrength - FLASH_DECAY * dt, 0)
 	end
 
+	if edgeStrength > 0 then
+		edgeStrength = math.max(edgeStrength - FLASH_DECAY * dt, 0)
+		if edgeStrength <= 0 then
+			edgePosition = nil
+		end
+	end
+
 	applyLighting()
+	applyEdgeFlash()
 end
 
 function WeatherThunder.init()
@@ -436,9 +303,39 @@ function WeatherThunder.init()
 
 	local stateHolder = Shared.getStateHolder()
 
-	container = Instance.new("Folder")
-	container.Name = "ThunderVisuals"
-	container.Parent = workspace.CurrentCamera or workspace
+	if Config.EnableThunderScreenFlash then
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "ThunderFlash"
+		gui.ResetOnSpawn = false
+		gui.IgnoreGuiInset = true
+		--Behind anything the game puts on screen.
+		gui.DisplayOrder = -10
+		gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+		local frame = Instance.new("Frame")
+		frame.Name = "Edge"
+		frame.Size = UDim2.fromScale(1, 1)
+		frame.BackgroundColor3 = Config.ThunderScreenFlashColor
+		frame.BackgroundTransparency = 1
+		frame.BorderSizePixel = 0
+		--Must stay false or the wash swallows clicks for the whole screen.
+		frame.Active = false
+		frame.Parent = gui
+
+		--Bright at the start of the gradient, clear by ThunderScreenFlashSpread.
+		--A gradient has no edge to see, which is what the sphere got wrong.
+		local spread = math.clamp(Config.ThunderScreenFlashSpread, 0.05, 0.95)
+		local gradient = Instance.new("UIGradient")
+		gradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(spread, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		gradient.Parent = frame
+
+		edgeFrame = frame
+		edgeGradient = gradient
+	end
 
 	atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	sunRays = Lighting:FindFirstChildOfClass("SunRaysEffect")
@@ -467,10 +364,6 @@ function WeatherThunder.init()
 	end
 	if sunRays then
 		baseSunRays = (sunRays :: SunRaysEffect).Intensity
-	end
-
-	for _ = 1, Config.ThunderVisualPool do
-		table.insert(pool, buildRig())
 	end
 
 	if Config.ThunderCrackSoundId ~= "" then
@@ -525,13 +418,6 @@ function WeatherThunder.init()
 	strikeEvent.OnClientEvent:Connect(function(position)
 		if typeof(position) == "Vector3" then
 			strikeAt(position)
-		end
-	end)
-
-	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-		local camera = workspace.CurrentCamera
-		if camera then
-			container.Parent = camera
 		end
 	end)
 

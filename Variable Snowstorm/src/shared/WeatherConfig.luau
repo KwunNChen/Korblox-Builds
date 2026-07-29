@@ -17,7 +17,7 @@ local WeatherConfig = {}
 WeatherConfig.PhaseDurations = {
 	Clear = NumberRange.new(90, 150),
 	Building = NumberRange.new(35, 55),
-	Peak = NumberRange.new(85, 150),
+	Peak = NumberRange.new(150, 240),
 	Fading = NumberRange.new(40, 60),
 }
 
@@ -224,37 +224,32 @@ WeatherConfig.EnableThunderstorm = true
 -- event you notice rather than a fixture of every storm.
 WeatherConfig.ThunderChance = 0.6
 
--- Seconds the storm runs, and the rumble that opens it. Long and rare rather
--- than short and constant.
-WeatherConfig.ThunderDuration = 150
+-- Seconds the storm runs, and the rumble that opens it. Long, but deliberately
+-- shorter than a Peak (150-240s) so lightning is a stretch within the blizzard
+-- rather than a fixture of the whole phase.
+WeatherConfig.ThunderDuration = 75
 WeatherConfig.ThunderWarningLead = 6
 
 -- Seconds between strikes near one player.
-WeatherConfig.ThunderStrikeInterval = NumberRange.new(7, 16)
+WeatherConfig.ThunderStrikeInterval = NumberRange.new(3, 7)
 
 -- How many players the storm plays out around at once, so the strike rate a
 -- single person sees stays the same whether two or thirty are on the map.
 WeatherConfig.ThunderAnchorCount = 4
 WeatherConfig.ThunderAnchorRotate = 12
 
--- How far off strikes land. Deliberately past StormFogEnd (250): fog turns the
--- far ones into nothing but a flash on the horizon, and only the nearest show
--- an actual bolt. Raising the minimum pushes lightning further away.
-WeatherConfig.ThunderMinDistance = 160
-WeatherConfig.ThunderMaxDistance = 420
+-- How far off strikes land. Kept just inside StormFogEnd (250) so the bolt is
+-- actually visible -- past that the fog erases it completely and there is no
+-- lightning to see, only a flash. The top of the bolt still fades into the
+-- murk, which is what makes it read as coming down out of cloud.
+WeatherConfig.ThunderMinDistance = 110
+WeatherConfig.ThunderMaxDistance = 210
 
--- How far above the ground the bolt starts.
-WeatherConfig.ThunderCloudHeight = 300
-
--- The patch of cloud a strike lights up. Height must stay inside StormFogEnd
--- (250) or the fog swallows it entirely, which is also why it sits well below
--- ThunderCloudHeight -- the top of the bolt is beyond fog range regardless.
-WeatherConfig.ThunderCloudGlowHeight = 130
-WeatherConfig.ThunderCloudGlowSize = 90
-WeatherConfig.ThunderCloudGlowColor = Color3.fromRGB(190, 215, 255)
 
 -- Studs/sec used to delay the crack by distance, the way real thunder lags.
-WeatherConfig.ThunderSoundSpeed = 400
+-- Against ThunderMinDistance/MaxDistance this puts the rumble roughly 0.9 to
+-- 1.6 seconds behind the flash. Lower it to stretch that gap further.
+WeatherConfig.ThunderSoundSpeed = 160
 
 -- Your own asset id. Roblox audio is private by default, so an id from another
 -- game will not play here.
@@ -270,10 +265,25 @@ WeatherConfig.ThunderWarningVolume = 0.8
 -- or nearby players will miss strikes entirely.
 WeatherConfig.ThunderAudibleDistance = 1200
 
--- Hard ceilings on client cost. Past these, a strike recycles an older visual
--- rather than growing the pool. Raise if you run very high player counts.
-WeatherConfig.ThunderVisualPool = 16
+-- Ceiling on overlapping thunder claps. Past this, extra ones are dropped
+-- rather than layering into mud.
 WeatherConfig.ThunderMaxConcurrentSounds = 4
+
+-- Screen-edge flash aimed at wherever the strike happened, so lightning off to
+-- your left brightens the left of the screen. A ScreenGui in PlayerGui, so it
+-- renders without putting anything into Workspace.
+WeatherConfig.EnableThunderScreenFlash = true
+
+-- Peak opacity of that wash. Deliberately subtle: it layers on top of the
+-- global Lighting flash rather than replacing it, and a thunderstorm throws one
+-- of these every few seconds for over a minute.
+WeatherConfig.ThunderScreenFlashStrength = 0.35
+
+-- How far across the screen the wash reaches, 0 to 1. Small keeps it to the
+-- edge; near 1 becomes a full-screen flash with no sense of direction.
+WeatherConfig.ThunderScreenFlashSpread = 0.45
+
+WeatherConfig.ThunderScreenFlashColor = Color3.fromRGB(214, 231, 255)
 
 -- Sky darkening while a window is open. It ramps in across ThunderWarningLead,
 -- so the sky going dark is the warning, and flashes punch harder against it.
@@ -292,17 +302,17 @@ WeatherConfig.ThunderHideSun = true
 -- How far a full-intensity blizzard darkens the sky on its own, with no
 -- thunderstorm running. 1 makes Peak snow as dark as a thunderstorm, so the sun
 -- is fully blotted at Peak either way; 0 leaves the darkening to thunder alone.
-WeatherConfig.StormDarkenAmount = 1
+WeatherConfig.StormDarkenAmount = 0.55
 
--- How hard a strike flashes the whole sky. The main dial for this effect:
--- raise these and lower ThunderBoltWidth to make the flash the event and the
--- bolt incidental. Exposure has to clear ThunderDarkenExposure to read at all.
+-- How far a full blizzard hides the sun, kept SEPARATE from how dark it gets.
+-- Thick cloud blots the disc completely while the scene stays grey-bright, so
+-- tying these together means lightening the storm puts the sun back in the sky.
+WeatherConfig.StormSunHideAmount = 1
+
+-- How hard a strike flashes the whole sky. Exposure has to clear
+-- ThunderDarkenExposure to read at all.
 WeatherConfig.ThunderFlashBrightness = 4.5
 WeatherConfig.ThunderFlashExposure = 1.1
-
--- Bolt thickness in studs. Thin reads as a distant streak, thick reads as a
--- beam landing next to you.
-WeatherConfig.ThunderBoltWidth = 0.4
 
 -- ============================================================
 -- DEBUG

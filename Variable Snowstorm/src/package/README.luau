@@ -151,9 +151,12 @@
 	LIGHTNING IS WEATHER, NOT A THREAT. It does no damage, ignores shelter, and
 	never targets anyone. There is nothing to dodge.
 
-	Strikes land well past the fog distance, so fog does the falloff: far ones
-	reach you as a flash across the sky and a rumble seconds later, and only the
-	nearest show an actual bolt. The light always comes before the sound.
+	NOTHING IS DRAWN IN THE WORLD. No bolt, no parts added to Workspace. A strike
+	is a flash through Lighting, plus a wash of light at the screen edge nearest
+	where it happened, drawn as a ScreenGui in PlayerGui.
+
+	Nearer strikes flash harder and rumble sooner, further ones are a faint wash
+	of light followed by a late roll. The light always comes before the sound.
 
 	Players are picked only to decide WHERE a strike happens, so it lands
 	somewhere someone can see it rather than in an empty corner of the map.

@@ -24,9 +24,6 @@ local ThunderService = {}
 -- Raise to schedule less often, lower for tighter strike timing.
 local SCHEDULE_INTERVAL = 0.5
 
--- Candidate positions tried before giving up on this player's turn.
-local MAX_PLACEMENT_ATTEMPTS = 3
-
 local THUNDER_PHASE = "Peak"
 
 local stateHolder: Instance
@@ -38,20 +35,6 @@ local windowGeneration = 0
 
 local nextStrikeAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
 local anchors: { Player } = {}
-
-local strikeParams = RaycastParams.new()
-strikeParams.FilterType = Enum.RaycastFilterType.Exclude
-strikeParams.IgnoreWater = true
-
-local function refreshCharacterFilter()
-	local characters = {}
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(characters, player.Character)
-		end
-	end
-	strikeParams.FilterDescendantsInstances = characters
-end
 
 local function rollInterval(): number
 	local range = Config.ThunderStrikeInterval
@@ -77,29 +60,21 @@ local function broadcast(position: Vector3)
 	end
 end
 
+-- No bolt is drawn, so there is nothing to anchor to the ground and no raycast
+-- to do. The position exists only so each client can work out its own distance
+-- for flash strength and thunder delay -- two players standing apart should not
+-- get the same storm.
 local function spawnStrike(player: Player)
 	local entry = CharacterCache.get(player)
 	if not entry then
 		return
 	end
 
-	local origin = entry.root.Position
 	local spread = math.max(Config.ThunderMaxDistance - Config.ThunderMinDistance, 0)
-	local fall = Config.ThunderCloudHeight * 2
+	local angle = math.random() * math.pi * 2
+	local radius = Config.ThunderMinDistance + math.random() * spread
 
-	for _ = 1, MAX_PLACEMENT_ATTEMPTS do
-		local angle = math.random() * math.pi * 2
-		local radius = Config.ThunderMinDistance + math.random() * spread
-		local candidate = origin + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-
-		local from = candidate + Vector3.new(0, Config.ThunderCloudHeight, 0)
-		local result = workspace:Raycast(from, Vector3.new(0, -fall, 0), strikeParams)
-
-		if result then
-			broadcast(result.Position)
-			return
-		end
-	end
+	broadcast(entry.root.Position + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius))
 end
 
 local function rotateAnchors(now: number)
@@ -222,17 +197,6 @@ function ThunderService.start()
 		)
 		return
 	end
-
-	refreshCharacterFilter()
-	Players.PlayerAdded:Connect(refreshCharacterFilter)
-	Players.PlayerRemoving:Connect(refreshCharacterFilter)
-
-	for _, player in Players:GetPlayers() do
-		player.CharacterAdded:Connect(refreshCharacterFilter)
-	end
-	Players.PlayerAdded:Connect(function(player)
-		player.CharacterAdded:Connect(refreshCharacterFilter)
-	end)
 
 	WeatherService.PhaseChanged:Connect(function(phaseName)
 		if phaseName ~= THUNDER_PHASE then
