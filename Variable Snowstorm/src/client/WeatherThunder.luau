@@ -1,4 +1,16 @@
--- Lightning visuals, thunder audio, and the storm-dark sky.
+--[[
+	Lightning visuals, thunder audio, and the storm-dark sky.
+
+	Lightning is environmental only -- it never damages anyone, so there is no
+	telegraph and nothing to dodge. A strike is a bolt, a lit patch of cloud, a
+	flash across the whole sky, and a rumble that arrives late.
+
+	Strikes land past StormFogEnd on purpose, so fog reduces most of them to a
+	flash on the horizon and only the nearest show an actual bolt.
+
+	Visual rigs are pooled and capped. When the pool is empty the oldest is
+	recycled, so a busy window has a hard ceiling instead of a frame hitch.
+]]
 
 local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
@@ -14,34 +26,24 @@ local Attr = Shared.Attr
 
 local WeatherThunder = {}
 
--- Seconds the bolt stays on screen.
-local BOLT_LIFETIME = 0.08
+-- Seconds the bolt and the lit cloud stay on screen.
+local BOLT_LIFETIME = 0.12
+local GLOW_LIFETIME = 0.45
 
 -- Sky flash falloff per second. Amplitude lives in WeatherConfig.
 local FLASH_DECAY = 3.5
 
--- Impact light. Kept dim on purpose: a bright one lights the ground like a
--- flare and reads as a strike beside you rather than a flash overhead.
+-- Raise to write Lighting less often, lower for finer steps.
+local FLASH_EPSILON = 0.004
+
+-- Impact light. Kept dim on purpose: the sky flash is the event, not a flare
+-- on the ground.
 local IMPACT_BRIGHTNESS = 2.5
 local IMPACT_RANGE = 35
 local IMPACT_COLOR = Color3.fromRGB(200, 225, 255)
 
--- Marker emission at the start and end of the telegraph. Live spark count is
--- Rate * average Lifetime, and that lifetime is very short, so these look
--- higher than they are: roughly 9 and 60 live. Lower the end value first if
--- Peak framerate suffers.
-local MARKER_RATE_START = 80
-local MARKER_RATE_END = 540
-
--- Ground glow radius while charging.
-local MARKER_LIGHT_RANGE = 16
-
--- Half-height of the spark volume. It is lifted by this much so the whole box
--- sits above the surface instead of half the sparks spawning underground.
-local GROUND_LIFT = 0.3
-
--- Raise to write Lighting less often, lower for finer steps.
-local FLASH_EPSILON = 0.004
+-- Cloud glow transparency at its brightest. Lower is brighter.
+local GLOW_STRIKE = 0.35
 
 local BOLT_VISIBLE = NumberSequence.new(0)
 local BOLT_HIDDEN = NumberSequence.new(1)
@@ -51,7 +53,7 @@ type Rig = {
 	folder: Folder,
 	ground: BasePart,
 	sky: BasePart,
-	marker: ParticleEmitter,
+	glow: BasePart,
 	light: PointLight,
 	bolt: Beam,
 }
@@ -59,12 +61,13 @@ type Rig = {
 type Active = {
 	rig: Rig,
 	startedAt: number,
-	strength: number,
-	struck: boolean,
+	boltDone: boolean,
 }
 
 local container: Folder
 local atmosphere: Atmosphere?
+local sky: Sky?
+local sunRays: SunRaysEffect?
 local rumbleSound: Sound?
 local soundPool: { Sound } = {}
 
@@ -76,11 +79,18 @@ local darkness = 0
 local darknessTarget = 0
 local flashStrength = 0
 
+local thunderActive = false
+local stormIntensity = 0
+
 local lastInfluence = 0
 local baseBrightness = 0
 local baseExposure = 0
 local baseAmbient = Color3.new()
 local baseSkyColor = Color3.new()
+local baseSunSize = 0
+local baseMoonSize = 0
+local baseGlare = 0
+local baseSunRays = 0
 
 local function newHiddenPart(name: string): BasePart
 	local part = Instance.new("Part")
@@ -89,7 +99,6 @@ local function newHiddenPart(name: string): BasePart
 	part.Transparency = 1
 	part.Anchored = true
 	part.CanCollide = false
-	-- Must stay false or shelter raycasts would read a strike rig as a roof.
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
@@ -102,46 +111,11 @@ local function buildRig(): Rig
 	folder.Name = "StrikeRig"
 
 	local ground = newHiddenPart("Impact")
-	--Sized off the kill radius so the crackling patch is exactly the ground
-	--that kills you, and cannot drift out of sync when that value is retuned.
-	local field = Config.ThunderKillRadius * Config.ThunderMarkerSpread * 2
-	ground.Size = Vector3.new(field, GROUND_LIFT * 2, field)
 	ground.Parent = folder
 
 	local groundAttachment = Instance.new("Attachment")
 	groundAttachment.Name = "Impact"
 	groundAttachment.Parent = ground
-
-	--Parented to the part rather than the attachment so it can emit from the
-	--part's volume instead of a single point.
-	local marker = Instance.new("ParticleEmitter")
-	marker.Name = "Charge"
-	marker.Texture = Config.ThunderMarkerTexture
-	marker.Color = ColorSequence.new(Config.ThunderMarkerColor)
-	marker.Lifetime = NumberRange.new(0.06, 0.16)
-	marker.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, Config.ThunderMarkerSize),
-		NumberSequenceKeypoint.new(1, Config.ThunderMarkerSize),
-	})
-	--Holds solid then snaps out. A linear fade reads as a dying ember.
-	marker.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(0.75, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	marker.Speed = NumberRange.new(0, 2)
-	marker.SpreadAngle = Vector2.new(0, 0)
-	marker.Acceleration = Vector3.zero
-	marker.Rotation = NumberRange.new(0, 360)
-	marker.RotSpeed = NumberRange.new(-250, 250)
-	marker.Shape = Enum.ParticleEmitterShape.Box
-	marker.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	marker.LockedToPart = true
-	marker.LightEmission = 1
-	marker.LightInfluence = 0
-	marker.Rate = 0
-	marker.Enabled = false
-	marker.Parent = ground
 
 	local light = Instance.new("PointLight")
 	light.Name = "Flash"
@@ -152,12 +126,12 @@ local function buildRig(): Rig
 	light.Enabled = false
 	light.Parent = ground
 
-	local sky = newHiddenPart("Cloud")
-	sky.Parent = folder
+	local skyPart = newHiddenPart("Cloud")
+	skyPart.Parent = folder
 
 	local skyAttachment = Instance.new("Attachment")
 	skyAttachment.Name = "Cloud"
-	skyAttachment.Parent = sky
+	skyAttachment.Parent = skyPart
 
 	local bolt = Instance.new("Beam")
 	bolt.Name = "Bolt"
@@ -171,18 +145,44 @@ local function buildRig(): Rig
 	bolt.FaceCamera = true
 	bolt.Transparency = BOLT_HIDDEN
 	bolt.Enabled = false
-	bolt.Parent = sky
+	bolt.Parent = skyPart
+
+	--The lit patch of cloud the bolt drops out of. Sits below the bolt's origin
+	--so it stays inside fog range, and the fog is what smears it from a sphere
+	--into something cloud-shaped.
+	local glow = Instance.new("Part")
+	glow.Name = "CloudGlow"
+	glow.Shape = Enum.PartType.Ball
+	glow.Material = Enum.Material.Neon
+	glow.Color = Config.ThunderCloudGlowColor
+	glow.Size = Vector3.one * Config.ThunderCloudGlowSize
+	glow.Transparency = 1
+	glow.Anchored = true
+	glow.CanCollide = false
+	glow.CanQuery = false
+	glow.CanTouch = false
+	glow.CastShadow = false
+	glow.Locked = true
+	glow.Parent = folder
 
 	folder.Parent = container
 
 	return {
 		folder = folder,
 		ground = ground,
-		sky = sky,
-		marker = marker,
+		sky = skyPart,
+		glow = glow,
 		light = light,
 		bolt = bolt,
 	}
+end
+
+local function resetRig(rig: Rig)
+	rig.bolt.Enabled = false
+	rig.bolt.Transparency = BOLT_HIDDEN
+	rig.light.Enabled = false
+	rig.light.Brightness = 0
+	rig.glow.Transparency = 1
 end
 
 -- Roblox audio is private by default and fails silently, so say so out loud.
@@ -201,43 +201,6 @@ local function verifySound(sound: Sound)
 				.. "\n  Roblox audio is private by default: an id only plays if you uploaded it, or the"
 				.. "\n  uploader marked it public. Grabbing an id off a Toolbox MODEL also fails here --"
 				.. "\n  you need the audio asset's own id, not the model wrapping it."
-				.. "\n  To confirm: drop a Sound into Workspace, paste the id in, and press the play"
-				.. "\n  arrow next to SoundId in Properties. If it is silent there, it is the asset."
-		)
-	end)
-end
-
--- Same silent-failure trap as the audio: a bad image id renders nothing and
--- says nothing, which is indistinguishable from the marker being too subtle.
-local function verifyTexture(texture: string)
-	if texture == "" or texture:sub(1, 10) == "rbxasset://" then
-		return
-	end
-
-	task.spawn(function()
-		local probe = Instance.new("Decal")
-		probe.Texture = texture
-
-		pcall(function()
-			ContentProvider:PreloadAsync({ probe })
-		end)
-
-		local ok, fetchStatus = pcall(function()
-			return ContentProvider:GetAssetFetchStatus(texture)
-		end)
-
-		probe:Destroy()
-
-		if not ok or fetchStatus ~= Enum.AssetFetchStatus.Failure then
-			return
-		end
-
-		warn(
-			string.format("[WeatherThunder] Marker texture failed to load (%s).", texture)
-				.. "\n  Toolbox images are private unless the uploader made them public, and a"
-				.. "\n  MODEL id will not work here -- you need an Image or Decal asset id."
-				.. "\n  To check one: put a Decal on a part, paste the id into its Texture, and"
-				.. "\n  see whether it appears in the viewport."
 		)
 	end)
 end
@@ -284,7 +247,8 @@ end
 
 local function playCrack(distance: number)
 	local alpha = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
-	playPooled(alpha * alpha, Shared.lerp(0.75, 1.05, alpha))
+	--Distant thunder is a low roll, not a crack.
+	playPooled(alpha * alpha, Shared.lerp(0.55, 1.05, alpha))
 end
 
 -- Its own instance rather than a pooled one, so a long rumble cannot starve the
@@ -295,40 +259,24 @@ local function playWarning()
 	end
 end
 
-local function resetRig(rig: Rig)
-	rig.marker.Enabled = false
-	rig.marker.Rate = 0
-	rig.bolt.Enabled = false
-	rig.bolt.Transparency = BOLT_HIDDEN
-	rig.light.Enabled = false
-	rig.light.Brightness = 0
-end
-
--- A strike with no marker cannot be dodged, so an exhausted pool steals from a
--- strike that has already landed, or failing that the one furthest from
--- landing. Never the one about to hit -- that is the warning that matters most.
 local function acquireRig(): Rig?
 	local rig = table.remove(pool)
 	if rig then
 		return rig
 	end
 
-	local victim, newest = nil, -math.huge
+	local oldest, oldestAt = nil, math.huge
 	for index, entry in active do
-		if entry.struck then
-			victim = index
-			break
-		end
-		if entry.startedAt > newest then
-			victim, newest = index, entry.startedAt
+		if entry.startedAt < oldestAt then
+			oldest, oldestAt = index, entry.startedAt
 		end
 	end
 
-	if not victim then
+	if not oldest then
 		return nil
 	end
 
-	local entry = table.remove(active, victim)
+	local entry = table.remove(active, oldest)
 	resetRig(entry.rig)
 	return entry.rig
 end
@@ -338,32 +286,31 @@ local function strikeAt(position: Vector3)
 	local viewer = if camera then camera.CFrame.Position else position
 	local distance = (viewer - position).Magnitude
 
-	-- Offset by the telegraph so the lag is measured from the bolt, not from the
-	-- marker appearing. Without it the crack lands before the flash.
-	local soundLag = Config.ThunderTelegraph + distance / math.max(Config.ThunderSoundSpeed, 1)
-	task.delay(soundLag, playCrack, distance)
+	-- Light first, then the roll arrives. This is the whole point of
+	-- ThunderSoundSpeed and is what makes distance readable.
+	task.delay(distance / math.max(Config.ThunderSoundSpeed, 1), playCrack, distance)
 
 	local rig = acquireRig()
 	if not rig then
 		return
 	end
 
-	rig.ground.Position = position + Vector3.new(0, GROUND_LIFT, 0)
+	rig.ground.Position = position
 	rig.sky.Position = position + Vector3.new(0, Config.ThunderCloudHeight, 0)
-	rig.marker.Rate = MARKER_RATE_START
-	rig.marker.Enabled = true
+	rig.glow.Position = position + Vector3.new(0, Config.ThunderCloudGlowHeight, 0)
 
-	--Same light does both jobs: a dim blue charge now, a white flash on impact.
-	rig.light.Color = Config.ThunderMarkerColor
-	rig.light.Range = MARKER_LIGHT_RANGE
-	rig.light.Brightness = 0
-	rig.light.Enabled = Config.ThunderMarkerLight > 0
+	rig.bolt.Transparency = BOLT_VISIBLE
+	rig.bolt.Enabled = true
+	rig.glow.Transparency = GLOW_STRIKE
+	rig.light.Brightness = IMPACT_BRIGHTNESS
+	rig.light.Enabled = true
+
+	flashStrength = math.max(flashStrength, math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1))
 
 	table.insert(active, {
 		rig = rig,
 		startedAt = os.clock(),
-		strength = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1),
-		struck = false,
+		boltDone = false,
 	})
 end
 
@@ -378,6 +325,14 @@ local function applyLighting()
 			baseAmbient = Lighting.Ambient
 			if atmosphere then
 				baseSkyColor = (atmosphere :: Atmosphere).Color
+				baseGlare = (atmosphere :: Atmosphere).Glare
+			end
+			if sky then
+				baseSunSize = (sky :: Sky).SunAngularSize
+				baseMoonSize = (sky :: Sky).MoonAngularSize
+			end
+			if sunRays then
+				baseSunRays = (sunRays :: SunRaysEffect).Intensity
 			end
 			return
 		end
@@ -398,6 +353,30 @@ local function applyLighting()
 	if atmosphere then
 		(atmosphere :: Atmosphere).Color = baseSkyColor:Lerp(Config.ThunderSkyColor, darkness)
 	end
+
+	-- Dimming Brightness alone leaves a bright sun disc hanging in a black sky,
+	-- so the disc, its glare and its god rays all go with it.
+	if Config.ThunderHideSun then
+		local clear = 1 - darkness
+
+		if sky then
+			(sky :: Sky).SunAngularSize = baseSunSize * clear;
+			(sky :: Sky).MoonAngularSize = baseMoonSize * clear
+		end
+		if atmosphere then
+			(atmosphere :: Atmosphere).Glare = baseGlare * clear
+		end
+		if sunRays then
+			(sunRays :: SunRaysEffect).Intensity = baseSunRays * clear
+		end
+	end
+end
+
+-- A thunderstorm darkens fully; a blizzard darkens on its own by intensity, so
+-- Peak snow blots the sun even with no lightning running.
+local function refreshDarknessTarget()
+	local fromStorm = stormIntensity * Config.StormDarkenAmount
+	darknessTarget = math.max(if thunderActive then 1 else 0, math.clamp(fromStorm, 0, 1))
 end
 
 local function step(dt: number)
@@ -409,34 +388,27 @@ local function step(dt: number)
 	end
 
 	local now = os.clock()
-	local telegraph = Config.ThunderTelegraph
 
 	for index = #active, 1, -1 do
 		local entry = active[index]
 		local rig = entry.rig
 		local elapsed = now - entry.startedAt
 
-		if elapsed < telegraph then
-			local charge = (elapsed / telegraph) ^ 2
-			rig.marker.Rate = Shared.lerp(MARKER_RATE_START, MARKER_RATE_END, charge)
-			rig.light.Brightness = Config.ThunderMarkerLight * charge
-		elseif not entry.struck then
-			entry.struck = true
+		if not entry.boltDone and elapsed >= BOLT_LIFETIME then
+			entry.boltDone = true
+			rig.bolt.Enabled = false
+			rig.bolt.Transparency = BOLT_HIDDEN
+			rig.light.Enabled = false
+			rig.light.Brightness = 0
+		end
 
-			rig.marker.Enabled = false
-			rig.marker.Rate = 0
-			rig.bolt.Transparency = BOLT_VISIBLE
-			rig.bolt.Enabled = true
-			rig.light.Color = IMPACT_COLOR
-			rig.light.Range = IMPACT_RANGE
-			rig.light.Brightness = IMPACT_BRIGHTNESS
-			rig.light.Enabled = true
-
-			flashStrength = math.max(flashStrength, entry.strength)
-		elseif elapsed >= telegraph + BOLT_LIFETIME then
+		if elapsed >= GLOW_LIFETIME then
 			resetRig(rig)
 			table.insert(pool, rig)
 			table.remove(active, index)
+		else
+			--The cloud keeps glowing a beat after the bolt has gone.
+			rig.glow.Transparency = Shared.lerp(GLOW_STRIKE, 1, elapsed / GLOW_LIFETIME)
 		end
 	end
 
@@ -469,15 +441,33 @@ function WeatherThunder.init()
 	container.Parent = workspace.CurrentCamera or workspace
 
 	atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	sunRays = Lighting:FindFirstChildOfClass("SunRaysEffect")
+
+	if Config.ThunderHideSun then
+		--A place with no Sky uses the default skybox, which cannot be addressed
+		--directly. An explicit Sky at defaults looks the same and can be.
+		sky = Lighting:FindFirstChildOfClass("Sky")
+		if not sky then
+			local created = Instance.new("Sky")
+			created.Parent = Lighting
+			sky = created
+		end
+	end
 
 	baseBrightness = Lighting.Brightness
 	baseExposure = Lighting.ExposureCompensation
 	baseAmbient = Lighting.Ambient
 	if atmosphere then
 		baseSkyColor = (atmosphere :: Atmosphere).Color
+		baseGlare = (atmosphere :: Atmosphere).Glare
 	end
-
-	verifyTexture(Config.ThunderMarkerTexture)
+	if sky then
+		baseSunSize = (sky :: Sky).SunAngularSize
+		baseMoonSize = (sky :: Sky).MoonAngularSize
+	end
+	if sunRays then
+		baseSunRays = (sunRays :: SunRaysEffect).Intensity
+	end
 
 	for _ = 1, Config.ThunderVisualPool do
 		table.insert(pool, buildRig())
@@ -512,16 +502,25 @@ function WeatherThunder.init()
 	end
 
 	local function refreshWindow()
-		local isActive = stateHolder:GetAttribute(Attr.ThunderActive) == true
-		darknessTarget = if isActive then 1 else 0
+		local wasActive = thunderActive
+		thunderActive = stateHolder:GetAttribute(Attr.ThunderActive) == true
+		refreshDarknessTarget()
 
-		if isActive then
+		if thunderActive and not wasActive then
 			playWarning()
 		end
 	end
 
+	local function refreshIntensity()
+		stormIntensity = (stateHolder:GetAttribute(Attr.Intensity) :: number?) or 0
+		refreshDarknessTarget()
+	end
+
 	stateHolder:GetAttributeChangedSignal(Attr.ThunderActive):Connect(refreshWindow)
-	darknessTarget = if stateHolder:GetAttribute(Attr.ThunderActive) == true then 1 else 0
+	stateHolder:GetAttributeChangedSignal(Attr.Intensity):Connect(refreshIntensity)
+
+	thunderActive = stateHolder:GetAttribute(Attr.ThunderActive) == true
+	refreshIntensity()
 
 	strikeEvent.OnClientEvent:Connect(function(position)
 		if typeof(position) == "Vector3" then
@@ -540,6 +539,7 @@ function WeatherThunder.init()
 		if child:IsA("Atmosphere") then
 			atmosphere = child
 			baseSkyColor = child.Color
+			baseGlare = child.Glare
 		end
 	end)
 

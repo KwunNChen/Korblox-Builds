@@ -201,19 +201,21 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `WindDirectionalSwing` | How far heading moves that multiplier. 0 makes the storm slow you the same in every direction. |
 | `WindAirborneAccel` | How hard wind shoves you while airborne. |
 | `StormJumpMultiplier` | Jump height at full intensity. |
-| `EnableThunderstorm` | Lightning window inside each Peak. |
-| `ThunderSafeRadius` | The fairness knob. Strikes never land this close to any player, so standing still is always survivable. Drop it below `ThunderKillRadius` and lightning starts killing stationary players. |
-| `ThunderTelegraph` | Seconds the charge marker shows before a strike lands. |
-| `ThunderStrikeInterval` | Seconds between strikes near one targeted player. |
-| `ThunderAnchorCount` | How many players the storm hunts at once. Total strike rate stays constant regardless of server size. |
-| `ThunderAnchorRotate` | Seconds before the target set is re-rolled. |
+| `EnableThunderstorm` | Distant lightning inside a Peak. Purely visual — it never damages anyone. |
+| `ThunderChance` | Odds a given Peak contains a thunderstorm at all. |
+| `ThunderDuration` | Seconds a thunderstorm runs. |
+| `ThunderMinDistance` | How far off the nearest strikes land. Raise to push lightning further away. |
+| `ThunderMaxDistance` | Outer edge of where strikes land. |
+| `ThunderStrikeInterval` | Seconds between strikes near one player. |
+| `ThunderAnchorCount` | How many players strikes play out around at once. Keeps the rate one person sees constant regardless of server size. |
 | `ThunderCrackSoundId` | The only thunder asset you need. Your own id, same as `WindSoundId`. |
 | `ThunderWarningPitch` | How far the opening rumble is slowed from the crack. Lower is deeper and longer. |
 | `ThunderDarkenExposure` | How far the sky darkens during a thunderstorm. Lower is darker. |
 | `ThunderDarkenBrightness` | Sun brightness multiplier during a thunderstorm. |
+| `StormDarkenAmount` | How far a full blizzard darkens the sky on its own, with no lightning. 1 means Peak snow blots the sun by itself. |
 | `ThunderFlashBrightness` | How hard a strike flashes the sky. The main dial for the effect. |
-| `ThunderMarkerTexture` | Image used for the charge sparks. Swap for a Toolbox electric texture; Output warns if the id will not load. |
-| `ThunderMarkerSize` | Spark size. Snow is `0.55`, so smaller than that vanishes into the storm. |
+| `ThunderHideSun` | Hides the sun disc, glare and god rays. Dimming brightness alone leaves a bright disc in a black sky. |
+| `ThunderCloudGlowHeight` | Height of the lit cloud patch. Must stay inside `StormFogEnd` or fog swallows it. |
 | `ThunderBoltWidth` | Bolt thickness. Thin reads as a distant streak, thick as a beam beside you. |
 | `EnableLightingEffects` | Set false if your map already drives fog and Atmosphere. |
 | `DebugStartIntensity` | 0 to 1 starts every playtest at that intensity. |
@@ -275,9 +277,12 @@ force while grounded but not mid-air. Turn that off with
 
 ## Thunderstorms
 
-Somewhere inside every Peak, a 30-second thunderstorm opens with a warning
-rumble and then starts dropping lightning. A strike kills instantly. Being under
-a roof makes you immune.
+Some Peaks bring a thunderstorm. It opens with a warning rumble, then runs for a
+couple of minutes of distant lightning.
+
+**Lightning is weather, not a threat.** It does no damage, ignores shelter, and
+never targets anyone. It exists to make a blizzard feel like it has a sky over
+it.
 
 The sky flash is the strike, not the bolt. The bolt is deliberately thin and the
 impact light deliberately dim, so a strike reads as the whole sky lighting up
@@ -292,28 +297,25 @@ each flash punch harder by contrast. Only `Brightness`, `Ambient`,
 stay with the snowstorm, so the two lighting owners never fight. Exposure is
 what darkens the skybox itself, which fog alone never touches.
 
-The storm hunts `ThunderAnchorCount` players at a time rather than everyone, and
-re-rolls that set every `ThunderAnchorRotate` seconds so it roams. Total strike
-rate is therefore roughly `ThunderAnchorCount / ThunderStrikeInterval` — about
-1.6 a second — whether there are two people on the map or thirty. A full server
-is not proportionally more dangerous, and the storm reads as weather picking
-victims rather than as something following every player individually.
+Strikes land somewhere between `ThunderMinDistance` and `ThunderMaxDistance`
+from a player — well past `StormFogEnd`, on purpose. Fog does the falloff for
+free: the far ones reach you as nothing but a flash across the sky and a rumble
+that arrives seconds later, while only the nearest show an actual bolt and a lit
+patch of cloud. You get variety without any distance logic beyond picking a
+radius.
 
-The design rule is that **standing still is always survivable.** Strikes land in
-a ring 20 to 45 studs out and are rejected if they would land within
-`ThunderSafeRadius` of anyone — not just the player they were aimed at, so being
-near someone the storm is hunting cannot get you killed while stationary. You
-die only by walking into a strike that has already been marked. That turns a thunderstorm
-into a reason to stop moving or get indoors, rather than a coin flip. It also
-means the marker can stay subtle: a few motes gathering at the impact point that
-build over `ThunderTelegraph` seconds, not a warning decal.
+Players are picked only to decide *where* in the world a strike happens, so it
+lands somewhere someone can see or hear it rather than in an empty corner of the
+map. `ThunderAnchorCount` of them at a time, re-rolled every
+`ThunderAnchorRotate` seconds, which keeps the rate a single person experiences
+the same whether the server has two people or thirty.
 
-Bolts cannot pass through roofs, and this is structural rather than a special
-case. The impact point is found by raycasting *down* from `ThunderCloudHeight`,
-so the ray stops at the first surface it meets — a strike over a building lands
-on the roof, and the bolt is drawn to that point. Immunity is a separate check
-using the same shelter raycast the snow uses, taken **fresh at the moment the
-strike lands**, so running through a doorway during the telegraph saves you.
+Because thunder is weather rather than a threat, it runs long and rare:
+`ThunderDuration` defaults to 150 seconds and `ThunderChance` means not every
+Peak gets one. There is no telegraph, no marker, and no shelter check — nothing
+to dodge, so nothing to warn about. The light always arrives before the sound,
+delayed by `distance / ThunderSoundSpeed`, which is what makes distance
+readable.
 
 To test one without waiting for a Peak, set the `DebugThunder` attribute on
 `ReplicatedStorage.Weather` to `true` from the server:

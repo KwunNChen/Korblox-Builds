@@ -130,9 +130,11 @@
 	    WindAirborneAccel         how hard wind shoves you mid-jump
 	    StormJumpMultiplier       jump height at full intensity
 	    EnableThunderstorm        lightning window inside each Peak
-	    ThunderSafeRadius         fairness knob, see THUNDERSTORMS below
+	    ThunderChance             odds a Peak brings a thunderstorm at all
+	    ThunderDuration           seconds a thunderstorm runs
+	    ThunderMinDistance        how far off the nearest strikes land
 	    ThunderStrikeInterval     seconds between strikes near one player
-	    ThunderAnchorCount        how many players the storm hunts at once
+	    StormDarkenAmount         how far Peak snow darkens the sky by itself
 	    ThunderDarkenExposure     how dark the sky goes, lower is darker
 	    ThunderDarkenBrightness   sun brightness multiplier during a storm
 	    EnableLightingEffects     false if your map drives its own fog
@@ -143,27 +145,22 @@
 	THUNDERSTORMS
 	========================================================
 
-	Somewhere inside every Peak, a 30 second thunderstorm opens with a warning
-	rumble and then drops lightning. A strike kills instantly. Under a roof you
-	are immune.
+	Some Peaks bring a thunderstorm. It opens with a warning rumble, then runs a
+	couple of minutes of distant lightning.
 
-	The sky darkens as the window opens, before the first strike lands, so the
-	darkening is itself the warning. Flashes punch harder against it.
+	LIGHTNING IS WEATHER, NOT A THREAT. It does no damage, ignores shelter, and
+	never targets anyone. There is nothing to dodge.
 
-	The storm hunts ThunderAnchorCount players at a time and re-rolls that set
-	every few seconds, so total strike rate stays the same whether two or thirty
-	people are on the map.
+	Strikes land well past the fog distance, so fog does the falloff: far ones
+	reach you as a flash across the sky and a rumble seconds later, and only the
+	nearest show an actual bolt. The light always comes before the sound.
 
-	Standing still is always survivable. Strikes land in a ring 20 to 45 studs
-	out and are rejected if they would land near ANY player, not just the one
-	they were aimed at, so you die by walking into a marked strike rather than by
-	bad luck. That is why the marker is subtle -- a few motes gathering, not a
-	warning decal.
+	Players are picked only to decide WHERE a strike happens, so it lands
+	somewhere someone can see it rather than in an empty corner of the map.
 
-	Bolts never pass through roofs. The impact point comes from a raycast down
-	from cloud height, so it stops at the first surface: a strike over a
-	building hits the roof. Immunity is checked fresh at the instant the strike
-	lands, so running through a doorway during the telegraph saves you.
+	The sky darkens as the window opens, and a Peak blizzard darkens it on its
+	own too -- at StormDarkenAmount = 1 the sun is fully blotted at Peak whether
+	or not there is lightning.
 
 	Thunder needs one audio id of your own in ThunderCrackSoundId, for the same
 	reason WindSoundId does. The opening rumble is that same asset slowed down,

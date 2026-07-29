@@ -216,72 +216,42 @@ WeatherConfig.WindAirborneAccel = 12
 
 WeatherConfig.EnableThunderstorm = true
 
--- Seconds of active strikes, and the warning rumble that opens the window
--- before the first one lands.
-WeatherConfig.ThunderDuration = 40
-WeatherConfig.ThunderWarningLead = 5
+-- Lightning is weather, not a threat. It never damages anyone, never targets
+-- anyone, and always strikes at a distance. Nothing in this section changes
+-- gameplay.
 
--- Seconds between strikes near one targeted player.
-WeatherConfig.ThunderStrikeInterval = NumberRange.new(2, 3)
+-- Chance a Peak phase contains a thunderstorm at all. Below 1 they become an
+-- event you notice rather than a fixture of every storm.
+WeatherConfig.ThunderChance = 0.6
 
--- How many players the storm hunts at once. Total strike rate is roughly
--- ThunderAnchorCount / ThunderStrikeInterval, so it stays constant whether two
--- or thirty people are on the map.
+-- Seconds the storm runs, and the rumble that opens it. Long and rare rather
+-- than short and constant.
+WeatherConfig.ThunderDuration = 150
+WeatherConfig.ThunderWarningLead = 6
+
+-- Seconds between strikes near one player.
+WeatherConfig.ThunderStrikeInterval = NumberRange.new(7, 16)
+
+-- How many players the storm plays out around at once, so the strike rate a
+-- single person sees stays the same whether two or thirty are on the map.
 WeatherConfig.ThunderAnchorCount = 4
+WeatherConfig.ThunderAnchorRotate = 12
 
--- Seconds before the target set is re-rolled, so the storm roams the map
--- instead of picking on the same four players for a whole window.
-WeatherConfig.ThunderAnchorRotate = 6
+-- How far off strikes land. Deliberately past StormFogEnd (250): fog turns the
+-- far ones into nothing but a flash on the horizon, and only the nearest show
+-- an actual bolt. Raising the minimum pushes lightning further away.
+WeatherConfig.ThunderMinDistance = 160
+WeatherConfig.ThunderMaxDistance = 420
 
--- THE FAIRNESS KNOB. Strikes never land within this of any player, so standing
--- still is always survivable. Below ThunderKillRadius, lightning starts killing
--- stationary players.
-WeatherConfig.ThunderSafeRadius = 16
-WeatherConfig.ThunderSpawnRadius = 38
-WeatherConfig.ThunderKillRadius = 9
-
--- Seconds the marker shows before the strike lands. Long on purpose, because
--- the marker is deliberately quiet.
-WeatherConfig.ThunderTelegraph = 1.5
-
--- The telegraph has to be picked out against 1200 white snowflakes in a
--- whiteout, so it is a saturated blue rather than another white. Keep it a
--- colour the storm does not already contain.
---
--- This MULTIPLIES the texture rather than replacing it, so a colourful texture
--- times this blue comes out muddy. Set it white to use a texture's own colours.
-WeatherConfig.ThunderMarkerColor = Color3.fromRGB(80, 165, 255)
-
--- Texture for the charge sparks. The default ships with Studio so it always
--- loads. For a Toolbox one: View > Toolbox, set the dropdown to Images, search
--- "electric" or "lightning", right click a result > Copy Asset ID, and paste it
--- here as "rbxassetid://<id>". Output warns at startup if the id will not load.
-WeatherConfig.ThunderMarkerTexture = "rbxassetid://1252044337"
-
--- Spark size at full charge. Snow flakes are 0.55, so anything much smaller
--- than that disappears into the storm.
-WeatherConfig.ThunderMarkerSize = 0.9
-
--- Ground glow at full charge. 0 leaves only the sparks.
-WeatherConfig.ThunderMarkerLight = 5
-
--- Spark field radius as a multiple of ThunderKillRadius. 1.0 marks exactly the
--- ground that kills you; above 1 over-warns, below 1 under-warns.
-WeatherConfig.ThunderMarkerSpread = 1.0
-
--- Strikes this close to a pending one are skipped, so a crowd does not stack
--- strikes on the same patch of ground.
-WeatherConfig.ThunderMinSeparation = 14
-
--- Seconds of immunity after spawning.
-WeatherConfig.ThunderSpawnGrace = 10
-
--- Sheltered players draw strikes at this fraction of the normal rate. They are
--- immune, so it is spectacle rather than pressure.
-WeatherConfig.ThunderShelteredRateScale = 0.35
-
--- How far above the player the bolt starts.
+-- How far above the ground the bolt starts.
 WeatherConfig.ThunderCloudHeight = 300
+
+-- The patch of cloud a strike lights up. Height must stay inside StormFogEnd
+-- (250) or the fog swallows it entirely, which is also why it sits well below
+-- ThunderCloudHeight -- the top of the bolt is beyond fog range regardless.
+WeatherConfig.ThunderCloudGlowHeight = 130
+WeatherConfig.ThunderCloudGlowSize = 90
+WeatherConfig.ThunderCloudGlowColor = Color3.fromRGB(190, 215, 255)
 
 -- Studs/sec used to delay the crack by distance, the way real thunder lags.
 WeatherConfig.ThunderSoundSpeed = 400
@@ -295,8 +265,10 @@ WeatherConfig.ThunderCrackSoundId = "rbxassetid://137673547776909"
 WeatherConfig.ThunderWarningPitch = 0.3
 WeatherConfig.ThunderWarningVolume = 0.8
 
--- Strikes past this are never sent to a client at all.
-WeatherConfig.ThunderAudibleDistance = 500
+-- Strikes past this are never sent to a client at all. Also sets how far the
+-- flash and rumble carry, so it has to comfortably exceed ThunderMaxDistance
+-- or nearby players will miss strikes entirely.
+WeatherConfig.ThunderAudibleDistance = 1200
 
 -- Hard ceilings on client cost. Past these, a strike recycles an older visual
 -- rather than growing the pool. Raise if you run very high player counts.
@@ -310,6 +282,17 @@ WeatherConfig.ThunderDarkenBrightness = 0.35 -- multiplier on Lighting.Brightnes
 WeatherConfig.ThunderSkyColor = Color3.fromRGB(70, 78, 92)
 WeatherConfig.ThunderAmbientColor = Color3.fromRGB(48, 54, 68)
 WeatherConfig.ThunderDarkenSmoothing = 2.5 -- seconds
+
+-- Blots the sun out entirely at full darkness: hides the sun and moon discs,
+-- kills atmospheric glare, and shuts off god rays. Dimming Brightness alone
+-- leaves a bright disc hanging in an otherwise black sky. False keeps the sun
+-- visible if your map needs it.
+WeatherConfig.ThunderHideSun = true
+
+-- How far a full-intensity blizzard darkens the sky on its own, with no
+-- thunderstorm running. 1 makes Peak snow as dark as a thunderstorm, so the sun
+-- is fully blotted at Peak either way; 0 leaves the darkening to thunder alone.
+WeatherConfig.StormDarkenAmount = 1
 
 -- How hard a strike flashes the whole sky. The main dial for this effect:
 -- raise these and lower ThunderBoltWidth to make the flash the event and the

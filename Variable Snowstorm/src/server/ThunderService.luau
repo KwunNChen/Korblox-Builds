@@ -1,4 +1,11 @@
--- Thunderstorm window inside the Peak phase. Owns strike placement and kills.
+--[[
+	Thunderstorm window inside the Peak phase.
+
+	Lightning here is purely environmental: it does no damage, ignores shelter,
+	and never targets anyone. Players are picked only to decide WHERE in the
+	world a strike happens, so that it lands somewhere a person can see or hear
+	it rather than in an empty corner of the map.
+]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,11 +22,10 @@ local Attr = Shared.Attr
 local ThunderService = {}
 
 -- Raise to schedule less often, lower for tighter strike timing.
-local SCHEDULE_INTERVAL = 0.25
+local SCHEDULE_INTERVAL = 0.5
 
--- Candidate positions tried before giving up on this player's turn. Raise if
--- strikes feel sparse where players gather.
-local MAX_PLACEMENT_ATTEMPTS = 4
+-- Candidate positions tried before giving up on this player's turn.
+local MAX_PLACEMENT_ATTEMPTS = 3
 
 local THUNDER_PHASE = "Peak"
 
@@ -30,13 +36,8 @@ local running = false
 local windowActive = false
 local windowGeneration = 0
 
-type Strike = { position: Vector3 }
-
 local nextStrikeAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
-local spawnedAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
 local anchors: { Player } = {}
-
-local pending: { Strike } = {}
 
 local strikeParams = RaycastParams.new()
 strikeParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -52,43 +53,9 @@ local function refreshCharacterFilter()
 	strikeParams.FilterDescendantsInstances = characters
 end
 
-local function rollInterval(sheltered: boolean): number
+local function rollInterval(): number
 	local range = Config.ThunderStrikeInterval
-	local seconds = range.Min + math.random() * (range.Max - range.Min)
-
-	if sheltered then
-		seconds /= math.max(Config.ThunderShelteredRateScale, 0.01)
-	end
-	return seconds
-end
-
--- Must check every player, not just the anchor, or standing still stops being
--- survivable once two people are near each other.
-local function isClearOfPlayers(position: Vector3): boolean
-	local limit = Config.ThunderSafeRadius * Config.ThunderSafeRadius
-
-	for _, player in Players:GetPlayers() do
-		local entry = CharacterCache.get(player)
-		if entry then
-			local offset = entry.root.Position - position
-			if offset:Dot(offset) < limit then
-				return false
-			end
-		end
-	end
-	return true
-end
-
-local function isFarFromPending(position: Vector3): boolean
-	local limit = Config.ThunderMinSeparation * Config.ThunderMinSeparation
-
-	for _, strike in pending do
-		local offset = strike.position - position
-		if offset:Dot(offset) < limit then
-			return false
-		end
-	end
-	return true
+	return range.Min + math.random() * (range.Max - range.Min)
 end
 
 local function broadcast(position: Vector3)
@@ -110,67 +77,31 @@ local function broadcast(position: Vector3)
 	end
 end
 
-local function resolveStrike(strike: Strike, generation: number)
-	local index = table.find(pending, strike)
-	if index then
-		table.remove(pending, index)
-	end
-
-	if generation ~= windowGeneration then
-		return
-	end
-
-	local now = os.clock()
-	local position = strike.position
-	local killLimit = Config.ThunderKillRadius * Config.ThunderKillRadius
-	local grace = Config.ThunderSpawnGrace
-
-	for _, player in Players:GetPlayers() do
-		local entry = CharacterCache.getAlive(player)
-		if entry then
-			local spawned = spawnedAt[player]
-			local graced = spawned ~= nil and (now - spawned) < grace
-			local offset = entry.root.Position - position
-
-			if not graced and offset:Dot(offset) <= killLimit then
-				if not WeatherService.isPlayerSheltered(player) then
-					entry.humanoid.Health = 0
-				end
-			end
-		end
-	end
-end
-
-local function spawnStrike(player: Player, generation: number)
+local function spawnStrike(player: Player)
 	local entry = CharacterCache.get(player)
 	if not entry then
 		return
 	end
 
 	local origin = entry.root.Position
-	local spread = math.max(Config.ThunderSpawnRadius - Config.ThunderSafeRadius, 0)
+	local spread = math.max(Config.ThunderMaxDistance - Config.ThunderMinDistance, 0)
 	local fall = Config.ThunderCloudHeight * 2
 
 	for _ = 1, MAX_PLACEMENT_ATTEMPTS do
 		local angle = math.random() * math.pi * 2
-		local radius = Config.ThunderSafeRadius + math.random() * spread
+		local radius = Config.ThunderMinDistance + math.random() * spread
 		local candidate = origin + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 
 		local from = candidate + Vector3.new(0, Config.ThunderCloudHeight, 0)
 		local result = workspace:Raycast(from, Vector3.new(0, -fall, 0), strikeParams)
 
-		if result and isClearOfPlayers(result.Position) and isFarFromPending(result.Position) then
-			local strike: Strike = { position = result.Position }
-			table.insert(pending, strike)
+		if result then
 			broadcast(result.Position)
-			task.delay(Config.ThunderTelegraph, resolveStrike, strike, generation)
 			return
 		end
 	end
 end
 
--- The storm hunts a fixed number of players rather than everyone, so a full
--- server is not proportionally more dangerous than an empty one.
 local function rotateAnchors(now: number)
 	table.clear(anchors)
 
@@ -190,9 +121,8 @@ local function rotateAnchors(now: number)
 
 		table.insert(anchors, player)
 
-		-- Staggered so a fresh target set does not fire all at once.
-		local range = Config.ThunderStrikeInterval
-		nextStrikeAt[player] = now + (index / count) * range.Min
+		-- Staggered so a fresh set does not all fire at once.
+		nextStrikeAt[player] = now + (index / count) * Config.ThunderStrikeInterval.Min
 	end
 end
 
@@ -216,11 +146,10 @@ local function scheduleLoop(generation: number)
 		for _, player in anchors do
 			local due = nextStrikeAt[player]
 			if due and now >= due then
-				local ok, sheltered = pcall(WeatherService.isPlayerSheltered, player)
-				nextStrikeAt[player] = now + rollInterval(ok and sheltered or false)
+				nextStrikeAt[player] = now + rollInterval()
 
-				local spawnOk, err = pcall(spawnStrike, player, generation)
-				if not spawnOk then
+				local ok, err = pcall(spawnStrike, player)
+				if not ok then
 					warn("[ThunderService] strike failed for", player.Name, err)
 				end
 			end
@@ -234,7 +163,6 @@ local function endWindow()
 	end
 	windowActive = false
 	windowGeneration += 1
-	table.clear(pending)
 	table.clear(anchors)
 	stateHolder:SetAttribute(Attr.ThunderActive, false)
 end
@@ -271,13 +199,6 @@ function ThunderService.isActive(): boolean
 	return windowActive
 end
 
-local function trackPlayer(player: Player)
-	player.CharacterAdded:Connect(function()
-		spawnedAt[player] = os.clock()
-		refreshCharacterFilter()
-	end)
-end
-
 function ThunderService.start()
 	if not Config.EnableThunderstorm then
 		return
@@ -302,20 +223,24 @@ function ThunderService.start()
 		return
 	end
 
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			spawnedAt[player] = os.clock()
-		end
-		trackPlayer(player)
-	end
 	refreshCharacterFilter()
-
-	Players.PlayerAdded:Connect(trackPlayer)
+	Players.PlayerAdded:Connect(refreshCharacterFilter)
 	Players.PlayerRemoving:Connect(refreshCharacterFilter)
+
+	for _, player in Players:GetPlayers() do
+		player.CharacterAdded:Connect(refreshCharacterFilter)
+	end
+	Players.PlayerAdded:Connect(function(player)
+		player.CharacterAdded:Connect(refreshCharacterFilter)
+	end)
 
 	WeatherService.PhaseChanged:Connect(function(phaseName)
 		if phaseName ~= THUNDER_PHASE then
 			endWindow()
+			return
+		end
+
+		if math.random() > Config.ThunderChance then
 			return
 		end
 
