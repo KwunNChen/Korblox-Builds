@@ -132,7 +132,6 @@ local lastLightingAlpha = 0
 
 local function applyLighting(alpha: number)
 	if alpha <= 0 then
-		-- Re-read the base so a day/night cycle stays authoritative.
 		if lastLightingAlpha <= 0 then
 			baseFogEnd = math.min(Lighting.FogEnd, 5000)
 			baseFogColor = Lighting.FogColor

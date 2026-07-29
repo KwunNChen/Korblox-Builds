@@ -1,15 +1,4 @@
---[[
-	Thunder audio and the storm-dark sky.
-
-	Lightning is environmental only -- it never damages anyone -- and it draws no
-	geometry at all. A strike is a flash across the whole sky and a rumble that
-	arrives late, both scaled by how far off it happened. Nothing is parented
-	into Workspace, because nothing needs to be rendered.
-
-	Distance still matters even with no bolt to look at: two players standing
-	apart get different flash strength and a different delay before the thunder
-	reaches them.
-]]
+-- Thunder audio, the screen-edge flash, and the storm-dark sky.
 
 local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
@@ -66,7 +55,6 @@ local baseMoonSize = 0
 local baseGlare = 0
 local baseSunRays = 0
 
--- Roblox audio is private by default and fails silently, so say so out loud.
 local function verifySound(sound: Sound)
 	task.spawn(function()
 		local ok = pcall(function()
@@ -128,12 +116,9 @@ end
 
 local function playCrack(distance: number)
 	local alpha = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
-	--Distant thunder is a low roll, not a crack.
 	playPooled(alpha * alpha, Shared.lerp(0.55, 1.05, alpha))
 end
 
--- Its own instance rather than a pooled one, so a long rumble cannot starve the
--- cracks that follow it.
 local function playWarning()
 	if rumbleSound then
 		(rumbleSound :: Sound):Play()
@@ -145,15 +130,11 @@ local function strikeAt(position: Vector3)
 	local viewer = if camera then camera.CFrame.Position else position
 	local distance = (viewer - position).Magnitude
 
-	-- Light first, then the roll arrives. This is what makes distance readable
-	-- now that there is no bolt to judge it by.
 	task.delay(distance / math.max(Config.ThunderSoundSpeed, 1), playCrack, distance)
 
 	local strength = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
 	flashStrength = math.max(flashStrength, strength)
 
-	-- The brighter strike wins the screen, and its world position is kept rather
-	-- than a screen angle so the wash follows the correct edge as you turn.
 	if strength >= edgeStrength then
 		edgeStrength = strength
 		edgePosition = position
@@ -183,8 +164,6 @@ local function applyEdgeFlash()
 		return
 	end
 
-	-- Gradient runs bright-to-clear from its start, so point it AWAY from the
-	-- strike to leave the bright end on the strike's side of the screen.
 	local offset = camera.CFrame:PointToObjectSpace(edgePosition :: Vector3)
 	gradient.Rotation = math.deg(math.atan2(offset.Y, -offset.X))
 end
@@ -193,7 +172,6 @@ local function applyLighting()
 	local influence = math.max(darkness, flashStrength, sunHide)
 
 	if influence <= 0 then
-		-- Re-read the base so a day/night cycle stays authoritative.
 		if lastInfluence <= 0 then
 			baseBrightness = Lighting.Brightness
 			baseExposure = Lighting.ExposureCompensation
@@ -229,9 +207,6 @@ local function applyLighting()
 		(atmosphere :: Atmosphere).Color = baseSkyColor:Lerp(Config.ThunderSkyColor, darkness)
 	end
 
-	-- Kept separate from darkness: thick cloud blots the sun disc completely
-	-- while the scene stays grey-bright, so lightening the storm must not put
-	-- the sun back in the sky.
 	if Config.ThunderHideSun then
 		local clear = 1 - sunHide
 
@@ -308,7 +283,6 @@ function WeatherThunder.init()
 		gui.Name = "ThunderFlash"
 		gui.ResetOnSpawn = false
 		gui.IgnoreGuiInset = true
-		--Behind anything the game puts on screen.
 		gui.DisplayOrder = -10
 		gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -322,8 +296,6 @@ function WeatherThunder.init()
 		frame.Active = false
 		frame.Parent = gui
 
-		--Bright at the start of the gradient, clear by ThunderScreenFlashSpread.
-		--A gradient has no edge to see, which is what the sphere got wrong.
 		local spread = math.clamp(Config.ThunderScreenFlashSpread, 0.05, 0.95)
 		local gradient = Instance.new("UIGradient")
 		gradient.Transparency = NumberSequence.new({
@@ -341,8 +313,6 @@ function WeatherThunder.init()
 	sunRays = Lighting:FindFirstChildOfClass("SunRaysEffect")
 
 	if Config.ThunderHideSun then
-		--A place with no Sky uses the default skybox, which cannot be addressed
-		--directly. An explicit Sky at defaults looks the same and can be.
 		sky = Lighting:FindFirstChildOfClass("Sky")
 		if not sky then
 			local created = Instance.new("Sky")

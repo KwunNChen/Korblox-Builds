@@ -1,11 +1,4 @@
---[[
-	Thunderstorm window inside the Peak phase.
-
-	Lightning here is purely environmental: it does no damage, ignores shelter,
-	and never targets anyone. Players are picked only to decide WHERE in the
-	world a strike happens, so that it lands somewhere a person can see or hear
-	it rather than in an empty corner of the map.
-]]
+-- Thunderstorm window inside the Peak phase. Environmental only, no damage.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -60,10 +53,6 @@ local function broadcast(position: Vector3)
 	end
 end
 
--- No bolt is drawn, so there is nothing to anchor to the ground and no raycast
--- to do. The position exists only so each client can work out its own distance
--- for flash strength and thunder delay -- two players standing apart should not
--- get the same storm.
 local function spawnStrike(player: Player)
 	local entry = CharacterCache.get(player)
 	if not entry then
@@ -96,7 +85,6 @@ local function rotateAnchors(now: number)
 
 		table.insert(anchors, player)
 
-		-- Staggered so a fresh set does not all fire at once.
 		nextStrikeAt[player] = now + (index / count) * Config.ThunderStrikeInterval.Min
 	end
 end
