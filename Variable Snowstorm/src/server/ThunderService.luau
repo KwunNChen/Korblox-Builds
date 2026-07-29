@@ -17,6 +17,9 @@ local ThunderService = {}
 -- Raise to schedule less often, lower for tighter strike timing.
 local SCHEDULE_INTERVAL = 0.5
 
+-- Seconds of heads-up the debug log gives before a thunderstorm opens.
+local WARNING_LEAD = 15
+
 local THUNDER_PHASE = "Peak"
 
 local stateHolder: Instance
@@ -28,6 +31,12 @@ local windowGeneration = 0
 
 local nextStrikeAt = setmetatable({}, { __mode = "k" }) :: { [Player]: number }
 local anchors: { Player } = {}
+
+local function log(...)
+	if Config.ThunderDebugLog then
+		print("[Thunder/server]", ...)
+	end
+end
 
 local function rollInterval(): number
 	local range = Config.ThunderStrikeInterval
@@ -64,6 +73,7 @@ local function spawnStrike(player: Player)
 	local radius = Config.ThunderMinDistance + math.random() * spread
 
 	broadcast(entry.root.Position + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius))
+	log(string.format("strike %.0f studs from %s", radius, player.Name))
 end
 
 local function rotateAnchors(now: number)
@@ -128,6 +138,7 @@ local function endWindow()
 	windowGeneration += 1
 	table.clear(anchors)
 	stateHolder:SetAttribute(Attr.ThunderActive, false)
+	log("thunderstorm over")
 end
 
 local function runWindow()
@@ -138,11 +149,20 @@ local function runWindow()
 	table.clear(nextStrikeAt)
 	stateHolder:SetAttribute(Attr.ThunderActive, true)
 
+	log(
+		string.format(
+			"THUNDERSTORM STARTING -- rumble now, first strike in %.0fs, runs %.0fs",
+			Config.ThunderWarningLead,
+			Config.ThunderDuration
+		)
+	)
+
 	task.wait(Config.ThunderWarningLead)
 	if generation ~= windowGeneration then
 		return
 	end
 
+	log("strikes beginning")
 	task.spawn(scheduleLoop, generation)
 
 	task.wait(Config.ThunderDuration)
@@ -186,6 +206,14 @@ function ThunderService.start()
 		return
 	end
 
+	log(
+		string.format(
+			"ready -- %.0f%% chance per Peak, %.0fs long. Set DebugThunder on ReplicatedStorage.Weather to force one.",
+			Config.ThunderChance * 100,
+			Config.ThunderDuration
+		)
+	)
+
 	WeatherService.PhaseChanged:Connect(function(phaseName)
 		if phaseName ~= THUNDER_PHASE then
 			endWindow()
@@ -193,14 +221,26 @@ function ThunderService.start()
 		end
 
 		if math.random() > Config.ThunderChance then
+			log("Peak started -- no thunderstorm this phase (ThunderChance roll failed)")
 			return
 		end
 
 		local generation = windowGeneration
 		local needed = Config.ThunderWarningLead + Config.ThunderDuration
 		local latestStart = math.max(WeatherService.getPhaseTimeRemaining() - needed, 0)
+		local startsIn = math.random() * latestStart
 
-		task.delay(math.random() * latestStart, function()
+		log(string.format("Peak started -- thunderstorm scheduled in %.0fs", startsIn))
+
+		if startsIn > WARNING_LEAD then
+			task.delay(startsIn - WARNING_LEAD, function()
+				if running and not windowActive and generation == windowGeneration then
+					log(string.format("thunderstorm in %.0f seconds", WARNING_LEAD))
+				end
+			end)
+		end
+
+		task.delay(startsIn, function()
 			if running and not windowActive and generation == windowGeneration then
 				if WeatherService.getPhase() == THUNDER_PHASE then
 					runWindow()

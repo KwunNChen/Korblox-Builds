@@ -216,12 +216,16 @@ WeatherConfig.WindAirborneAccel = 12
 
 WeatherConfig.EnableThunderstorm = true
 
+-- Prints the whole thunderstorm lifecycle to Output, server and client. Turn
+-- off for release.
+WeatherConfig.ThunderDebugLog = true
+
 -- Lightning is weather, not a threat. It never damages anyone, never targets
 -- anyone, and always strikes at a distance. Nothing in this section changes
 -- gameplay.
 
--- Chance a Peak phase contains a thunderstorm at all. Below 1 they become an
--- event you notice rather than a fixture of every storm.
+-- Chance a Peak phase contains a thunderstorm. 1 means every Peak gets one.
+-- Lower it only if you want thunderstorms to be an occasional event.
 WeatherConfig.ThunderChance = 0.6
 
 -- Seconds the storm runs, and the rumble that opens it. Long, but deliberately

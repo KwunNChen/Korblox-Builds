@@ -55,6 +55,12 @@ local baseMoonSize = 0
 local baseGlare = 0
 local baseSunRays = 0
 
+local function log(...)
+	if Config.ThunderDebugLog then
+		print("[Thunder/client]", ...)
+	end
+end
+
 local function verifySound(sound: Sound)
 	task.spawn(function()
 		local ok = pcall(function()
@@ -134,6 +140,15 @@ local function strikeAt(position: Vector3)
 
 	local strength = math.clamp(1 - distance / Config.ThunderAudibleDistance, 0, 1)
 	flashStrength = math.max(flashStrength, strength)
+
+	log(
+		string.format(
+			"strike received %.0f studs away -- flash %.2f, thunder in %.1fs",
+			distance,
+			strength,
+			distance / math.max(Config.ThunderSoundSpeed, 1)
+		)
+	)
 
 	if strength >= edgeStrength then
 		edgeStrength = strength
@@ -370,7 +385,10 @@ function WeatherThunder.init()
 		refreshDarknessTarget()
 
 		if thunderActive and not wasActive then
+			log("THUNDERSTORM STARTING -- sky darkening, rumble playing")
 			playWarning()
+		elseif wasActive and not thunderActive then
+			log("thunderstorm over")
 		end
 	end
 
@@ -399,6 +417,7 @@ function WeatherThunder.init()
 		end
 	end)
 
+	log("ready -- listening for strikes")
 	RunService.RenderStepped:Connect(step)
 end
 
