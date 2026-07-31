@@ -289,6 +289,14 @@ WeatherConfig.ThunderScreenFlashSpread = 0.45
 
 WeatherConfig.ThunderScreenFlashColor = Color3.fromRGB(214, 231, 255)
 
+-- Fraction of a lightning flash removed under a roof, covering both the screen
+-- wash and the global Lighting flash. 1 hides both completely indoors; 0.8
+-- leaves a fifth of each, which reads as light coming in a window.
+--
+-- Only the flash is muted. The sky stays dark and the sun stays hidden indoors,
+-- because the storm outside is still there.
+WeatherConfig.ThunderFlashIndoorDrop = 1
+
 -- Sky darkening while a window is open. It ramps in across ThunderWarningLead,
 -- so the sky going dark is the warning, and flashes punch harder against it.
 WeatherConfig.ThunderDarkenExposure = -1.0 -- added to Lighting.ExposureCompensation

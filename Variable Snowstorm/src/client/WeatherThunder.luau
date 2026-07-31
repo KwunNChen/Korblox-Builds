@@ -44,6 +44,7 @@ local flashStrength = 0
 
 local thunderActive = false
 local stormIntensity = 0
+local shelter = 0
 
 local lastInfluence = 0
 local baseBrightness = 0
@@ -156,13 +157,19 @@ local function strikeAt(position: Vector3)
 	end
 end
 
+-- How much of a flash reaches you where you are standing. A roof blocks the
+-- flash only; the darkened sky and hidden sun apply indoors regardless.
+local function exposure(): number
+	return math.clamp(1 - shelter * Config.ThunderFlashIndoorDrop, 0, 1)
+end
+
 local function applyEdgeFlash()
 	local frame = edgeFrame
 	if not frame then
 		return
 	end
 
-	local alpha = edgeStrength * Config.ThunderScreenFlashStrength
+	local alpha = edgeStrength * Config.ThunderScreenFlashStrength * exposure()
 
 	if math.abs(alpha - lastEdgeWritten) >= FLASH_EPSILON then
 		lastEdgeWritten = alpha
@@ -184,7 +191,8 @@ local function applyEdgeFlash()
 end
 
 local function applyLighting()
-	local influence = math.max(darkness, flashStrength, sunHide)
+	local flash = flashStrength * exposure()
+	local influence = math.max(darkness, flash, sunHide)
 
 	if influence <= 0 then
 		if lastInfluence <= 0 then
@@ -211,12 +219,12 @@ local function applyLighting()
 	lastInfluence = influence
 
 	Lighting.Brightness = baseBrightness * Shared.lerp(1, Config.ThunderDarkenBrightness, darkness)
-		+ flashStrength * Config.ThunderFlashBrightness
+		+ flash * Config.ThunderFlashBrightness
 	Lighting.ExposureCompensation = baseExposure
 		+ darkness * Config.ThunderDarkenExposure
-		+ flashStrength * Config.ThunderFlashExposure
+		+ flash * Config.ThunderFlashExposure
 
-	Lighting.Ambient = baseAmbient:Lerp(Config.ThunderAmbientColor, darkness):Lerp(FLASH_TINT, flashStrength * 0.7)
+	Lighting.Ambient = baseAmbient:Lerp(Config.ThunderAmbientColor, darkness):Lerp(FLASH_TINT, flash * 0.7)
 
 	if atmosphere then
 		(atmosphere :: Atmosphere).Color = baseSkyColor:Lerp(Config.ThunderSkyColor, darkness)
@@ -279,6 +287,15 @@ local function step(dt: number)
 
 	applyLighting()
 	applyEdgeFlash()
+end
+
+-- Fed by WeatherClient, which already raycasts for the snow. 0 is open sky.
+function WeatherThunder.setShelter(value: number)
+	shelter = value
+end
+
+function WeatherThunder.isActive(): boolean
+	return thunderActive
 end
 
 function WeatherThunder.init()

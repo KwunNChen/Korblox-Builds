@@ -215,14 +215,18 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 	end
 
 	WeatherAudio.update(intensity, shelter, wind.Magnitude, dt)
+	WeatherThunder.setShelter(shelter)
 
-	if intensity <= 0 and shelter <= 0.001 and not emitter.Enabled then
+	-- Thunder needs shelter too, and it can run when snow intensity is 0.
+	local needsShelter = intensity > 0 or WeatherThunder.isActive()
+
+	if not needsShelter and shelter <= 0.001 and not emitter.Enabled then
 		lastCameraPos = camera.CFrame.Position
 		smoothedVelocity = Vector3.zero
 		return
 	end
 
-	if intensity > 0 then
+	if needsShelter then
 		if not wasActive then
 			wasActive = true
 			checkAccumulator = 0
