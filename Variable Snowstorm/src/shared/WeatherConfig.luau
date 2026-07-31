@@ -226,7 +226,7 @@ WeatherConfig.ThunderDebugLog = true
 
 -- Chance a Peak phase contains a thunderstorm. 1 means every Peak gets one.
 -- Lower it only if you want thunderstorms to be an occasional event.
-WeatherConfig.ThunderChance = 0.6
+WeatherConfig.ThunderChance = 0.75
 
 -- Seconds the storm runs, and the rumble that opens it. Long, but deliberately
 -- shorter than a Peak (150-240s) so lightning is a stretch within the blizzard
