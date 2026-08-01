@@ -16,6 +16,7 @@
 	the character".
 ]]
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -52,6 +53,39 @@ local function log(message: string, ...)
 	if Config.DebugLog then
 		print(string.format("[Ski] " .. message, ...))
 	end
+end
+
+--[[
+	The wipeout sound, played from the SERVER on purpose.
+
+	A Sound created on a client is only ever heard by that client, so a
+	crash played there is silent to everyone watching it happen -- which is the
+	one sound where that matters most. Created here it replicates, so it lands
+	with the ragdoll everyone can already see.
+
+	Accepts a bare number, an rbxassetid:// url or a full web address, and treats
+	the "PUT CRASH SOUND ID HERE" placeholder as unset -- same handling as
+	SkiSound, so the two agree about what counts as a filled-in slot.
+]]
+local function playCrashSound(root: BasePart)
+	if not Config.EnableSound then
+		return
+	end
+
+	local digits = type(Config.CrashSoundId) == "string" and Config.CrashSoundId:match("(%d+)")
+	if not digits or #digits < 6 then
+		return
+	end
+
+	local sound = Instance.new("Sound")
+	sound.Name = "SkiCrashSound"
+	sound.SoundId = "rbxassetid://" .. digits
+	sound.Volume = Config.OneShotVolume
+	sound.RollOffMaxDistance = 160
+	sound.Parent = root
+	sound:Play()
+
+	Debris:AddItem(sound, 6)
 end
 
 local function findJoint(character: Model, name: string): Motor6D?
@@ -168,6 +202,7 @@ function SkiRagdoll.start(character: Model, duration: number?)
 	end
 
 	humanoid.PlatformStand = true
+	playCrashSound(root)
 
 	-- A shove of spin so you tumble rather than going limp and sliding on.
 	root.AssemblyLinearVelocity *= Config.CrashSpeedKeep

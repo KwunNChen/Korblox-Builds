@@ -1,4 +1,12 @@
 -- Cached HumanoidRootPart and Humanoid lookups, shared by the server systems.
+--
+-- THE SKI SYSTEM DOES NOT USE THIS, AND IT STILL SHIPS. Common is shared ground
+-- between the Korblox packages, not Ski's private folder -- Variable Snowstorm
+-- requires this file in WeatherRuntime and ThunderService. Dropping it because
+-- Ski has no use for it takes the weather system down with it, and the only
+-- symptom is an infinite yield on a WaitForChild that never returns.
+--
+-- Identical to Snowstorm's copy. Keep it that way.
 
 local CharacterCache = {}
 

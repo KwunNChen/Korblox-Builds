@@ -10,6 +10,45 @@
 
 local SkiConfig = {}
 
+-- ############################################################
+-- #
+-- #   PUT YOUR SOUND IDS HERE
+-- #
+-- ############################################################
+--
+-- Skiing is SILENT until you fill these in, and that's deliberate: Roblox audio
+-- is private to whichever place owns it, so an id copied from another game
+-- plays as silence with no error and nothing in Output. Shipping a real id
+-- would just look broken.
+--
+-- To get one: View > Toolbox > Audio, search, right click, Copy Asset ID.
+-- Paste it over the placeholder. Bare numbers and full rbxassetid:// URLs both
+-- work. Anything still saying PUT... is treated as empty and skipped, so fill
+-- in as many or as few as you like.
+--
+-- If you only do one, do GlideSoundId.
+
+-- Skis running over snow. Follows your speed. The workhorse -- pick something
+-- that loops without an audible seam.
+SkiConfig.GlideSoundId = "rbxassetid://9125408271"
+
+-- The edges biting. Follows SIDEWAYS speed, so it arrives when you turn rather
+-- than droning all the way down. Wants to be a harsher scrape than the glide.
+SkiConfig.CarveSoundId = "rbxassetid://9113597285"
+
+-- Follows speed, and the only one that keeps going while you're in the air.
+SkiConfig.WindSoundId = "rbxassetid://93035214379043"
+
+-- One-shots.
+SkiConfig.JumpSoundId = "rbxassetid://135162567109750"
+SkiConfig.LandSoundId = "rbxassetid://82342043168584"
+SkiConfig.CrashSoundId = "rbxassetid://91358197736651"
+
+-- Volumes, pitch and smoothing for the above live further down under SOUND.
+-- Two other things take ids you may want to fill in eventually: SkiMeshId /
+-- PoleMeshId to use your own models, and Animations to replace the built-in
+-- procedural poses.
+
 -- ============================================================
 -- EQUIPPING
 -- ============================================================
@@ -147,6 +186,11 @@ SkiConfig.SkiCarryStyle = "AFrame"
 -- it stands off you -- just enough to clear the torso and the sling.
 SkiConfig.SkiBackOffset = Vector3.new(0, 0.1, 0.72)
 
+-- How far the whole bundle tips backwards, in radians, so the tops lean away
+-- from your head instead of straight up through whatever hair you're wearing.
+-- Applies to every carry style. 0 stands them dead upright.
+SkiConfig.SkiBackLean = 0.2
+
 -- AFRAME: how far each ski leans in, in radians. The sideways offset needed to
 -- make the tips actually meet is worked out from this, so this is the only
 -- number you need -- bigger is a wider stance at the tails.
@@ -245,6 +289,21 @@ SkiConfig.DebugLog = true
 -- puts the skis flat on the snow. Change SkiFootOffset and this has to move
 -- with it.
 SkiConfig.HoverHeight = 3.0
+
+--[[
+	A deliberate gap between the ski bases and the snow, on top of HoverHeight.
+
+	HoverHeight puts the skis EXACTLY on the ground, which leaves no room for
+	error -- and the hover spring always has some. Ride down a slope onto the
+	flat and the spring is still catching up when the ground levels out, so the
+	skis dip through it for a moment.
+
+	This is the margin that absorbs that. There is a narrow band that works: too
+	little and the skis catch the ground coming off a slope, too much and they
+	visibly hover over it. Raise it if you clip, lower it if they float, and
+	expect to be working in hundredths rather than tenths.
+]]
+SkiConfig.GroundClearance = 0.03
 
 -- How far past HoverHeight we still look for ground. This is the spring's
 -- reach, NOT the point at which you count as landed -- touching down uses a
@@ -394,6 +453,19 @@ SkiConfig.JumpCooldown = 0.25
 -- difference between crisp and unresponsive.
 SkiConfig.CoyoteTime = 0.12
 
+--[[
+	Settling-in time after strapping the skis on. For this long you cannot jump
+	and cannot wipe out.
+
+	Both halves are needed. Strapping in while jump is queued -- or simply held
+	-- fired you straight into the air on the first frame of the sim, and a
+	launch you never asked for tends to end in a landing you can't save. Blocking
+	the jump stops the common case; suspending crashes covers whatever else the
+	first moments throw up, since a wipeout in the instant you strap in is never
+	something the player did.
+]]
+SkiConfig.EquipGrace = 0.35
+
 SkiConfig.AirYawRate = 3.4
 SkiConfig.AirPitchRate = 2.8
 SkiConfig.AirDriftAccel = 18
@@ -493,6 +565,80 @@ SkiConfig.Animations = {
 }
 
 -- ============================================================
+-- EFFECTS
+-- ============================================================
+--
+-- All of this is local to you. Particles and camera changes made on the client
+-- don't replicate, same as the poses -- so you see your own spray and not other
+-- people's. Making it shared means replicating scrub speed per player, which is
+-- a lot of traffic for something cosmetic.
+
+SkiConfig.EnableSpray = true
+
+--[[
+	Spray is driven by SIDEWAYS speed across the skis, not by how fast you're
+	going. That is the honest measure: a dead-straight schuss at full tilt throws
+	almost nothing, and a hard carve throws a wall of it even at moderate speed.
+	Drive it off total speed instead and it just blasts constantly.
+]]
+SkiConfig.SprayMaxRate = 120
+
+-- Sideways speed, in studs/sec, at which spray reaches full rate.
+SkiConfig.SpraySaturationSpeed = 28
+
+SkiConfig.SprayTexture = "rbxasset://textures/particles/smoke_main.dds"
+SkiConfig.SprayColor = Color3.fromRGB(255, 255, 255)
+
+-- Only these throw spray. Ski across rock and nothing comes off it, which is
+-- most of what makes the snow feel like snow.
+SkiConfig.SprayMaterials = {
+	[Enum.Material.Snow] = true,
+	[Enum.Material.Glacier] = true,
+	[Enum.Material.Ice] = true,
+	[Enum.Material.Sand] = true,
+}
+
+-- A burst of it when you touch down.
+SkiConfig.EnableLandingPuff = true
+
+-- Impact speed that produces a full-sized burst.
+SkiConfig.LandingPuffSpeed = 45
+SkiConfig.LandingPuffCount = 30
+
+-- Camera stretch with speed. The cheapest thing there is for making fast feel
+-- fast -- degrees added to the field of view at MaxSpeed, scaled by how fast
+-- you're actually going.
+SkiConfig.EnableSpeedFov = true
+SkiConfig.MaxFovBoost = 20
+SkiConfig.FovSmoothing = 0.35
+
+-- ============================================================
+-- SOUND
+-- ============================================================
+--
+-- THE IDS THEMSELVES ARE AT THE VERY TOP OF THIS FILE, under "PUT YOUR SOUND
+-- IDS HERE". Only the mixing lives down here.
+
+SkiConfig.EnableSound = true
+
+SkiConfig.GlideMaxVolume = 0.4
+SkiConfig.CarveMaxVolume = 0.55
+SkiConfig.WindMaxVolume = 0.45
+SkiConfig.OneShotVolume = 0.7
+
+-- Playback speed at a standstill and at MaxSpeed. Pitch climbing with speed is
+-- most of what makes the loops feel connected to what you're doing rather than
+-- just playing underneath it.
+SkiConfig.GlidePitchSlow = 0.75
+SkiConfig.GlidePitchFast = 1.4
+SkiConfig.WindPitchSlow = 0.8
+SkiConfig.WindPitchFast = 1.25
+
+-- Seconds of smoothing on volume and pitch. A time constant, not a duration --
+-- without it every loop steps audibly as speed changes.
+SkiConfig.SoundSmoothing = 0.25
+
+-- ============================================================
 -- CONTROLS
 -- ============================================================
 
@@ -504,6 +650,33 @@ SkiConfig.EquipKey = Enum.KeyCode.G
 
 SkiConfig.BrakeButton = Enum.KeyCode.ButtonL2
 SkiConfig.TuckButton = Enum.KeyCode.ButtonR2
+
+-- ============================================================
+-- SHOWING OTHER PLAYERS
+-- ============================================================
+--
+-- Poses, spray and sound are all built on the client, and none of that
+-- replicates. So a skier is only posed, spraying and audible on their OWN
+-- screen unless the numbers driving those things are sent round.
+--
+-- Each client publishes five values; the server writes them as character
+-- attributes, which do replicate; everyone else renders from those.
+
+-- How often those values go up, in seconds. This is not a physics rate -- the
+-- pose and the sound both smooth toward whatever they last heard, so ten times
+-- a second is plenty.
+SkiConfig.StateBroadcastRate = 0.1
+
+--[[
+	How much a value has to move before it's worth sending at all.
+
+	Straight-line skiing barely changes any of these, and pushing five attribute
+	writes per player ten times a second regardless is what makes this expensive
+	once there are more than a handful of people on a hill.
+]]
+SkiConfig.SpeedEpsilon = 1.5
+SkiConfig.ScrubEpsilon = 1.5
+SkiConfig.LeanEpsilon = 0.05
 
 -- ============================================================
 -- EQUIP ZONES

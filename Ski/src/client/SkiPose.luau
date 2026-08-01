@@ -2,16 +2,15 @@
 	SkiPose
 	Procedural R6 posing, driven straight off the Motor6D C0 values.
 
-	THIS IS ALSO WHAT MAKES THE SKIS SIT FLAT, and it takes more than it looks.
-	The skis are welded to the legs, so they inherit whatever angle the legs are
-	at -- and on R6 the legs hang off the TORSO, which RootJoint pitches. So the
-	torso lean tips the skis all on its own, with the hips at dead zero.
+	THIS IS ALSO WHAT MAKES THE SKIS SIT FLAT, and there are two separate jobs in
+	that. The skis are welded to the legs, so they inherit whatever angle the
+	legs are at, and on R6 the legs hang off the TORSO, which RootJoint pitches.
+	Lean the body forward and the skis tip nose-up on their own, hips or no hips.
 
-	Three things keep them flat, and all three are needed:
-	  * _uprightCompensation feeds the torso lean back into the hips, holding
-	    the legs vertical however far the body folds.
-	  * the poses keep the hip Z at zero, so nothing angles them further.
-	  * _applySkiCounterRotation cleans up whatever angle is left.
+	_alignSkis handles the skis, by solving the joint against the root part
+	instead of trying to work out how far they got tilted. _uprightCompensation
+	handles the legs, feeding the torso lean back into the hips so they stay
+	vertical and the boots stay in the bindings.
 
 	MUST RUN AFTER THE ENGINE'S ANIMATION PASS. The default Animate script writes
 	idle and walk poses into these same joints during the Character step, so
@@ -62,25 +61,20 @@ local JOINTS = { "RootJoint", "Neck", "Right Shoulder", "Left Shoulder", "Right 
 --[[
 	THE SKI STANCE, AND WHY IT IS BUILT THIS WAY.
 
-	The real posture is: knees bent, shins resting on the front of the boots,
-	weight forward, hands ahead. R6 has no knee, so the leg is one rigid piece
-	from hip to sole and a bent knee is not available at any price.
+	The real posture is knees bent, shins resting on the front of the boots,
+	weight forward, hands ahead. R6 has no knee. The leg is one rigid piece from
+	hip to sole, and a bent knee is not available at any price.
 
-	The closest honest approximation is to angle the whole leg forward from the
-	hip. That is the "Right Hip"/"Left Hip" Z value in every pose below, and it
-	drags two consequences with it that are handled elsewhere in this file:
+	Angling the whole leg forward from the hip is the nearest thing available,
+	and it is the "Right Hip"/"Left Hip" Z value below. It is set to zero in
+	every pose, because the leg has no ankle either: swing it forward and the
+	foot tilts with it, lifting the heel off the ski by about a stud times
+	sin(angle). Past a very small angle the character reads as standing on tiptoe.
 
-	  1. THE SKIS TILT WITH THE LEGS, because they are welded to them. Cancelled
-	     by counter-rotating the ski joints by the same angle -- see
-	     _applySkiCounterRotation.
-
-	  2. THE FOOT LIFTS as the leg swings forward, by legLength*(1-cos angle).
-	     Left alone the skis would hover. The controller reads legDrop() and
-	     lowers ride height to match -- which is ALSO where the crouch comes
-	     from. The body genuinely gets lower; it is not faked.
-
-	So the hip angle is the single number that controls how deep the stance is.
-	Raising it crouches you further and drops you closer to the snow.
+	So the legs stay vertical and the stance is carried entirely by the torso
+	lean. The skis no longer care either way, since _alignSkis solves them
+	against the root rather than inheriting anything from the leg, but the BOOTS
+	still do: swing the legs and the feet leave the bindings.
 ]]
 local POSES = {
 	-- The riding stance from the reference: weight forward, hands ahead, legs
@@ -157,9 +151,6 @@ local POSES = {
 	},
 }
 
--- Hip joint to the leg part's centre on an R6 rig: the legs are two studs long,
--- so their middle is one stud down from the hip.
-local HIP_TO_LEG_CENTRE = 1
 
 local NEUTRAL = {}
 for _, name in JOINTS do
@@ -185,6 +176,7 @@ function SkiPose.new(character: Model)
 
 	local torso = character:FindFirstChild("Torso")
 	local root = character:FindFirstChild("HumanoidRootPart")
+	self.root = root :: BasePart?
 
 	for _, name in JOINTS do
 		local holder = if name == "RootJoint" then root else torso
@@ -199,11 +191,31 @@ function SkiPose.new(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	self.animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 
-	-- The joints holding the gear on. Both need correcting as the limbs move:
-	-- welded gear inherits its limb's rotation, and neither the skis nor the
-	-- poles want to go where the limb is going.
+	--[[
+		The joints holding the gear on. Both need correcting as the limbs move:
+		welded gear inherits its limb's rotation, and neither the skis nor the
+		poles want to go where the limb is going.
+
+		The limb each one SHOULD be attached to is recorded alongside it, and
+		that is not bookkeeping -- it is the guard that stops this file fighting
+		SkiGear. Both write the same C0. When the server stows the gear it
+		repoints these joints at the Torso and gives them a back-carry offset;
+		writing a foot offset onto a joint hanging off the Torso puts the ski
+		straight through the middle of the character.
+	]]
 	self.skiJoints = {} :: { [number]: Motor6D }
 	self.poleJoints = {} :: { [number]: Motor6D }
+	self.skiLimbs = {} :: { [number]: BasePart }
+	self.poleLimbs = {} :: { [number]: BasePart }
+
+	local function limb(r6: string, r15: string): BasePart?
+		return (character:FindFirstChild(r6) or character:FindFirstChild(r15)) :: BasePart?
+	end
+
+	self.skiLimbs[-1] = limb("Left Leg", "LeftFoot")
+	self.skiLimbs[1] = limb("Right Leg", "RightFoot")
+	self.poleLimbs[-1] = limb("Left Arm", "LeftHand")
+	self.poleLimbs[1] = limb("Right Arm", "RightHand")
 
 	local gear = character:FindFirstChild("SkiGear")
 	if gear then
@@ -224,6 +236,12 @@ function SkiPose.new(character: Model)
 	return self
 end
 
+-- True only while the joint is still hanging off the limb we expect. Stowed
+-- gear hangs off the Torso instead, and belongs to SkiGear until it comes back.
+local function isDeployed(joint: Motor6D, limb: BasePart?): boolean
+	return limb ~= nil and joint.Part0 == limb
+end
+
 --[[
 	Rebuilt from config rather than remembered from construction.
 
@@ -239,17 +257,60 @@ local function footBase(sign: number): CFrame
 	)
 end
 
---[[
-	Keeps the skis flat while the legs are angled forward.
+-- R6 geometry: half the leg spacing, and root centre down to the soles.
+local LEG_SPACING = 0.5
+local ROOT_TO_SOLE = 3
 
-	The leg rotates about the torso's side-to-side axis, and the leg part's own X
-	axis stays parallel to it -- so undoing the tilt is a rotation of exactly the
-	same size about the ski joint's local X, in the opposite direction.
+--[[
+	Puts the skis flat, by MEASURING rather than predicting.
+
+	Every earlier attempt worked out how far the skis had been tilted and applied
+	the opposite. That kept being wrong, because on R6 the tilt arrives from two
+	joints at once: the hips, and the Torso via RootJoint (the legs hang off the
+	Torso, so pitching it pitches them). Two signs to get right, derived on paper,
+	and I got one backwards more than once.
+
+	This asks the rig instead of predicting it. The root part is already squared
+	up to the slope by the controller, so a flat ski is just "wherever the root
+	is, dropped to the feet". Solving for the joint that lands it there needs no
+	angles at all:
+
+	    ski = leg.CFrame * C0     therefore     C0 = leg.CFrame:Inverse() * target
+
+	Self-correcting by construction. Whatever the torso, the hips or the walk
+	animation happen to be doing to the leg on any given frame, the skis come out
+	flat against the slope.
 ]]
-function SkiPose:_applySkiCounterRotation(legAngle: number)
+function SkiPose:_alignSkis()
+	local root = self.root
+	if not root then
+		return
+	end
+
 	for sign, joint in self.skiJoints do
-		if joint.Parent then
-			joint.C0 = footBase(sign) * CFrame.Angles(-legAngle, 0, 0)
+		local leg = self.skiLimbs[sign]
+
+		-- Skipped the moment the gear is stowed: those joints belong to SkiGear
+		-- until they come back to the feet.
+		if leg and joint.Parent and isDeployed(joint, leg) then
+			local target = root.CFrame
+				* CFrame.new(
+					sign * (LEG_SPACING + Config.SkiFootOffset.X),
+					-(ROOT_TO_SOLE - Config.SkiThickness * 0.5),
+					Config.SkiFootOffset.Z
+				)
+
+			joint.C0 = leg.CFrame:Inverse() * target
+		end
+	end
+end
+
+-- Hands the skis back to the legs, so they follow the feet through a normal
+-- walk cycle. Used when the pose is released and the Humanoid is driving again.
+function SkiPose:_restSkis()
+	for sign, joint in self.skiJoints do
+		if joint.Parent and isDeployed(joint, self.skiLimbs[sign]) then
+			joint.C0 = footBase(sign)
 		end
 	end
 end
@@ -271,7 +332,8 @@ local POLE_UPRIGHT = -math.pi / 2
 ]]
 function SkiPose:_applyPoleCounterRotation(armAngle: number)
 	for sign, joint in self.poleJoints do
-		if joint.Parent then
+		-- Same guard as the skis: hands off once SkiGear has stowed them.
+		if joint.Parent and isDeployed(joint, self.poleLimbs[sign]) then
 			local rest = CFrame.Angles(-Config.PoleTrailAngle, 0, 0)
 				* CFrame.Angles(0, 0, POLE_UPRIGHT + sign * Config.PoleHandTilt)
 
@@ -312,45 +374,12 @@ function SkiPose:_uprightCompensation(name: string): number
 	return 0
 end
 
--- The legs' pitch in WORLD space. Equal to the pose's hip Z, because the
--- compensation above has already absorbed the torso lean.
-function SkiPose:legAngle(): number
-	local hip = self.current["Right Hip"]
-	return if hip then hip.Z else 0
-end
-
 -- The arms' pitch in WORLD space. The arms hang off the torso too, and unlike
 -- the legs they are LEFT to swing with it -- arms following the body is natural.
 -- So the torso lean has to come off here for the poles to hang right.
 function SkiPose:armAngle(): number
 	local shoulder = self.current["Right Shoulder"]
 	return (if shoulder then shoulder.Z else 0) - rootLean(self)
-end
-
---[[
-	How far the body has to ride lower to keep the skis flat on the snow.
-
-	Swinging the leg forward lifts the foot, because less of the leg's length is
-	vertical -- that is the (1 - cos) term, and feeding it into ride height is
-	what turns an angled leg into a real crouch rather than a character hovering
-	with its feet out in front.
-
-	THE SECOND TERM IS NOT OPTIONAL. The ski is not mounted under the hip; it
-	sits SkiFootOffset.Z behind the leg's centre line, so swinging the leg
-	forward also pivots the ski downward. That partly cancels the lift. Leaving
-	it out drops you nearly twice as far as the rig actually calls for, and the
-	skis bury themselves in the snow -- which is exactly what it did.
-
-	Both terms come off the rig rather than being tuned, so changing
-	SkiFootOffset keeps this honest automatically.
-]]
-function SkiPose:legDrop(): number
-	local angle = self:legAngle()
-
-	local reach = HIP_TO_LEG_CENTRE - Config.SkiFootOffset.Y
-	local behind = Config.SkiFootOffset.Z
-
-	return reach * (1 - math.cos(angle)) - behind * math.sin(angle)
 end
 
 function SkiPose:_trackFor(poseName: string): AnimationTrack?
@@ -488,9 +517,10 @@ function SkiPose:update(dt: number)
 		joint.Transform = CFrame.identity
 	end
 
-	-- Both follow the blend rather than the target, so the gear stays put all
-	-- the way through a pose change instead of only once it has settled.
-	self:_applySkiCounterRotation(self:legAngle())
+	-- Skis are solved against the root, so they need nothing from the pose. The
+	-- poles still follow the arm blend, so they stay put through a pose change
+	-- rather than only once it has settled.
+	self:_alignSkis()
 	self:_applyPoleCounterRotation(self:armAngle())
 end
 
@@ -512,10 +542,11 @@ function SkiPose:release()
 		self.current[name] = Vector3.zero
 	end
 
-	-- Limbs go back to rest, so the gear wants no correction. If it's stowed the
-	-- server owns these joints and will overwrite this anyway; writing the
-	-- deployed value is only wrong for a frame.
-	self:_applySkiCounterRotation(0)
+	-- Gear goes back to hanging off the limbs, so the skis follow the feet
+	-- through a normal walk cycle. If it's stowed the server owns these joints
+	-- and will overwrite this anyway; writing the deployed value is only wrong
+	-- for a frame.
+	self:_restSkis()
 	self:_applyPoleCounterRotation(0)
 
 	self.poseName = ""

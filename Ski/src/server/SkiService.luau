@@ -78,6 +78,10 @@ function SkiService.setEquipped(player: Player, isEquipped: boolean)
 	character:SetAttribute(Attr.Equipped, isEquipped)
 	SkiGear.setStowed(character, not isEquipped)
 
+	if not isEquipped then
+		SkiService.clearState(character)
+	end
+
 	-- Only slows you while the skis are actually on your feet. Carrying them on
 	-- your back should walk at normal speed.
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -128,6 +132,73 @@ function SkiService.giveTool(player: Player)
 	local tool = makeTool()
 	bindTool(player, tool)
 	tool.Parent = backpack
+end
+
+-- ============================================================
+-- PUBLISHING STATE TO EVERYONE ELSE
+-- ============================================================
+
+--[[
+	Republishes what a client reports as character attributes.
+
+	The round trip exists because attributes only replicate server -> client. A
+	client writing these on its own character would be the only one to see them,
+	which is exactly the problem this solves.
+
+	NOTHING HERE IS A TRUST BOUNDARY and it isn't trying to be. These five values
+	are cosmetic -- the worst a liar achieves is looking wrong to other people,
+	which they could do by editing their own client anyway. What the checks are
+	for is keeping junk out of the attributes: a NaN or an unknown state string
+	propagates to every other client and breaks their rendering, not just the
+	sender's.
+]]
+function SkiService.clearState(character: Model)
+	character:SetAttribute(Attr.State, Shared.State.Walking)
+	character:SetAttribute(Attr.Speed, 0)
+	character:SetAttribute(Attr.Scrub, 0)
+	character:SetAttribute(Attr.Lean, 0)
+	character:SetAttribute(Attr.OnSnow, false)
+end
+
+-- value ~= value catches NaN, which slips past every comparison you'd normally
+-- reach for.
+local function cleanNumber(value: unknown, limit: number): number?
+	if type(value) ~= "number" or value ~= value then
+		return nil
+	end
+	return math.clamp(value, -limit, limit)
+end
+
+function SkiService.onStateReport(player: Player, payload: unknown)
+	local character = player.Character
+	if type(payload) ~= "table" or not character or not equipped[player] then
+		return
+	end
+
+	local data = payload :: any
+
+	if type(data.state) == "string" and Shared.State[data.state] then
+		character:SetAttribute(Attr.State, data.state)
+	end
+
+	local speed = cleanNumber(data.speed, Config.MaxSpeed)
+	if speed then
+		character:SetAttribute(Attr.Speed, math.abs(speed))
+	end
+
+	local scrub = cleanNumber(data.scrub, Config.MaxSpeed)
+	if scrub then
+		character:SetAttribute(Attr.Scrub, math.abs(scrub))
+	end
+
+	local lean = cleanNumber(data.lean, 1)
+	if lean then
+		character:SetAttribute(Attr.Lean, lean)
+	end
+
+	if type(data.onSnow) == "boolean" then
+		character:SetAttribute(Attr.OnSnow, data.onSnow)
+	end
 end
 
 -- ============================================================
@@ -206,6 +277,10 @@ function SkiService.onCharacterAdded(player: Player, character: Model)
 	equipped[player] = false
 	character:SetAttribute(Attr.Equipped, false)
 
+	-- A fresh character starts neutral, or everyone else renders it mid-carve
+	-- from whatever the last one was doing when it died.
+	SkiService.clearState(character)
+
 	-- A character that died mid-wipeout leaves its old entry behind.
 	SkiRagdoll.stop(character)
 
@@ -254,6 +329,9 @@ function SkiService.init(remotes: Folder)
 		Rate limited by the ragdoll itself: start() ignores a character that is
 		already down.
 	]]
+	local stateEvent = remotes:FindFirstChild("SkiState") :: RemoteEvent
+	stateEvent.OnServerEvent:Connect(SkiService.onStateReport)
+
 	local crashEvent = remotes:FindFirstChild("SkiCrash") :: RemoteEvent
 	crashEvent.OnServerEvent:Connect(function(player)
 		local character = player.Character

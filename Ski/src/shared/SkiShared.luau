@@ -6,9 +6,30 @@ local Config = require(script.Parent:WaitForChild("SkiConfig"))
 
 local SkiShared = {}
 
--- Character attributes, set by the server so they replicate to everyone.
+--[[
+	Character attributes. WRITTEN BY THE SERVER, always.
+
+	Attributes only replicate server -> client, so a client setting these on its
+	own character would be talking to itself. That round trip is the entire
+	reason the cosmetics are driven this way: everything below exists so other
+	people's clients can pose, spray and sound a skier they aren't simulating.
+]]
 SkiShared.Attr = table.freeze({
 	Equipped = "SkiEquipped", -- gear is on your feet rather than your back
+	State = "SkiState", -- which pose to hold
+	Speed = "SkiSpeed", -- sound volume and pitch
+	Scrub = "SkiScrub", -- sideways speed: spray rate and carve sound
+	Lean = "SkiLean", -- -1 to 1, drives the whole carving overlay
+	OnSnow = "SkiOnSnow", -- gates spray and the glide/carve loops
+})
+
+-- The states a skier can be in. Shared so the server can reject anything else
+-- rather than writing whatever string a client felt like sending.
+SkiShared.State = table.freeze({
+	Walking = "Walking",
+	Riding = "Riding",
+	Braking = "Braking",
+	Airborne = "Airborne",
 })
 
 -- ============================================================
@@ -84,7 +105,7 @@ end
 -- REMOTES
 -- ============================================================
 
-SkiShared.RemoteNames = table.freeze({ "SkiEquip", "SkiCrash" })
+SkiShared.RemoteNames = table.freeze({ "SkiEquip", "SkiCrash", "SkiState" })
 
 --[[
 	SERVER ONLY. Creates the folder and any missing remotes.

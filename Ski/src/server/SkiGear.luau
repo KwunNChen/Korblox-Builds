@@ -421,8 +421,14 @@ local function skiBackCFrame(sign: number): CFrame
 	local style = Config.SkiCarryStyle
 	local base = Config.SkiBackOffset
 
+	-- Applied outermost, so it tips the whole assembled bundle backwards in
+	-- torso space rather than rotating each ski about its own length. That is
+	-- what keeps the tops clear of the back of the head.
+	local backLean = CFrame.Angles(Config.SkiBackLean, 0, 0)
+
 	if style == "Crossed" then
 		return CFrame.new(sign * base.X, base.Y, base.Z)
+			* backLean
 			* CFrame.Angles(0, 0, sign * Config.SkiBackTilt)
 			* CFrame.Angles(math.pi / 2, 0, 0)
 	end
@@ -433,12 +439,14 @@ local function skiBackCFrame(sign: number): CFrame
 		-- way, so the two sit base to base the way they'd be strapped together,
 		-- instead of one sliding along the other's length.
 		return CFrame.new(base.X, base.Y, base.Z + sign * Config.SkiCarrySpread * 0.5)
+			* backLean
 			* CFrame.Angles(0, 0, Config.SkiCarryAngle)
 			* CFrame.Angles(math.pi / 2, 0, 0)
 	end
 
 	if style == "Vertical" then
 		return CFrame.new(base.X + sign * Config.SkiCarrySpread * 0.5, base.Y, base.Z)
+			* backLean
 			* CFrame.Angles(math.pi / 2, 0, 0)
 	end
 
@@ -463,6 +471,7 @@ local function skiBackCFrame(sign: number): CFrame
 	local converge = Config.SkiLength * 0.5 * math.sin(lean)
 
 	return CFrame.new(base.X + sign * (converge + Config.SkiApexGap * 0.5), base.Y, base.Z)
+		* backLean
 		* CFrame.Angles(0, 0, sign * lean)
 		* CFrame.Angles(math.pi / 2, 0, 0)
 end

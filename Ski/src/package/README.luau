@@ -61,10 +61,14 @@
 	       Ski
 	       Common
 
-	   Common holds one file, SpeedService. If your game already has a Common
-	   folder, open this one and drag SpeedService into yours instead of
-	   replacing it. If you already run Variable Snowstorm you have that exact
-	   file already -- keep the one that's there.
+	   IF YOUR GAME ALREADY HAS A COMMON FOLDER, MERGE -- DON'T REPLACE. Open
+	   this one and drag its files into yours, keeping anything already there.
+
+	   Common is shared ground between the Korblox packages rather than Ski's
+	   own folder. Ski only uses SpeedService out of it; CharacterCache is in
+	   there for Variable Snowstorm. Replace the folder wholesale and you take
+	   out whatever the other package needed, and the only sign of it is an
+	   infinite yield on a WaitForChild that never returns.
 
 	4. Open the "StarterPlayerScripts" folder. Move its Ski folder into:
 
@@ -81,14 +85,15 @@
 
 	    ReplicatedStorage
 	    |-- Ski                   SkiConfig, SkiShared
-	    +-- SkiRemotes            SkiEquip, SkiCrash
+	    +-- SkiRemotes            SkiEquip, SkiCrash, SkiState
 
 	    ServerScriptService
 	    |-- Ski                   SkiService, SkiRuntime, SkiGear, SkiRagdoll
-	    +-- Common                SpeedService
+	    +-- Common                SpeedService, CharacterCache
 
 	    StarterPlayer/StarterPlayerScripts
-	    +-- Ski                   SkiController, SkiPhysics, SkiPose
+	    +-- Ski                   SkiController, SkiPhysics, SkiPose,
+	                              SkiEffects, SkiSound, SkiRemoteView
 
 	Press Play. You spawn with the skis on your back and a "Skis" tool in your
 	hotbar. Press G, walk onto something that slopes, and you're skiing.
@@ -120,6 +125,7 @@
 	    PoleTrailAngle    how far the tips trail behind you while riding
 	    SkiCarryStyle     how they ride on your back -- see below
 	    SkiBackOffset     where the bundle sits on your back
+	    SkiBackLean       how far the tops tip back, to clear tall hair
 	    SkiApexAngle      how far the skis lean into the V. AFrame only
 	    SkiApexGap        air left between the tips at the top
 	    SkiCarryAngle     lean. Diagonal only
@@ -321,6 +327,98 @@
 
 
 	========================================================
+	EFFECTS
+	========================================================
+
+	    EnableSpray            snow off the edges
+	    SprayMaxRate           how much at full tilt
+	    SpraySaturationSpeed   sideways speed that reaches full rate
+	    SprayMaterials         what throws snow. Rock throws nothing
+	    EnableLandingPuff      a burst when you touch down
+	    LandingPuffSpeed       impact that gives a full-sized burst
+	    EnableSpeedFov         camera stretch with speed
+	    MaxFovBoost            degrees added at MaxSpeed
+
+	SPRAY IS DRIVEN BY SIDEWAYS SPEED, not by how fast you're going. That's the
+	honest measure: a dead-straight schuss at full tilt throws almost nothing and
+	a hard carve throws a wall of it at half the speed. Drive it off total speed
+	and it just blasts constantly, which reads as fog rather than snow.
+
+	It's also gated on the material under you, so skiing off snow onto rock kills
+	it instantly. That contrast is most of what makes the snow feel like snow
+	rather than a white floor.
+
+	Nothing here can affect how the skis ride, and every piece switches off on
+	its own. The system rides identically with all of it disabled.
+
+
+	========================================================
+	SEEING OTHER PLAYERS SKI
+	========================================================
+
+	Their gear and their movement replicate on their own -- the gear is built on
+	the server, and position is ordinary character replication. What does NOT
+	replicate is anything cosmetic: joint poses, particles and sounds made on a
+	client are only ever seen by that client.
+
+	So each client publishes five numbers -- state, speed, sideways speed, lean
+	and whether it's on snow -- the server writes them as character attributes,
+	and every other client renders from those using exactly the same pose, spray
+	and sound code the local player uses. Only the source of the numbers differs.
+
+	    StateBroadcastRate   how often those go up, in seconds
+	    SpeedEpsilon         how much each has to move before it's worth sending
+	    ScrubEpsilon
+	    LeanEpsilon
+
+	The epsilons matter more than the rate. Straight-line skiing barely changes
+	any of these, so without them you'd push five attribute writes per player ten
+	times a second whatever they were doing. Raise them if a busy hill gets
+	expensive; lower them if remote skiers look steppy.
+
+	The crash sound is the one piece played from the SERVER, in SkiRagdoll,
+	because a client-side sound is silent to everyone watching -- and a wipeout
+	is the sound other people most want to hear. Jump and landing one-shots are
+	still local.
+
+
+	========================================================
+	SOUND NEEDS YOUR OWN ASSET IDS
+	========================================================
+
+	SKIING SHIPS SILENT, AND THAT IS DELIBERATE. Roblox audio is private to the
+	place that owns it, so an id lifted from another game plays as silence with
+	no error and nothing in Output -- which looks exactly like a broken install.
+	Better to ship blanks and have you fill them in.
+
+	View > Toolbox > Audio, search, right click, Copy Asset ID. You'll get one
+	warning in Output until at least one loop is set. Any slot left empty is
+	skipped, so fill in as many or as few as you like.
+
+	    GlideSoundId   skis running over snow. Follows SPEED. The workhorse --
+	                   if you only set one, set this. Pick something that loops
+	                   without an audible seam.
+	    CarveSoundId   the edges biting. Follows SIDEWAYS speed, same as the
+	                   spray, so it arrives when you turn instead of droning all
+	                   the way down. A harsher scrape than the glide.
+	    WindSoundId    follows speed, and the only one that keeps going while
+	                   you're in the air.
+	    JumpSoundId    one-shot on takeoff
+	    LandSoundId    one-shot, louder and pitched down the harder you land
+	    CrashSoundId   one-shot on a wipeout
+
+	Volumes are GlideMaxVolume / CarveMaxVolume / WindMaxVolume / OneShotVolume.
+	Pitch climbs with speed between GlidePitchSlow and GlidePitchFast, which is
+	most of what stops a loop sounding like it's just playing underneath you.
+
+	Glide and carve both cut when you ski off snow onto rock, the same rule the
+	spray follows.
+
+	LOCAL TO YOU, like the poses and the spray -- these are made on the client,
+	so nobody else hears them.
+
+
+	========================================================
 	CARVING
 	========================================================
 
@@ -359,8 +457,9 @@
 	Animate with nothing to wake it up afterwards, so the character stands frozen
 	after unequipping until something forces a state change.
 
-	POSES ARE LOCAL TO YOU. Joint changes made on the client don't replicate, so
-	other players see you riding unposed. Put an R6 animation id into
+	Joint changes made on the client don't replicate, so a pose only exists on
+	the screen of whoever set it. Other players are posed from replicated state
+	instead -- see SEEING OTHER PLAYERS SKI above. Put an R6 animation id into
 	SkiConfig.Animations and that slot switches to a real animation instead,
 	which goes through the Animator and does replicate. Each of Stance, Carve,
 	Tuck, Brake and Air can be swapped independently.
@@ -382,7 +481,11 @@
 	    TurnRate              steering at a standstill
 	    TurnSpeedFalloff      how much wider turns get at speed
 	    JumpImpulse           launch speed along the ground normal
+	    EquipGrace            settling-in time when you strap in: no jumping
+	                            and no wiping out for this long
 	    HoverHeight           ride height. Tied to SkiFootOffset -- see below
+	    GroundClearance       gap under the skis. Raise if they clip on slope
+	                            changes, 0 to sit flush
 	    ProbeSpread           how far out the tip/tail ground checks sit
 	    NormalSmoothing       raise if the skis jitter on Terrain
 	    LandingCrashAngle     how sloppy a landing gets before you wipe out
@@ -438,11 +541,16 @@
 	  feel late to follow the ground, you've gone too far.
 
 	THE SKIS CLIP THROUGH THE GROUND ON A SLOPE CHANGE
-	  Raise ProbeSpread. The ground is checked at three points -- under the boot
-	  and out near each end of the ski -- and this is how far out those outer two
-	  sit. Too small and the ends dig in before the middle notices; much over
-	  0.4 and they sit past the ends of the ski and lift you over ground you
-	  haven't reached.
+	  Raise GroundClearance first -- it is the deliberate gap between the ski
+	  bases and the snow, and it exists to absorb exactly this. HoverHeight puts
+	  the skis flush with the ground, which leaves no room for the hover spring
+	  to overshoot, and coming off a slope onto the flat is where it does.
+
+	  If that isn't enough, ProbeSpread. The ground is checked at three points --
+	  under the boot and out near each end of the ski -- and this is how far out
+	  those outer two sit. Too small and the ends dig in before the middle
+	  notices; much over 0.4 and they sit past the ends of the ski and lift you
+	  over ground you haven't reached yet.
 
 	YOU GET LAUNCHED AT THE FOOT OF A STEEP BANK
 	  Shouldn't happen -- the outer probes ignore anything near vertical for
@@ -467,6 +575,11 @@
 	  Something is looking for an instance that was never installed. Remotes fix
 	  themselves, so this means one of the folders in the install list did not
 	  make it -- check the tree above against what is actually in your game.
+
+	  If it names something under Common, you almost certainly replaced that
+	  folder instead of merging into it. Common is shared between packages: Ski
+	  needs SpeedService, Variable Snowstorm needs CharacterCache, and both have
+	  to be sitting in there together.
 
 	YOU FLOAT AFTER A CRASH AND NEVER COME DOWN
 	  Something left the gravity-cancelling force behind. While the sim drives,
