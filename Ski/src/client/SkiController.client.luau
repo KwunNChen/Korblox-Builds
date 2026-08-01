@@ -366,45 +366,29 @@ local function enterWalking(self)
 end
 
 --[[
-	Three downward probes: under the boot, and out near each end of the ski.
+	One downward probe, under the boot. The slope you are standing on is the
+	slope you ride, and nothing else gets a vote.
 
-	One probe only knows about the ground directly under you, and the ski is over
-	five studs long -- so a dip or a rise puts the tip or tail through the snow
-	well before the middle notices. Whichever probe is closest drives the hover
-	spring, so the end that is about to dig in is the one that lifts you.
+	This used to sample three points along the ski and take whichever came back
+	CLOSEST, on the theory that whichever end was about to dig in should be the
+	one lifting you. That theory is wrong in a way that is obvious once you feel
+	it. Taking the minimum means ANY higher ground near you raises you: ski
+	toward an upslope and the probe out by your tips finds it a couple of studs
+	early, so you float up the hill instead of slowing against it. Over anything
+	uneven you end up riding at the height of the nearest high point rather than
+	the height of the snow, which is the permanent hovering.
 
-	Returns two things on purpose. The DISTANCE comes from the closest probe,
-	because that is the one about to clip. The SURFACE -- the normal we align to
-	and the material we take friction from -- comes from under the boot, because
-	that is the ground you are actually riding. Taking the normal from whichever
-	probe happened to win makes the skis flick about at every edge in the terrain.
+	What a single probe gives up is tip and tail clearance over sharp
+	transitions. That is what GroundClearance and the hover spring are for, and
+	they are a far smaller problem than being lifted by ground you have not
+	reached.
 ]]
-local function probeGround(self, root: BasePart, heading: Vector3): (RaycastResult?, RaycastResult?)
-	local down = Vector3.new(0, -(Config.HoverHeight + Config.ProbeMargin), 0)
-	local origin = root.Position
-
-	local flat = Vector3.new(heading.X, 0, heading.Z)
-	local reach = if flat.Magnitude > 1e-4
-		then flat.Unit * (Config.SkiLength * Config.ProbeSpread)
-		else Vector3.zero
-
-	local centre = workspace:Raycast(origin, down, self.groundParams)
-	local closest = centre
-
-	for _, offset in { reach, -reach } do
-		local hit = workspace:Raycast(origin + offset, down, self.groundParams)
-
-		-- Near-vertical faces out at the ends are ignored. A bank in front of
-		-- the tips is not ground to ride up, and letting it shorten the hover
-		-- distance would fire you into the air at the foot of every steep rise.
-		if hit and hit.Normal:Dot(UP) >= MIN_GROUND_DOT then
-			if not closest or hit.Distance < closest.Distance then
-				closest = hit
-			end
-		end
-	end
-
-	return closest, centre or closest
+local function probeGround(self, root: BasePart): RaycastResult?
+	return workspace:Raycast(
+		root.Position,
+		Vector3.new(0, -(Config.HoverHeight + Config.ProbeMargin), 0),
+		self.groundParams
+	)
 end
 
 --[[
@@ -463,12 +447,12 @@ local function step(dt: number)
 	local gravity = workspace.Gravity
 
 	-- ---------- ground probe ----------
-	local hit, surface = probeGround(self, root, self.heading)
+	local hit = probeGround(self, root)
 
-	local grounded = hit ~= nil and surface ~= nil and surface.Normal:Dot(UP) >= MIN_GROUND_DOT
-	local groundNormal = if grounded then surface.Normal else UP
-	local friction = if grounded then Shared.frictionFor(surface) else Config.DefaultFriction
-	local onSnow = grounded and Config.SprayMaterials[surface.Material] == true
+	local grounded = hit ~= nil and hit.Normal:Dot(UP) >= MIN_GROUND_DOT
+	local groundNormal = if grounded then hit.Normal else UP
+	local friction = if grounded then Shared.frictionFor(hit) else Config.DefaultFriction
+	local onSnow = grounded and Config.SprayMaterials[hit.Material] == true
 
 	local input = readInput(humanoid, self.heading, grounded and self.state ~= AIRBORNE)
 
@@ -613,6 +597,33 @@ local function step(dt: number)
 			self.lastGroundDistance = distance
 
 			self.velocity += Vector3.new(0, SkiPhysics.hoverAccel(hoverHeight - distance, closing) * dt, 0)
+
+			--[[
+				Hard floor, on top of the spring.
+
+				A spring can only ACCELERATE you out of the ground, and that
+				takes time you can see: land hard or hit a sudden change of
+				slope and the skis sit buried for the better part of a second
+				while it digs them out. Stiffening it just trades the burial for
+				a bounce.
+
+				So the spring keeps its job everywhere above the surface, and
+				below it we simply refuse. If the probe says the skis are under
+				the snow, lift straight out this frame. It only ever pushes up
+				and never past the target, so it cannot fight the spring or
+				launch you.
+			]]
+			local sink = hoverHeight - distance
+			if sink > 0 then
+				root.CFrame += Vector3.new(0, sink, 0)
+				self.lastGroundDistance = hoverHeight
+
+				-- Kill the downward velocity too, or the next frame just drives
+				-- you back under and this fires forever.
+				if self.velocity.Y < 0 then
+					self.velocity = Vector3.new(self.velocity.X, 0, self.velocity.Z)
+				end
+			end
 
 			if jumpQueued and now >= self.jumpReadyAt then
 				-- Along the ground normal, not straight up: launching off a lip

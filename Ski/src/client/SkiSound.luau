@@ -199,6 +199,14 @@ end
 -- No crash sound here. It's played by SkiRagdoll on the server, so everyone
 -- watching hears the wipeout rather than only the person it happened to.
 
+-- Silences the loops immediately, for culling. Straight to zero rather than
+-- damped, because the skier this belongs to is already out of earshot.
+function SkiSound:mute()
+	for _, sound in self.loops do
+		sound.Volume = 0
+	end
+end
+
 function SkiSound:destroy()
 	for _, sound in self.loops do
 		sound:Destroy()

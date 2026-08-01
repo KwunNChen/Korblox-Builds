@@ -302,29 +302,16 @@ SkiConfig.HoverHeight = 3.0
 	little and the skis catch the ground coming off a slope, too much and they
 	visibly hover over it. Raise it if you clip, lower it if they float, and
 	expect to be working in hundredths rather than tenths.
+
+	It is measured from the LOWEST part of the ski, camber included, so changing
+	SkiCamber does not quietly eat into it.
 ]]
-SkiConfig.GroundClearance = 0.03
+SkiConfig.GroundClearance = 0.04
 
 -- How far past HoverHeight we still look for ground. This is the spring's
 -- reach, NOT the point at which you count as landed -- touching down uses a
 -- much tighter test, or you would "land" while still metres up.
 SkiConfig.ProbeMargin = 2.5
-
---[[
-	The ground is checked at three points -- under the boot and out near each end
-	of the ski -- and this is how far the outer two sit, as a fraction of the
-	ski's length.
-
-	One probe under the boot only knows about the ground directly beneath you,
-	and the ski is over five studs long. Ski into a dip or over a rise and the
-	tip or tail is through the snow well before the middle has any idea. That is
-	the clipping you see on the way into a slope.
-
-	0 puts all three in the same place, which is the old single-probe behaviour.
-	Much above 0.4 and the probes sit past the ends of the ski and start lifting
-	you over ground you aren't on yet.
-]]
-SkiConfig.ProbeSpread = 0.38
 
 -- Hover spring. A spring rather than a hard snap, because snapping reads as
 -- teleporting over bumps. Critical damping is 2*sqrt(stiffness), so these are
@@ -516,12 +503,23 @@ SkiConfig.PoseSmoothing = 0.12
 	A turn is not one lean. Real carving is four things happening at once, and
 	each of these is one of them:
 
-	  MaxEdgeAngle      the skis tip onto their edges. THE defining thing --
-	                    everything else is decoration on top of it. On R6 this
-	                    is the legs tipping sideways at the hip; the skis are
-	                    welded to them, so they go on edge for free.
+	  MaxEdgeAngle      how far the SKIS roll onto their edges. This is the big
+	                    one and it carries the whole look of a carve.
 
-	  MaxLeanAngle      the body inclines into the turn.
+	  MaxLegTip         how far the LEGS lean over. SMALL, and it has to be.
+
+	  MaxLeanAngle      how far the TORSO inclines. Also small, and less than
+	                    the legs, which is what gives the bent-at-the-hip shape
+	                    a real skier has.
+
+	WHY MaxLegTip CANNOT BE BIG, even though a real skier's legs go right over:
+	R6 has no knee and no ankle. Tipping the leg pivots the whole thing about the
+	hip, so the foot swings through an arc instead of staying planted. At 0.7 rad
+	on a two-stud leg that is over a stud sideways, and the boot simply walks off
+	the ski. A real leg absorbs all of that in the joints below the hip.
+
+	So the skis carry the edge angle and the legs only suggest it. Raise MaxLegTip
+	past about 0.25 and you will see the character step off its own skis.
 
 	  NeckCounterRoll   how much of that lean the head cancels, so you keep
 	                    looking level instead of tipping your head with your
@@ -537,12 +535,45 @@ SkiConfig.PoseSmoothing = 0.12
 ]]
 SkiConfig.CarveDirection = 1
 
-SkiConfig.MaxEdgeAngle = 0.5
-SkiConfig.MaxLeanAngle = 0.55
-SkiConfig.NeckCounterRoll = 0.6
-SkiConfig.MaxCounterTwist = 0.35
+SkiConfig.MaxEdgeAngle = 0.72
+SkiConfig.MaxLegTip = 0.18
+SkiConfig.MaxLeanAngle = 0.32
+SkiConfig.NeckCounterRoll = 0.5
+SkiConfig.MaxCounterTwist = 0.45
 
 SkiConfig.LeanSmoothing = 0.14
+
+--[[
+	POLE PLANTS.
+
+	A skier taps the snow with the inside pole as each turn starts. It's the
+	rhythm you recognise a skier by from a distance, more than the turns
+	themselves.
+
+	Triggered off the lean crossing sides, not off a timer, so it lands with your
+	actual turns rather than metronoming through them. And because lean is one of
+	the values that replicates, other players plant poles too without any extra
+	work.
+
+	PolePlantLean is how committed a turn has to be before it earns a plant --
+	raise it and only proper carves get one. The cooldown stops a wobble at speed
+	turning into frantic tapping.
+]]
+SkiConfig.EnablePolePlants = true
+
+-- Deliberately low. A plant should feel like part of how you turn, not a rare
+-- flourish, so anything that reads as a real turn earns one.
+SkiConfig.PolePlantLean = 0.18
+SkiConfig.PolePlantCooldown = 0.3
+
+-- How long the whole plant takes, and how far the arm reaches. The reach is
+-- radians added to the shoulder, so it stacks on whatever pose is running.
+--
+-- Most of the duration is spent HELD at full reach rather than travelling, so
+-- the tip sits in the snow while the turn comes round it. Raise the reach if
+-- the pole still looks like it's waving past rather than planting.
+SkiConfig.PolePlantDuration = 0.55
+SkiConfig.PolePlantReach = 1.75
 
 -- There is no TuckHoverDrop any more. R6 has no knee, so every crouch is the
 -- legs angled forward from the hip, and how far that lowers you falls out of
@@ -612,6 +643,44 @@ SkiConfig.EnableSpeedFov = true
 SkiConfig.MaxFovBoost = 20
 SkiConfig.FovSmoothing = 0.35
 
+--[[
+	TRACKS LEFT IN THE SNOW.
+
+	A ribbon drawn behind each ski. Unlike the spray, this runs off SPEED rather
+	than sideways scrub -- you leave a track wherever you go, not only where you
+	turn. It cuts on rock for the same reason the spray does.
+
+	TrailLifetime is the one to watch. It's how many seconds a track lingers, and
+	it's also the cost: a long lifetime on a busy hill is a lot of ribbon on
+	screen at once. Ten seconds looks great with three people and less great with
+	twenty.
+]]
+SkiConfig.EnableTrails = true
+SkiConfig.TrailLifetime = 7
+SkiConfig.TrailWidth = 0.42
+SkiConfig.TrailColor = Color3.fromRGB(214, 228, 244)
+SkiConfig.TrailTransparency = 0.55
+
+--[[
+	WIND RUSH: streaks flying past the camera once you're properly moving.
+
+	The particles are stationary. They don't fly past you, you fly past THEM --
+	which is why the effect scales itself honestly and needs no velocity maths.
+
+	Nothing happens below WindRushSpeed, on purpose. If it's always on it stops
+	meaning anything, and the whole job of this effect is telling you when you've
+	crossed from fast into too fast.
+]]
+SkiConfig.EnableWindRush = true
+SkiConfig.WindRushSpeed = 65
+SkiConfig.WindRushMaxRate = 70
+SkiConfig.WindRushTexture = "rbxasset://textures/particles/sparkles_main.dds"
+SkiConfig.WindRushColor = Color3.fromRGB(226, 240, 255)
+
+-- The number on screen. Local player only, and only while you're actually
+-- sliding -- it has nothing to say while you're stood still.
+SkiConfig.EnableSpeedHud = true
+
 -- ============================================================
 -- SOUND
 -- ============================================================
@@ -677,6 +746,29 @@ SkiConfig.StateBroadcastRate = 0.1
 SkiConfig.SpeedEpsilon = 1.5
 SkiConfig.ScrubEpsilon = 1.5
 SkiConfig.LeanEpsilon = 0.05
+
+--[[
+	HOW FAR AWAY ANOTHER SKIER IS STILL WORTH DRAWING.
+
+	Rendering someone else costs the same whether they fill your screen or are a
+	speck across the valley: six joint writes a frame, two emitters, two trails
+	and three sound loops each. Twenty people on a hill is that twenty times
+	over, including everyone behind you and everyone inside a tree.
+
+	Two tiers, both measured from the camera.
+
+	  RemotePoseDistance   past this, stop posing them. Poses are the per-frame
+	                       cost AND the first thing to stop being legible: you
+	                       cannot tell a carve from a tuck on someone a hundred
+	                       studs away, but their spray and their tracks still
+	                       read fine.
+
+	  RemoteCullDistance   past this, stop everything.
+
+	Raise them if distant skiers look dead, lower them if a busy hill drags.
+]]
+SkiConfig.RemotePoseDistance = 140
+SkiConfig.RemoteCullDistance = 420
 
 -- ============================================================
 -- EQUIP ZONES

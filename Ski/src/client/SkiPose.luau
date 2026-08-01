@@ -165,6 +165,12 @@ function SkiPose.new(character: Model)
 	self.current = {} :: { [string]: Vector3 }
 	self.target = NEUTRAL
 	self.lean = 0
+
+	-- Pole plant: which arm is reaching, and how long it has left.
+	self.plantSide = 0
+	self.plantLeft = 0
+	self.plantReadyAt = 0
+	self.lastPlantSide = 0
 	self.tracks = {} :: { [string]: AnimationTrack }
 	self.activeTrack = nil :: AnimationTrack?
 	self.poseName = ""
@@ -257,9 +263,9 @@ local function footBase(sign: number): CFrame
 	)
 end
 
--- R6 geometry: half the leg spacing, and root centre down to the soles.
-local LEG_SPACING = 0.5
+-- R6 geometry: root centre down to the soles, and down to the middle of a leg.
 local ROOT_TO_SOLE = 3
+local ROOT_TO_LEG_CENTRE = 2
 
 --[[
 	Puts the skis flat, by MEASURING rather than predicting.
@@ -287,20 +293,63 @@ function SkiPose:_alignSkis()
 		return
 	end
 
+	--[[
+		Height of the ski's WAIST above the snow, worked back from its lowest
+		point.
+
+		Camber arches the middle of a ski up, which means the tip and tail hang
+		below the waist by SkiCamber. Position by the waist and forget that, and
+		the ends sit exactly SkiCamber deeper than you intended: with a 0.05
+		camber against a 0.03 clearance they are permanently a fingernail into
+		the snow, everywhere, on every surface. That was the clipping.
+	]]
+	local drop = ROOT_TO_SOLE - ROOT_TO_LEG_CENTRE - Config.SkiThickness * 0.5 - Config.SkiCamber
+
+	--[[
+		The skis roll with the LEGS, by exactly the angle the legs tip.
+
+		Not the torso. The skis are strapped to your feet, so they go wherever
+		the legs go and nowhere else. Driving them off the body roll was wrong
+		twice over: it lagged the legs, and it meant the torso and the skis were
+		locked together at an angle a real skier never holds.
+
+		A carving skier is bent in the middle. The legs go hard over into the
+		hill, the upper body stays comparatively upright above them, and the skis
+		follow the legs all the way. One number, MaxEdgeAngle, drives the hips
+		and the skis together so they cannot come apart.
+
+		Pitch still comes from the slope. That stops them nosing into the snow,
+		and it is a separate question from which edge you are on.
+	]]
+	local roll = self.lean * Config.CarveDirection * Config.MaxEdgeAngle
+
+	-- Orientation comes off the root: squared to the slope, rolled by the turn.
+	local facing = (root.CFrame * CFrame.Angles(0, 0, roll)).Rotation
+
 	for sign, joint in self.skiJoints do
 		local leg = self.skiLimbs[sign]
 
 		-- Skipped the moment the gear is stowed: those joints belong to SkiGear
 		-- until they come back to the feet.
 		if leg and joint.Parent and isDeployed(joint, leg) then
-			local target = root.CFrame
-				* CFrame.new(
-					sign * (LEG_SPACING + Config.SkiFootOffset.X),
-					-(ROOT_TO_SOLE - Config.SkiThickness * 0.5),
-					Config.SkiFootOffset.Z
-				)
+			--[[
+				POSITION comes off the LEG, not the root.
 
-			joint.C0 = leg.CFrame:Inverse() * target
+				This is the fix for stepping off your own skis. Pin the ski to a
+				fixed offset from the root and it stays where the root says,
+				while the leg leans away and takes the boot with it -- so the
+				character ends up standing beside its skis rather than on them.
+				Hanging the position off the leg means the ski goes wherever the
+				boot goes, whatever the hips are doing.
+
+				Orientation still comes from the root, because the leg's own
+				tilt is not what the ski should be doing. Position from one,
+				rotation from the other.
+			]]
+			local boot = leg.CFrame
+				* CFrame.new(sign * Config.SkiFootOffset.X, -drop, Config.SkiFootOffset.Z)
+
+			joint.C0 = leg.CFrame:Inverse() * (CFrame.new(boot.Position) * facing)
 		end
 	end
 end
@@ -434,9 +483,64 @@ function SkiPose:setPose(poseName: string)
 	self.target = POSES[poseName] or NEUTRAL
 end
 
--- -1 to 1. Rolls the upper body into the turn, on top of whatever pose is up.
+--[[
+	-1 to 1. Rolls the upper body into the turn, on top of whatever pose is up.
+
+	Also where pole plants come from. A skier taps the snow with the inside pole
+	as each new turn starts, and "a new turn started" is exactly what the lean
+	crossing sides means. Driving it from here rather than from a timer keeps the
+	plants on your actual turns instead of metronoming through them, and it costs
+	nothing to replicate: lean is already sent, so remote skiers plant poles with
+	no extra plumbing at all.
+]]
 function SkiPose:setLean(lean: number)
 	self.lean = lean
+
+	if not Config.EnablePolePlants then
+		return
+	end
+
+	local side = if lean > Config.PolePlantLean then 1 elseif lean < -Config.PolePlantLean then -1 else 0
+	local now = os.clock()
+
+	-- Only on a genuine change of direction, and not more often than the
+	-- cooldown allows -- a wobble at speed shouldn't read as frantic tapping.
+	if side ~= 0 and side ~= self.lastPlantSide and now >= self.plantReadyAt then
+		self.lastPlantSide = side
+		self.plantSide = side
+		self.plantLeft = Config.PolePlantDuration
+		self.plantReadyAt = now + Config.PolePlantCooldown
+	end
+end
+
+--[[
+	How far the planting arm is currently reaching, in radians.
+
+	Three phases rather than a curve: drop fast, HOLD, then draw back slowly.
+
+	The hold is the important one. Ease straight back off the bottom and the arm
+	only brushes the snow on its way past, which reads as a wave rather than a
+	plant. A real one puts the tip in and leaves it there while the turn comes
+	round underneath it, so the pole looks planted and the skier looks like
+	they're turning around it.
+]]
+function SkiPose:_plantReach(sign: number): number
+	if self.plantSide ~= sign or self.plantLeft <= 0 then
+		return 0
+	end
+
+	local progress = 1 - (self.plantLeft / Config.PolePlantDuration)
+
+	local envelope
+	if progress < 0.18 then
+		envelope = progress / 0.18
+	elseif progress < 0.68 then
+		envelope = 1
+	else
+		envelope = 1 - (progress - 0.68) / 0.32
+	end
+
+	return envelope * Config.PolePlantReach
 end
 
 --[[
@@ -463,10 +567,21 @@ function SkiPose:_carveOverlay(name: string): Vector3
 	elseif name == "Neck" then
 		-- Cancels part of the body roll so the head stays level.
 		return Vector3.new(0, lean * Config.MaxLeanAngle * Config.NeckCounterRoll, 0)
+	-- MaxLegTip, not MaxEdgeAngle. The legs only suggest the edge; the skis
+	-- carry it. Tipping the leg far swings the foot off the ski, because there
+	-- is no knee or ankle below the hip to absorb the arc.
 	elseif name == "Right Hip" then
-		return Vector3.new(-lean * Config.MaxEdgeAngle, 0, 0)
+		return Vector3.new(-lean * Config.MaxLegTip, 0, 0)
 	elseif name == "Left Hip" then
-		return Vector3.new(lean * Config.MaxEdgeAngle, 0, 0)
+		return Vector3.new(lean * Config.MaxLegTip, 0, 0)
+
+	-- The planting arm swings back and down to reach the snow. Z is the fore/aft
+	-- axis on a shoulder, and the two sides take opposite signs to swing the
+	-- same way in world.
+	elseif name == "Right Shoulder" then
+		return Vector3.new(0, 0, -self:_plantReach(1))
+	elseif name == "Left Shoulder" then
+		return Vector3.new(0, 0, self:_plantReach(-1))
 	end
 
 	return Vector3.zero
@@ -475,6 +590,10 @@ end
 function SkiPose:update(dt: number)
 	if self.released then
 		return
+	end
+
+	if self.plantLeft > 0 then
+		self.plantLeft -= dt
 	end
 
 	for name, joint in self.joints do

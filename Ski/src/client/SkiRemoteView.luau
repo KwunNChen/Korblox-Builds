@@ -170,6 +170,41 @@ function SkiRemoteView.update(dt: number)
 			continue
 		end
 
+		--[[
+			Distance culling, in two tiers off the camera.
+
+			Drawing a skier costs the same whether they fill the screen or are a
+			speck on the far ridge, and all of it is per player per frame. Past
+			the far ring nothing about them is worth computing; past the near
+			ring the poses stop being legible long before the spray and the
+			tracks do, so those are what goes first.
+
+			The `culled` flag matters as much as the distance check. Without it
+			an out-of-range skier still costs a full update every frame, just one
+			passing zeroes around, which is most of the work with none of the
+			result.
+		]]
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if not root then
+			continue
+		end
+
+		local away = camera and (camera.CFrame.Position - root.Position).Magnitude or 0
+
+		if away > Config.RemoteCullDistance then
+			if not viewer.culled then
+				viewer.culled = true
+				viewer.detailed = false
+				viewer.pose:release()
+				viewer.effects:setActive(false)
+				viewer.sound:mute()
+			end
+			continue
+		end
+
+		viewer.culled = false
+		viewer.detailed = away <= Config.RemotePoseDistance
+
 		local state = character:GetAttribute(Attr.State) or State.Walking
 		local speed = readNumber(character, Attr.Speed)
 		local scrub = readNumber(character, Attr.Scrub)

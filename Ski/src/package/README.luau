@@ -336,8 +336,29 @@
 	    SprayMaterials         what throws snow. Rock throws nothing
 	    EnableLandingPuff      a burst when you touch down
 	    LandingPuffSpeed       impact that gives a full-sized burst
+	    EnableTrails           tracks left behind in the snow
+	    TrailLifetime          seconds a track lingers. Also the cost of it
+	    TrailWidth             how wide each track is
+	    EnableWindRush         streaks past the camera at speed
+	    WindRushSpeed          nothing happens below this
 	    EnableSpeedFov         camera stretch with speed
 	    MaxFovBoost            degrees added at MaxSpeed
+	    EnableSpeedHud         the number on screen
+
+	TRACKS run off SPEED, not sideways scrub: you leave a line wherever you go,
+	not only where you turn. They still cut on rock, same as the spray.
+	TrailLifetime is the one to watch, because it is both how long a track
+	lingers and how much ribbon is on screen at once. Seven seconds looks good
+	with a few people and less good with twenty.
+
+	THE WIND RUSH is made of stationary particles. They don't fly past you, you
+	fly past them, which is why it scales itself honestly off your real movement
+	with no velocity maths anywhere. Nothing happens below WindRushSpeed on
+	purpose: an effect that is always on stops telling you anything, and this
+	one's whole job is marking the point where fast becomes too fast.
+
+	The rush and the readout are LOCAL ONLY -- one camera, one screen, yours.
+	Tracks and spray show up for everyone.
 
 	SPRAY IS DRIVEN BY SIDEWAYS SPEED, not by how fast you're going. That's the
 	honest measure: a dead-straight schuss at full tilt throws almost nothing and
@@ -424,12 +445,13 @@
 
 	A turn is not one lean. Four things happen at once, and each has a setting:
 
-	    MaxEdgeAngle      the skis tip onto their edges. THE defining one --
-	                      everything else is decoration on top of it. It works
-	                      by tipping the legs sideways at the hip; the skis are
-	                      welded to them, so they go on edge for free.
+	    MaxEdgeAngle      how far the SKIS roll onto their edges. The big one --
+	                      it carries the whole look of a carve.
 
-	    MaxLeanAngle      the body inclines into the turn.
+	    MaxLegTip         how far the LEGS lean over. Small, and it has to be.
+
+	    MaxLeanAngle      how far the TORSO inclines. Also small, and less than
+	                      the legs, which gives the bent-at-the-hip shape.
 
 	    NeckCounterRoll   how much of that lean the head cancels, so you keep
 	                      looking level instead of tipping your head over with
@@ -440,12 +462,46 @@
 	                      legs turn underneath. The thing that makes a skier
 	                      look like a skier rather than a plank pivoting.
 
+	WHY MaxLegTip HAS TO STAY SMALL, even though a real skier's legs go right
+	over: R6 has no knee and no ankle. Tipping a leg pivots the whole thing about
+	the hip, so the foot swings through an arc rather than staying planted. At
+	0.7 radians on a two-stud leg that is over a stud sideways, and the boot walks
+	clean off the ski. A real leg absorbs all of that below the hip.
+
+	So the skis carry the edge angle and the legs only suggest it. Push MaxLegTip
+	past about 0.25 and you will watch the character step off its own skis.
+
+	The gap between the legs and the torso is what gives you angulation: the
+	upper body staying comparatively upright over legs that have gone over,
+	visibly bent at the hip. Set them equal and you get a plank tipping sideways,
+	which reads as falling rather than carving.
+
 	IF THE TURN LOOKS RIGHT BUT MIRRORED, don't touch any of those four. Flip
 	CarveDirection to -1 -- it negates all of them together.
 
 	This layer is continuous and sits on top of whichever pose is active. The
 	poses are fixed shapes you blend between; this follows the steering stick
 	frame by frame.
+
+
+	========================================================
+	POLE PLANTS
+	========================================================
+
+	A skier taps the snow with the inside pole as each new turn begins. It's the
+	rhythm you recognise a skier by from a distance, more than the turns are.
+
+	    EnablePolePlants     off switch
+	    PolePlantLean        how committed a turn has to be to earn one. Raise
+	                           it and only proper carves get a plant
+	    PolePlantCooldown    stops a wobble at speed becoming frantic tapping
+	    PolePlantDuration    how long the arm is down
+	    PolePlantReach       how far it swings, in radians
+
+	Triggered by the lean crossing sides rather than by a timer, so plants land
+	on your actual turns instead of metronoming through them. That also means
+	they replicate for free: lean is already one of the values sent round, so
+	other players plant poles with no extra plumbing.
 
 	The default Animate script is left running the whole time. Animations write
 	Motor6D.Transform, these poses write C0, and the engine applies BOTH -- so an
@@ -486,7 +542,6 @@
 	    HoverHeight           ride height. Tied to SkiFootOffset -- see below
 	    GroundClearance       gap under the skis. Raise if they clip on slope
 	                            changes, 0 to sit flush
-	    ProbeSpread           how far out the tip/tail ground checks sit
 	    NormalSmoothing       raise if the skis jitter on Terrain
 	    LandingCrashAngle     how sloppy a landing gets before you wipe out
 	    CrashDuration         how long you're on the floor afterwards
@@ -540,22 +595,27 @@
 	  Terrain normals are noisy voxel data. Raise NormalSmoothing. If they then
 	  feel late to follow the ground, you've gone too far.
 
-	THE SKIS CLIP THROUGH THE GROUND ON A SLOPE CHANGE
-	  Raise GroundClearance first -- it is the deliberate gap between the ski
-	  bases and the snow, and it exists to absorb exactly this. HoverHeight puts
-	  the skis flush with the ground, which leaves no room for the hover spring
-	  to overshoot, and coming off a slope onto the flat is where it does.
+	THE SKIS CLIP THROUGH THE GROUND
+	  Raise GroundClearance. It is the deliberate gap between the ski bases and
+	  the snow, measured from the lowest part of the ski with camber included,
+	  and it exists to absorb the hover spring overshooting. HoverHeight alone
+	  puts the skis flush, which leaves no room for that, and coming off a slope
+	  onto the flat is where it happens.
 
-	  If that isn't enough, ProbeSpread. The ground is checked at three points --
-	  under the boot and out near each end of the ski -- and this is how far out
-	  those outer two sit. Too small and the ends dig in before the middle
-	  notices; much over 0.4 and they sit past the ends of the ski and lift you
-	  over ground you haven't reached yet.
+	  If they clip EVERYWHERE rather than at transitions, suspect the geometry
+	  instead: SkiCamber hangs the tip and tail below the waist, and the ski is
+	  positioned by its waist. That relationship is worked out in SkiPose rather
+	  than tuned, but it is the first place to look.
 
-	YOU GET LAUNCHED AT THE FOOT OF A STEEP BANK
-	  Shouldn't happen -- the outer probes ignore anything near vertical for
-	  exactly this reason -- but MaxGroundAngle is what decides "near vertical".
-	  Lower it if a bank is still being treated as rideable ground.
+	  The ground is sampled at ONE point, under the boot, and that is on purpose.
+	  Sampling along the ski and taking whichever came back closest looks like it
+	  should help with exactly this, and it trades the problem for a worse one:
+	  any higher ground near you starts lifting you, so you float up to meet a
+	  slope before reaching it and hover permanently over uneven ground.
+
+	YOU RIDE UP A BANK YOU SHOULD HAVE STOPPED AGAINST
+	  MaxGroundAngle decides what counts as ground rather than wall. Lower it if
+	  something steep is still being treated as rideable.
 
 	BRAKING WON'T HOLD YOU ON A STEEP PITCH
 	  BrakeDecel has to beat SlopeAccelGain * gravity * sin(slope). At the
