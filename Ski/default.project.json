@@ -1,0 +1,50 @@
+{
+  "name": "KorbloxSki",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "Ski": {
+        "$path": "src/shared"
+      },
+
+      "SkiRemotes": {
+        "$className": "Folder",
+
+        "SkiEquip": {
+          "$className": "RemoteEvent"
+        },
+
+        "SkiCrash": {
+          "$className": "RemoteEvent"
+        }
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "Ski": {
+        "$path": "src/server"
+      },
+
+      "Common": {
+        "$path": "src/server-common"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "Ski": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}
