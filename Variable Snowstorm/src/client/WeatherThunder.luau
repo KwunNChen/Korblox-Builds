@@ -46,7 +46,13 @@ local thunderActive = false
 local stormIntensity = 0
 local shelter = 0
 
-local lastInfluence = 0
+-- Each term is tracked separately. A single combined number cannot detect a
+-- change: darkness rising while sunHide is already pinned at 1 leaves any
+-- max() of them identical, and the write gets skipped.
+local lastDarkness = 0
+local lastSunHide = 0
+local lastFlash = 0
+
 local baseBrightness = 0
 local baseExposure = 0
 local baseAmbient = Color3.new()
@@ -192,10 +198,9 @@ end
 
 local function applyLighting()
 	local flash = flashStrength * exposure()
-	local influence = math.max(darkness, flash, sunHide)
 
-	if influence <= 0 then
-		if lastInfluence <= 0 then
+	if darkness <= 0 and flash <= 0 and sunHide <= 0 then
+		if lastDarkness <= 0 and lastFlash <= 0 and lastSunHide <= 0 then
 			baseBrightness = Lighting.Brightness
 			baseExposure = Lighting.ExposureCompensation
 			baseAmbient = Lighting.Ambient
@@ -212,11 +217,17 @@ local function applyLighting()
 			end
 			return
 		end
-	elseif math.abs(influence - lastInfluence) < FLASH_EPSILON then
+	elseif
+		math.abs(darkness - lastDarkness) < FLASH_EPSILON
+		and math.abs(flash - lastFlash) < FLASH_EPSILON
+		and math.abs(sunHide - lastSunHide) < FLASH_EPSILON
+	then
 		return
 	end
 
-	lastInfluence = influence
+	lastDarkness = darkness
+	lastFlash = flash
+	lastSunHide = sunHide
 
 	Lighting.Brightness = baseBrightness * Shared.lerp(1, Config.ThunderDarkenBrightness, darkness)
 		+ flash * Config.ThunderFlashBrightness
@@ -254,12 +265,9 @@ local function refreshDarknessTarget()
 end
 
 local function step(dt: number)
-	local settled = flashStrength <= 0
-		and edgeStrength <= 0
-		and math.abs(darkness - darknessTarget) < FLASH_EPSILON
-		and math.abs(sunHide - sunHideTarget) < FLASH_EPSILON
+	local idle = flashStrength <= 0 and edgeStrength <= 0 and darkness <= 0 and sunHide <= 0
 
-	if settled and lastInfluence <= 0 and darknessTarget <= 0 and sunHideTarget <= 0 then
+	if idle and darknessTarget <= 0 and sunHideTarget <= 0 then
 		applyLighting()
 		return
 	end
