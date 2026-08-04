@@ -264,6 +264,14 @@ local function refreshDarknessTarget()
 	sunHideTarget = math.max(thunder, math.clamp(stormIntensity * Config.StormSunHideAmount, 0, 1))
 end
 
+-- Rising uses ThunderDarkenSmoothing; receding uses the slower
+-- ThunderDarkenFadeSmoothing, so the storm clears gradually instead of
+-- snapping back to normal the instant it ends.
+local function dampDarken(current: number, target: number, dt: number): number
+	local smoothing = if target < current then Config.ThunderDarkenFadeSmoothing else Config.ThunderDarkenSmoothing
+	return Shared.damp(current, target, smoothing, dt)
+end
+
 local function step(dt: number)
 	local idle = flashStrength <= 0 and edgeStrength <= 0 and darkness <= 0 and sunHide <= 0
 
@@ -272,12 +280,12 @@ local function step(dt: number)
 		return
 	end
 
-	darkness = Shared.damp(darkness, darknessTarget, Config.ThunderDarkenSmoothing, dt)
+	darkness = dampDarken(darkness, darknessTarget, dt)
 	if darknessTarget <= 0 and darkness < FLASH_EPSILON then
 		darkness = 0
 	end
 
-	sunHide = Shared.damp(sunHide, sunHideTarget, Config.ThunderDarkenSmoothing, dt)
+	sunHide = dampDarken(sunHide, sunHideTarget, dt)
 	if sunHideTarget <= 0 and sunHide < FLASH_EPSILON then
 		sunHide = 0
 	end

@@ -305,6 +305,11 @@ WeatherConfig.ThunderSkyColor = Color3.fromRGB(70, 78, 92)
 WeatherConfig.ThunderAmbientColor = Color3.fromRGB(48, 54, 68)
 WeatherConfig.ThunderDarkenSmoothing = 2.5 -- seconds
 
+-- Separate, slower constant used only while darkness/sun-hide are receding
+-- (storm ending). Darkening in still uses ThunderDarkenSmoothing above; this
+-- keeps the sky visibly clearing instead of snapping back to normal.
+WeatherConfig.ThunderDarkenFadeSmoothing = 10 -- seconds
+
 -- Blots the sun out entirely at full darkness: hides the sun and moon discs,
 -- kills atmospheric glare, and shuts off god rays. Dimming Brightness alone
 -- leaves a bright disc hanging in an otherwise black sky. False keeps the sun
