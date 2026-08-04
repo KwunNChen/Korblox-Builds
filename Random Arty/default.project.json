@@ -1,0 +1,52 @@
+{
+  "name": "KorbloxArtillery",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "Artillery": {
+        "$path": "src/shared"
+      },
+
+      "ArtilleryState": {
+        "$className": "Configuration",
+        "$attributes": {
+          "BarrageActive": false,
+          "WarningActive": false,
+          "ShellsLeft": 0,
+          "SecondsToFirstImpact": 0
+        }
+      },
+
+      "ArtilleryShell": {
+        "$className": "RemoteEvent"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "Artillery": {
+        "$path": "src/server"
+      },
+
+      "Common": {
+        "$path": "src/server-common"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "Artillery": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}

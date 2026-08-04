@@ -1,0 +1,52 @@
+{
+  "name": "RandomArtillery",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "ReplicatedStorage": {
+      "$className": "Folder",
+
+      "Artillery": {
+        "$path": "src/shared"
+      },
+
+      "ArtilleryState": {
+        "$className": "Configuration",
+        "$attributes": {
+          "BarrageActive": false,
+          "WarningActive": false,
+          "ShellsLeft": 0,
+          "SecondsToFirstImpact": 0
+        }
+      },
+
+      "ArtilleryShell": {
+        "$className": "RemoteEvent"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "Folder",
+
+      "Artillery": {
+        "$path": "src/server"
+      },
+
+      "Common": {
+        "$path": "src/server-common"
+      }
+    },
+
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+
+      "Artillery": {
+        "$path": "src/client"
+      }
+    }
+  }
+}
