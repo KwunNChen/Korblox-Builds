@@ -1,21 +1,3 @@
---[[
-	SkiRagdoll
-	Goes limp for a moment after a wipeout, then gets back up.
-
-	R6 is held together by Motor6Ds, which are rigid. Ragdolling means giving
-	each one a BallSocketConstraint between the same two attachment points and
-	switching the motor off -- the limb then hangs off a joint that can rotate
-	instead of one that cannot.
-
-	ON THE SERVER, so everyone sees the crash. The client detects it (only the
-	client knows the landing angle) and asks; the server decides and does it.
-
-	IT ONLY TOUCHES R6'S OWN JOINTS. The ski and pole welds are Motor6Ds too, and
-	ragdolling those would leave your skis in a heap on the floor beside you. The
-	list below is explicit for that reason -- do not make it "every Motor6D in
-	the character".
-]]
-
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,8 +7,6 @@ local Config = require(SkiFolder:WaitForChild("SkiConfig"))
 
 local SkiRagdoll = {}
 
--- RootJoint is deliberately absent: it holds the torso to the HumanoidRootPart,
--- and freeing it detaches the character from the thing the camera follows.
 local RAGDOLL_JOINTS = {
 	"Neck",
 	"Left Shoulder",
@@ -37,11 +17,6 @@ local RAGDOLL_JOINTS = {
 
 local LIMBS = { "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
 
--- Per character: every instance we created, so recovery is one loop rather than
--- hoping a folder Destroy reaches things parented onto the limbs. Plus the
--- limbs' original CanCollide, because R6's Humanoid leans on the leg parts to
--- work out where the floor is -- guessing a value to restore risks leaving
--- someone unable to walk after they get up.
 type Session = {
 	created: { Instance },
 	collision: { [BasePart]: boolean },
@@ -55,18 +30,6 @@ local function log(message: string, ...)
 	end
 end
 
---[[
-	The wipeout sound, played from the SERVER on purpose.
-
-	A Sound created on a client is only ever heard by that client, so a
-	crash played there is silent to everyone watching it happen -- which is the
-	one sound where that matters most. Created here it replicates, so it lands
-	with the ragdoll everyone can already see.
-
-	Accepts a bare number, an rbxassetid:// url or a full web address, and treats
-	the "PUT CRASH SOUND ID HERE" placeholder as unset -- same handling as
-	SkiSound, so the two agree about what counts as a filled-in slot.
-]]
 local function playCrashSound(root: BasePart)
 	if not Config.EnableSound then
 		return
@@ -154,8 +117,7 @@ function SkiRagdoll.start(character: Model, duration: number?)
 		local joint = findJoint(character, name)
 		if joint and joint.Part0 and joint.Part1 then
 			converted += 1
-			-- The constraint has to sit exactly where the motor did, or the limb
-			-- snaps somewhere new the instant it goes limp.
+
 			local a0 = Instance.new("Attachment")
 			a0.Name = "SkiRagdoll_" .. name
 			a0.CFrame = joint.C0
@@ -185,7 +147,6 @@ function SkiRagdoll.start(character: Model, duration: number?)
 		end
 	end
 
-	-- Limbs collide while limp, or the character folds through the floor.
 	for _, name in LIMBS do
 		local part = character:FindFirstChild(name)
 		if part and part:IsA("BasePart") then
@@ -194,9 +155,6 @@ function SkiRagdoll.start(character: Model, duration: number?)
 		end
 	end
 
-	-- Zero joints means the rig isn't what this expects -- R15, or something
-	-- custom. Say so, because the character will still flop from PlatformStand
-	-- alone and "it half works" is the hardest kind of bug to chase later.
 	if converted == 0 then
 		warn("[Ski] no R6 joints found on " .. character.Name .. " -- falling back to a stiff tumble.")
 	end
@@ -204,7 +162,6 @@ function SkiRagdoll.start(character: Model, duration: number?)
 	humanoid.PlatformStand = true
 	playCrashSound(root)
 
-	-- A shove of spin so you tumble rather than going limp and sliding on.
 	root.AssemblyLinearVelocity *= Config.CrashSpeedKeep
 	root.AssemblyAngularVelocity = Vector3.new(
 		(math.random() - 0.5) * 2 * Config.CrashTumble,
@@ -214,9 +171,6 @@ function SkiRagdoll.start(character: Model, duration: number?)
 
 	log("%s wiped out (%d joints limp)", character.Name, converted)
 
-	-- Recovery is wrapped because a character that stays ragdolled is
-	-- unrecoverable for that player -- they cannot stand, cannot ski, and have
-	-- to reset. An error on the way up must not be able to cause that.
 	task.delay(duration or Config.CrashDuration, function()
 		if not character.Parent then
 			active[character] = nil

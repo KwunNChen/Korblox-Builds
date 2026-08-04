@@ -95,6 +95,10 @@
 	    +-- Ski                   SkiController, SkiPhysics, SkiPose,
 	                              SkiEffects, SkiSound, SkiRemoteView
 
+	The Tools folder stays in ServerStorage. Nothing requires it and it never
+	runs on its own -- it is for whoever makes the animations. See the section
+	on that below, or delete it if you are not adding any.
+
 	Press Play. You spawn with the skis on your back and a "Skis" tool in your
 	hotbar. Press G, walk onto something that slopes, and you're skiing.
 
@@ -123,6 +127,8 @@
 	    PoleHandOffset    poles in your hands
 	    PoleHandTilt      how far the poles splay out sideways
 	    PoleTrailAngle    how far the tips trail behind you while riding
+	    PoleAirAngle      and how far off a jump, where they come up to near
+	                        horizontal instead. Blended, not switched
 	    SkiCarryStyle     how they ride on your back -- see below
 	    SkiBackOffset     where the bundle sits on your back
 	    SkiBackLean       how far the tops tip back, to clear tall hair
@@ -260,9 +266,14 @@
 	the limbs go limp, and you tumble for CrashDuration before getting up. The
 	skis come off on the way down. This runs on the SERVER, so everyone sees it.
 
-	NOT IN YET: tricks and scoring. Air pitch is already wired in SkiPhysics but
-	switched off in the controller -- flips with nothing scoring them just means
-	landing backwards for free.
+	Taking the skis off in mid-air wipes you out the same way, and for
+	UnequipCrashWindow after touching down it still does. The window is the
+	whole point of it -- without one you could land anything at all by
+	unequipping on the frame you hit, since the landing is never scored if the
+	skis are already off. Ordinary hops on the flat count too, even though the
+	sim never takes those over, so the rule holds no matter where you are.
+
+	NOT IN YET: tricks and scoring.
 
 
 	========================================================
@@ -391,6 +402,8 @@
 	    SpeedEpsilon         how much each has to move before it's worth sending
 	    ScrubEpsilon
 	    LeanEpsilon
+	    RemotePoseDistance   past this, other skiers stop being posed
+	    RemoteCullDistance   past this, they stop being drawn at all
 
 	The epsilons matter more than the rate. Straight-line skiing barely changes
 	any of these, so without them you'd push five attribute writes per player ten
@@ -401,6 +414,20 @@
 	because a client-side sound is silent to everyone watching -- and a wipeout
 	is the sound other people most want to hear. Jump and landing one-shots are
 	still local.
+
+	IF A BUSY HILL DRAGS, the two distance settings are the lever. Rendering
+	another skier costs the same whether they fill your screen or are a speck
+	across the valley: six joint writes a frame, two emitters, two trails and
+	three sound loops, each, every frame, for everyone -- including the people
+	behind you.
+
+	Poses go first, at RemotePoseDistance, because they are the per-frame cost
+	and the first thing to stop being legible. You cannot tell a carve from a
+	tuck on someone a hundred studs off, but you can still read their spray and
+	their tracks. Past RemoteCullDistance nothing is drawn at all.
+
+	Raise them if distant skiers look dead. Lower them if the framerate suffers
+	with a crowd.
 
 
 	========================================================
@@ -515,10 +542,73 @@
 
 	Joint changes made on the client don't replicate, so a pose only exists on
 	the screen of whoever set it. Other players are posed from replicated state
-	instead -- see SEEING OTHER PLAYERS SKI above. Put an R6 animation id into
-	SkiConfig.Animations and that slot switches to a real animation instead,
-	which goes through the Animator and does replicate. Each of Stance, Carve,
-	Tuck, Brake and Air can be swapped independently.
+	instead -- see SEEING OTHER PLAYERS SKI above.
+
+
+	========================================================
+	ADDING REAL ANIMATIONS
+	========================================================
+
+	Everything procedural is a stand-in for animations that don't exist yet. Put
+	an id into SkiConfig.Animations and that pose switches over.
+
+	FOR WHOEVER IS ANIMATING:
+
+	1. Install this package, then Avatar tab > Rig Builder > R6 > Block Rig.
+
+	2. Paste this into the command bar:
+
+	       require(game.ServerStorage.KorbloxSki.Tools.AnimationRig).attach(workspace.Dummy)
+
+	   The real skis and poles appear on the dummy. Animating a ski stance
+	   without them is how you get a pose that looks fine on a bare rig and puts
+	   the skis through the character's shins.
+
+	3. Animate as normal, publish, send the ids back.
+
+	SIX SLOTS, ALL LOOPING. SEND THEM ONE AT A TIME -- start with Walking, since
+	it's the one you're on most and the simplest to judge in isolation.
+
+	    Walking  ordinary walking around with skis strapped on, before you've
+	             found a slope. See below -- this one is wired up differently
+	             from the other five and it's worth knowing why.
+	    Stance   riding normally, weight forward, hands ahead
+	    Carve    turning. The game already rolls the body and skis into the turn
+	             on its own, continuously, off how hard you're steering -- so
+	             this is about arms and upper body. Leaning is handled.
+	    Tuck     folded down small for speed
+	    Brake    snowplow, tips together, sitting back
+	    Air      off a jump, hands forward, poles up near horizontal
+
+	Fill in as many or as few as you like, in any order. An empty slot keeps
+	whatever it had before -- the built-in procedural pose for the last five,
+	the character's normal default walk for Walking -- so nothing gets worse by
+	leaving something out.
+
+	WALKING WORKS DIFFERENTLY FROM THE OTHER FIVE, on purpose. Riding, Braking,
+	Tuck and Air are all states the SIM drives -- PlatformStand is true and
+	something has to pose the character, so those go through a custom Animator
+	track built for this system. Walking is just the ordinary Humanoid walk with
+	skis welded on: PlatformStand is false, and the character's own Animate
+	script is already posing it. So rather than add a second system next to that
+	one, filling in Animations.Walking swaps which animation the EXISTING one
+	plays -- the same trick as replacing a rig's default walk animation in any
+	other game. It still goes in the same table, at the same time as the rest.
+
+	WHEN ONE OF THE OTHER FIVE HAS AN ID, THE ANIMATION OWNS THE CHARACTER
+	COMPLETELY for that pose. The joint poses, the carve overlay, the pole
+	plants and the ski and pole alignment all stand down and the gear simply
+	follows the animated limbs. Half-overriding would be worse than either
+	extreme: the animator moves a leg, the code shoves the ski back where it
+	thinks the ski goes, and the two argue every frame over a character neither
+	fully controls.
+
+	TWO THINGS ABOUT R6 THAT WILL SAVE THE ANIMATOR TIME. There are no knees and
+	no ankles, so a leg is one rigid piece from hip to sole and a crouch has to
+	come from the waist. And tipping a leg sideways swings the FOOT through an
+	arc, with no ankle to absorb it -- past about 0.25 radians the boot leaves
+	the ski. A pose that looks good but has the skis drifting out from under the
+	character is almost always that.
 
 
 	========================================================
@@ -545,6 +635,9 @@
 	    NormalSmoothing       raise if the skis jitter on Terrain
 	    LandingCrashAngle     how sloppy a landing gets before you wipe out
 	    CrashDuration         how long you're on the floor afterwards
+	    UnequipCrashWindow    how long after landing that taking the skis off
+	                            still wipes you out. 0 to allow it the instant
+	                            you touch down
 	    MaxLeanAngle          how far you roll into a turn. Cosmetic
 	    DebugLog              prints every state change to Output
 

@@ -1,12 +1,3 @@
---[[
-	SkiService
-	Who has skis, and whether they are on their feet or on their back.
-
-	The gear itself is built by SkiGear. This file owns the Tool, the equip
-	state, and the walk penalty -- all of which were already working before the
-	rebuild and are deliberately unchanged.
-]]
-
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,9 +12,6 @@ local SkiRagdoll = require(script.Parent:WaitForChild("SkiRagdoll"))
 
 local Attr = Shared.Attr
 
--- SpeedService is the only thing allowed to write WalkSpeed. If Common is
--- missing the install is broken, but a broken speed penalty shouldn't take the
--- rest of the system down with it.
 local SpeedService
 do
 	local common = ServerScriptService:FindFirstChild("Common")
@@ -42,19 +30,15 @@ local SkiService = {}
 local equipped: { [Player]: boolean } = {}
 local equipEvent: RemoteEvent
 
+local unequippedAt: { [Player]: number } = {}
+local UNEQUIP_CRASH_GRACE = 1
+
 local function log(message: string, ...)
 	if Config.DebugLog then
 		print(string.format("[Ski] " .. message, ...))
 	end
 end
 
--- ============================================================
--- THE TOOL
--- ============================================================
-
--- RequiresHandle is off because the skis are welded to the character, not
--- carried in a hand. The Tool is a control token: something in the hotbar so
--- equipping has somewhere to live.
 local function makeTool(): Tool
 	local tool = Instance.new("Tool")
 	tool.Name = Config.ToolName
@@ -80,10 +64,9 @@ function SkiService.setEquipped(player: Player, isEquipped: boolean)
 
 	if not isEquipped then
 		SkiService.clearState(character)
+		unequippedAt[player] = os.clock()
 	end
 
-	-- Only slows you while the skis are actually on your feet. Carrying them on
-	-- your back should walk at normal speed.
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if SpeedService and humanoid then
 		if isEquipped then
@@ -109,8 +92,6 @@ local function bindTool(player: Player, tool: Tool)
 		SkiService.setEquipped(player, false)
 	end)
 
-	-- Dying while equipped never fires Unequipped, so the flag would stick and
-	-- the next character would spawn believing it already had skis on.
 	tool.AncestryChanged:Connect(function()
 		if not tool:IsDescendantOf(game) then
 			SkiService.setEquipped(player, false)
@@ -134,24 +115,6 @@ function SkiService.giveTool(player: Player)
 	tool.Parent = backpack
 end
 
--- ============================================================
--- PUBLISHING STATE TO EVERYONE ELSE
--- ============================================================
-
---[[
-	Republishes what a client reports as character attributes.
-
-	The round trip exists because attributes only replicate server -> client. A
-	client writing these on its own character would be the only one to see them,
-	which is exactly the problem this solves.
-
-	NOTHING HERE IS A TRUST BOUNDARY and it isn't trying to be. These five values
-	are cosmetic -- the worst a liar achieves is looking wrong to other people,
-	which they could do by editing their own client anyway. What the checks are
-	for is keeping junk out of the attributes: a NaN or an unknown state string
-	propagates to every other client and breaks their rendering, not just the
-	sender's.
-]]
 function SkiService.clearState(character: Model)
 	character:SetAttribute(Attr.State, Shared.State.Walking)
 	character:SetAttribute(Attr.Speed, 0)
@@ -160,8 +123,6 @@ function SkiService.clearState(character: Model)
 	character:SetAttribute(Attr.OnSnow, false)
 end
 
--- value ~= value catches NaN, which slips past every comparison you'd normally
--- reach for.
 local function cleanNumber(value: unknown, limit: number): number?
 	if type(value) ~= "number" or value ~= value then
 		return nil
@@ -201,20 +162,8 @@ function SkiService.onStateReport(player: Player, payload: unknown)
 	end
 end
 
--- ============================================================
--- TRIGGERS
--- ============================================================
-
 local zoneCooldown: { [Player]: number } = {}
 
---[[
-	Every trigger -- the Tool, the keybind, a zone you walk into -- comes through
-	here, and where possible it works by actually equipping the Tool rather than
-	setting the flag behind its back. That keeps one source of truth: press G and
-	the hotbar slot lights up, unequip from the hotbar and the keybind agrees.
-
-	Pass nil for isEquipped to toggle.
-]]
 function SkiService.request(player: Player, isEquipped: boolean?)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -233,15 +182,10 @@ function SkiService.request(player: Player, isEquipped: boolean?)
 		if tool and tool:IsA("Tool") then
 			humanoid:EquipTool(tool)
 		else
-			-- No Tool to work through -- either it's already in hand or the game
-			-- doesn't hand one out at all. Drive the state directly so zones and
-			-- the keybind still work.
 			SkiService.setEquipped(player, true)
 		end
 	else
 		humanoid:UnequipTools()
-		-- Unequipped only fires if a tool was actually in hand; this covers the
-		-- case where the state was set directly above.
 		SkiService.setEquipped(player, false)
 	end
 end
@@ -258,7 +202,6 @@ local function bindZone(part: Instance)
 			return
 		end
 
-		-- Touched fires many times a second while you stand on something.
 		local now = os.clock()
 		if now < (zoneCooldown[toucher] or 0) then
 			return
@@ -269,34 +212,19 @@ local function bindZone(part: Instance)
 	end)
 end
 
--- ============================================================
--- LIFECYCLE
--- ============================================================
-
 function SkiService.onCharacterAdded(player: Player, character: Model)
 	equipped[player] = false
 	character:SetAttribute(Attr.Equipped, false)
 
-	-- A fresh character starts neutral, or everyone else renders it mid-carve
-	-- from whatever the last one was doing when it died.
 	SkiService.clearState(character)
-
-	-- A character that died mid-wipeout leaves its old entry behind.
 	SkiRagdoll.stop(character)
 
-	-- Deferred only so the Backpack has been rebuilt by the time we hand out the
-	-- Tool. The limbs themselves need no waiting: the server assembles the whole
-	-- character model before parenting it, so they are all already there.
-	-- (WaitForChild-ing them by name would also stall R15 spawns for the full
-	-- timeout, since R15 has no part called "Torso".)
 	task.defer(function()
 		if not character.Parent then
 			return
 		end
 
 		SkiGear.build(character)
-
-		-- You spawn carrying them, not wearing them.
 		SkiGear.setStowed(character, true)
 
 		if Config.GiveOnSpawn and player.Parent then
@@ -308,41 +236,32 @@ end
 function SkiService.onPlayerRemoving(player: Player)
 	equipped[player] = nil
 	zoneCooldown[player] = nil
+	unequippedAt[player] = nil
 end
 
--- Everything here is present already: ensureRemotes built whatever was missing
--- before this ran, so nothing in this function can yield.
 function SkiService.init(remotes: Folder)
 	equipEvent = remotes:FindFirstChild("SkiEquip") :: RemoteEvent
 
-	-- Fired with no arguments by the client's keybind. Nothing else is trusted
-	-- from it: the server decides what the new state actually is and fires back.
 	equipEvent.OnServerEvent:Connect(function(player)
 		SkiService.request(player, nil)
 	end)
 
-	--[[
-		The client asks for a wipeout, because only the client knows the angle it
-		landed at. It sends no arguments -- there is nothing to lie about, and
-		the worst a spammer achieves is repeatedly knocking themselves over.
-
-		Rate limited by the ragdoll itself: start() ignores a character that is
-		already down.
-	]]
 	local stateEvent = remotes:FindFirstChild("SkiState") :: RemoteEvent
 	stateEvent.OnServerEvent:Connect(SkiService.onStateReport)
 
 	local crashEvent = remotes:FindFirstChild("SkiCrash") :: RemoteEvent
 	crashEvent.OnServerEvent:Connect(function(player)
 		local character = player.Character
-		if not character or not equipped[player] then
+		if not character then
+			return
+		end
+
+		local justUnequipped = os.clock() - (unequippedAt[player] or -math.huge) < UNEQUIP_CRASH_GRACE
+		if not equipped[player] and not justUnequipped then
 			return
 		end
 
 		SkiRagdoll.start(character)
-
-		-- Take the skis off on the way down. Getting up mid-slide with the sim
-		-- still running would fight the ragdoll for control of the character.
 		SkiService.request(player, false)
 	end)
 

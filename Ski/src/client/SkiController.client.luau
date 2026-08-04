@@ -1,35 +1,3 @@
---[[
-	SkiController
-	Walking, sliding, and being in the air. Everything that touches a character;
-	all the arithmetic lives in SkiPhysics.
-
-	Deliberately small. No poses, no particles, no landing scoring, no tricks --
-	those all went in too early last time and buried the one thing that had to
-	be right first, which is whether it rides properly.
-
-	WHY THE CLIENT: Roblox hands a player network ownership of their own
-	character. A force applied from the server is simulated on the owning client
-	anyway, so running the loop there costs a round trip of input latency and
-	buys nothing. The server keeps what matters -- who has skis on.
-
-	Four things here are load-bearing and were all bugs the first time round:
-
-	1. GRAVITY IS CANCELLED by a VectorForce holding up exactly the assembly's
-	   weight. Without it the engine's gravity and the sim's both apply and you
-	   fall at double rate.
-
-	2. TOUCHING DOWN means arriving at ride height, not the ground probe seeing
-	   something. The probe reaches ProbeMargin further than the skis ride;
-	   landing on first contact hands you back to the Humanoid in mid-air.
-
-	3. THE HOVER SPRING'S damping term reads closing speed off the probe, not
-	   world Y velocity. On a slope those are wildly different -- see the note
-	   on SkiPhysics.hoverAccel.
-
-	4. LIMB COLLISIONS are off only while the sim drives. R6's Humanoid uses the
-	   leg parts to find the floor, so leaving them off would break walking.
-]]
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -50,35 +18,9 @@ local LIMBS = { "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
 local WALKING, RIDING, AIRBORNE = "Walking", "Riding", "Airborne"
 
 local MIN_GROUND_DOT = math.cos(math.rad(Config.MaxGroundAngle))
-
--- A fresh probe onto different ground makes the height jump discontinuously.
--- Left unclamped that reads as an enormous closing speed and the spring
--- launches you.
 local MAX_CLOSING_SPEED = 60
-
--- How far above ride height still counts as touching down. NOT the probe
--- length -- see note 2 at the top.
 local GROUND_CONTACT_TOLERANCE = 0.4
-
--- Variable Snowstorm's airborne wind push. It gates on the Humanoid being in
--- Freefall or Jumping and platform standing reports neither, so it mostly
--- switches itself off -- but the server only re-checks twice a second, and this
--- closes that window.
 local STORM_FORCE_NAME = "StormWindForce"
-
---[[
-	The default Animate script is deliberately LEFT RUNNING while the sim drives.
-
-	It used to be muzzled -- tracks stopped, jump and fall states disabled -- so
-	its clips couldn't fight the ski poses. That worked, and then broke
-	unequipping: Animate only picks a new animation when the Humanoid changes
-	state, so with its states disabled and its tracks stopped it had nothing left
-	to wake it up, and the character stood frozen afterwards.
-
-	SkiPose zeroes each joint's Transform instead, which is where animations
-	actually write. Animate carries on doing its thing, the poses win anyway, and
-	there is nothing to restart when the skis come off.
-]]
 
 local player = Players.LocalPlayer
 
@@ -94,11 +36,7 @@ if not equipEvent then
 	return
 end
 
--- Optional on purpose. A missing crash remote means no ragdoll, not a script
--- that hangs on the way in and takes the whole sim down with it.
 local crashEvent = Shared.getRemote(remotes, "SkiCrash")
-
--- Likewise: without this you simply aren't visible to anyone else.
 local stateEvent = Shared.getRemote(remotes, "SkiState")
 
 local function log(message: string, ...)
@@ -106,10 +44,6 @@ local function log(message: string, ...)
 		print(string.format("[Ski] " .. message, ...))
 	end
 end
-
--- ============================================================
--- INPUT
--- ============================================================
 
 local jumpQueued = false
 
@@ -121,22 +55,14 @@ local function isDown(key: Enum.KeyCode): boolean
 	return UserInputService:IsKeyDown(key)
 end
 
--- IsKeyDown only answers for the keyboard -- hand it a ButtonL2 and it returns
--- false forever. Kept separate because the gamepad call rejects keyboard codes.
 local function isButtonDown(button: Enum.KeyCode): boolean
 	if not UserInputService.GamepadEnabled then
 		return false
 	end
-	local ok, down = pcall(function()
-		return UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, button)
-	end)
+	local ok, down = pcall(UserInputService.IsGamepadButtonDown, UserInputService, Enum.UserInputType.Gamepad1, button)
 	return ok and down
 end
 
--- Humanoid.MoveDirection already respects rebound keys, gamepads and mobile
--- thumbsticks. The raw fallback is here because MoveDirection can read zero
--- while platform standing on some rigs, and losing steering the moment you
--- start sliding would be a spectacular way to fail.
 local function readMoveDirection(humanoid: Humanoid): Vector3
 	local move = humanoid.MoveDirection
 	if move.Magnitude > 0.05 then
@@ -170,35 +96,13 @@ local function readInput(humanoid: Humanoid, heading: Vector3, grounded: boolean
 
 	return {
 		steer = math.clamp(move:Dot(right), -1, 1),
-		-- Pitch is flips, and flips without landing scoring are just a way to
-		-- come down backwards with no consequence. SkiPhysics.airStep already
-		-- handles it -- this is the switch to turn on when tricks go in.
-		pitch = 0,
-		-- Pulling back brakes as well as the dedicated key, because that is what
-		-- everyone tries first.
 		braking = grounded and (isDown(Config.BrakeKey) or isButtonDown(Config.BrakeButton) or along < -0.5),
 		tucking = isDown(Config.TuckKey) or isButtonDown(Config.TuckButton),
 	}
 end
 
--- ============================================================
--- THE SKIER
--- ============================================================
-
 local skier: any = nil
 
---[[
-	Destroys any gravity-cancelling force on the character, ours or orphaned.
-
-	That force holds up exactly the assembly's weight. Left behind with nothing
-	driving the character, it does not just look wrong -- you hang in the air
-	with no way down and no way to ski it off. There is no recovering from it
-	short of resetting, so it is worth sweeping for rather than trusting that
-	every exit path cleaned up after itself.
-
-	The force is created by the client and never replicates, so this is the only
-	side that can see it. The server cannot help here.
-]]
 local function clearGravityCancel(character: Model)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if not root then
@@ -220,13 +124,6 @@ local function setLimbCollision(self, enabled: boolean)
 	end
 end
 
---[[
-	`leaveLimp` is for the crash path only. Normally stopping stands the
-	character back up, but on a wipeout the server is setting PlatformStand for
-	the ragdoll at the same moment -- and both sides writing it in the same frame
-	is a race the ragdoll can lose, leaving you upright and rigid mid-tumble.
-	Handing that one property over to the server avoids the argument entirely.
-]]
 local function stopSkiing(leaveLimp: boolean?)
 	if not skier then
 		return
@@ -241,9 +138,6 @@ local function stopSkiing(leaveLimp: boolean?)
 
 	setLimbCollision(self, true)
 
-	-- Switched off before it's destroyed. Destroy alone should be enough, but
-	-- this costs nothing and the failure it guards against is being stuck in
-	-- mid-air permanently.
 	if self.force then
 		self.force.Enabled = false
 		self.force:Destroy()
@@ -263,6 +157,7 @@ local function stopSkiing(leaveLimp: boolean?)
 
 	if self.character then
 		clearGravityCancel(self.character)
+		Shared.setWalkAnimation(self.character, nil)
 	end
 
 	log("stopped")
@@ -277,8 +172,6 @@ local function startSkiing(character: Model)
 		return
 	end
 
-	-- In case a previous session died without cleaning up: two of these stacked
-	-- would cancel gravity twice and launch you.
 	clearGravityCancel(character)
 
 	local forceAttachment = Instance.new("Attachment")
@@ -323,11 +216,12 @@ local function startSkiing(character: Model)
 		groundParams = Shared.newGroundParams({ character }),
 		lastGroundTime = os.clock(),
 		lastGroundDistance = nil :: number?,
+
+		landedAt = -math.huge,
+
 		jumpReadyAt = os.clock() + Config.EquipGrace,
 		graceUntil = os.clock() + Config.EquipGrace,
 
-		-- Last values published to everyone else, so the epsilon check has
-		-- something to compare against.
 		reportAt = 0,
 		sentState = "",
 		sentSpeed = 0,
@@ -336,21 +230,18 @@ local function startSkiing(character: Model)
 		sentOnSnow = false,
 	}
 
-	-- A press from before the skis went on is not a request to jump on them.
-	-- The grace period above handles a HELD key; this handles a stale one.
 	jumpQueued = false
+
+	Shared.setWalkAnimation(character, Config.Animations.Walking)
 
 	log("started")
 end
 
--- Hand control from the Humanoid to the sim.
 local function enterSim(self)
 	self.humanoid.PlatformStand = true
 	self.force.Enabled = true
 	setLimbCollision(self, false)
 
-	-- Carry the walking velocity in rather than starting from a standstill, so
-	-- stepping onto a slope is continuous instead of a stutter.
 	self.velocity = self.root.AssemblyLinearVelocity
 	self.heading = self.root.CFrame.LookVector
 	self.lastGroundDistance = nil
@@ -365,24 +256,6 @@ local function enterWalking(self)
 	self.lastGroundDistance = nil
 end
 
---[[
-	One downward probe, under the boot. The slope you are standing on is the
-	slope you ride, and nothing else gets a vote.
-
-	This used to sample three points along the ski and take whichever came back
-	CLOSEST, on the theory that whichever end was about to dig in should be the
-	one lifting you. That theory is wrong in a way that is obvious once you feel
-	it. Taking the minimum means ANY higher ground near you raises you: ski
-	toward an upslope and the probe out by your tips finds it a couple of studs
-	early, so you float up the hill instead of slowing against it. Over anything
-	uneven you end up riding at the height of the nearest high point rather than
-	the height of the snow, which is the permanent hovering.
-
-	What a single probe gives up is tip and tail clearance over sharp
-	transitions. That is what GroundClearance and the hover spring are for, and
-	they are a far smaller problem than being lifted by ground you have not
-	reached.
-]]
 local function probeGround(self, root: BasePart): RaycastResult?
 	return workspace:Raycast(
 		root.Position,
@@ -391,18 +264,6 @@ local function probeGround(self, root: BasePart): RaycastResult?
 	)
 end
 
---[[
-	Publishes what everyone else needs to render you.
-
-	Rate limited, and skipped entirely when nothing has moved -- straight-line
-	skiing barely changes any of these, and firing five attribute writes per
-	player ten times a second regardless is what makes this expensive on a busy
-	hill. Same idea as WeatherConfig's IntensityEpsilon in Variable Snowstorm.
-
-	The state string is exempt from the epsilon: it's discrete, and a missed
-	change to Airborne means somebody stays in a riding pose the whole way
-	through your jump.
-]]
 local function report(self, now: number, speed: number, scrub: number, onSnow: boolean)
 	if not stateEvent or now < self.reportAt then
 		return
@@ -446,7 +307,6 @@ local function step(dt: number)
 	local now = os.clock()
 	local gravity = workspace.Gravity
 
-	-- ---------- ground probe ----------
 	local hit = probeGround(self, root)
 
 	local grounded = hit ~= nil and hit.Normal:Dot(UP) >= MIN_GROUND_DOT
@@ -456,22 +316,9 @@ local function step(dt: number)
 
 	local input = readInput(humanoid, self.heading, grounded and self.state ~= AIRBORNE)
 
-	-- Fixed. The skis are solved against the root rather than hung off the legs,
-	-- so nothing the pose does moves them and ride height has nothing to track.
 	local hoverHeight = Config.HoverHeight + Config.GroundClearance
 
-	-- ---------- walking ----------
 	if self.state == WALKING then
-		--[[
-			The Humanoid keeps the character while walking, jumps and falls
-			included. Taking over the moment you left the ground meant an
-			ordinary hop got seized by the sim on the way up and handed back on
-			the way down, which made a flat-ground jump end as a stubby little
-			freefall a couple of studs off the deck.
-
-			Nothing is lost by waiting -- land on a slope and this picks it up on
-			the very next frame.
-		]]
 		if grounded and SkiPhysics.slopePull(groundNormal, gravity).Magnitude > Config.SlideEnterAccel then
 			enterSim(self)
 			self.state = RIDING
@@ -488,30 +335,21 @@ local function step(dt: number)
 		end
 	end
 
-	-- ---------- smoothed ground normal ----------
 	if grounded then
 		self.up = Shared.safeUnit(Shared.dampVector(self.up, groundNormal, Config.NormalSmoothing, dt), groundNormal)
 	end
 
-	-- ---------- airborne ----------
 	if self.state == AIRBORNE then
 		local reach = hoverHeight + GROUND_CONTACT_TOLERANCE + math.max(0, -self.velocity.Y * dt)
 		local landed = grounded and hit.Distance <= reach and self.velocity:Dot(groundNormal) <= 0
 
 		if landed then
-			-- Measured before the landing scrubs any speed off, so the burst and
-			-- the thump match the hit you actually took rather than what's left
-			-- after it.
 			local impact = -self.velocity:Dot(groundNormal)
 			self.effects:landingPuff(impact, onSnow)
 			self.sound:land(impact)
 
-			-- Scored on whether the skis point where you're travelling AND
-			-- whether they're flat to the ground you're hitting; worse wins.
 			local quality = SkiPhysics.landingQuality(self.heading, self.up, self.velocity, groundNormal)
 
-			-- Wiping out in the first moments after strapping in is never
-			-- something the player did, so it doesn't count.
 			if quality.crashed and now < self.graceUntil then
 				quality = { crashed = false, speedKeep = Config.LandingWorstKeep, errorDegrees = quality.errorDegrees }
 				log("bad landing ignored, still settling in")
@@ -520,19 +358,6 @@ local function step(dt: number)
 			if quality.crashed then
 				log("crashed (%.0f deg off)", quality.errorDegrees)
 
-				-- No crash sound from here. SkiRagdoll plays it on the server so
-				-- everyone watching hears it, not just the person who ate it.
-				-- The server owns the ragdoll, so everyone sees it. It also
-				-- takes the skis off, which stops the sim -- so bail out here
-				-- rather than carrying on driving a character that's mid-fall.
-				--
-				-- Stopping does NOT depend on the remote. Without it you simply
-				-- come to a halt instead of tumbling; the one thing that must
-				-- not happen is the sim carrying on regardless.
-				-- Gravity comes back BEFORE the server is told. The ragdoll
-				-- needs something to fall under, and leaving even a frame of
-				-- cancelled gravity between the two is a frame of hanging in
-				-- the air.
 				self.force.Enabled = false
 
 				if crashEvent then
@@ -545,6 +370,7 @@ local function step(dt: number)
 			end
 
 			self.velocity *= quality.speedKeep
+			self.landedAt = now
 			self.up = groundNormal
 			self.heading = Shared.safeUnit(Shared.projectOnPlane(self.heading, groundNormal), self.heading)
 			self.lastGroundDistance = nil
@@ -564,11 +390,8 @@ local function step(dt: number)
 		end
 	end
 
-	-- ---------- riding ----------
 	if self.state == RIDING then
 		if not grounded then
-			-- Coyote time: a bump that throws you a few inches shouldn't detach
-			-- the whole sim.
 			if now - self.lastGroundTime > Config.CoyoteTime then
 				self.state = AIRBORNE
 				self.lastGroundDistance = nil
@@ -587,8 +410,6 @@ local function step(dt: number)
 			self.velocity = result.velocity
 			self.heading = result.heading
 
-			-- Hover spring. Closing speed comes from the probe, not world Y
-			-- velocity -- see note 3 at the top.
 			local distance = hit.Distance
 			local closing = 0
 			if self.lastGroundDistance then
@@ -598,36 +419,17 @@ local function step(dt: number)
 
 			self.velocity += Vector3.new(0, SkiPhysics.hoverAccel(hoverHeight - distance, closing) * dt, 0)
 
-			--[[
-				Hard floor, on top of the spring.
-
-				A spring can only ACCELERATE you out of the ground, and that
-				takes time you can see: land hard or hit a sudden change of
-				slope and the skis sit buried for the better part of a second
-				while it digs them out. Stiffening it just trades the burial for
-				a bounce.
-
-				So the spring keeps its job everywhere above the surface, and
-				below it we simply refuse. If the probe says the skis are under
-				the snow, lift straight out this frame. It only ever pushes up
-				and never past the target, so it cannot fight the spring or
-				launch you.
-			]]
 			local sink = hoverHeight - distance
 			if sink > 0 then
 				root.CFrame += Vector3.new(0, sink, 0)
 				self.lastGroundDistance = hoverHeight
 
-				-- Kill the downward velocity too, or the next frame just drives
-				-- you back under and this fires forever.
 				if self.velocity.Y < 0 then
 					self.velocity = Vector3.new(self.velocity.X, 0, self.velocity.Z)
 				end
 			end
 
 			if jumpQueued and now >= self.jumpReadyAt then
-				-- Along the ground normal, not straight up: launching off a lip
-				-- should throw you along the slope.
 				self.velocity += groundNormal * Config.JumpImpulse
 				self.state = AIRBORNE
 				self.lastGroundDistance = nil
@@ -648,9 +450,6 @@ local function step(dt: number)
 
 	jumpQueued = false
 
-	-- ---------- apply ----------
-	-- Re-orthogonalise before building the CFrame: a heading and up that have
-	-- drifted parallel make lookAlong produce garbage.
 	local right = self.heading:Cross(self.up)
 	if right.Magnitude < 1e-3 then
 		right = Shared.safeUnit(self.heading:Cross(UP), Vector3.xAxis)
@@ -668,7 +467,6 @@ local function step(dt: number)
 	root.AssemblyAngularVelocity = Vector3.zero
 	root.CFrame = CFrame.lookAlong(root.Position, self.heading, self.up)
 
-	-- ---------- pose ----------
 	local poseName = "Stance"
 	if self.state == AIRBORNE then
 		poseName = "Air"
@@ -684,9 +482,6 @@ local function step(dt: number)
 	self.pose:setPose(poseName)
 	self.pose:setLean(self.lean)
 
-	-- ---------- effects ----------
-	-- Sideways speed across the skis. This is what actually throws snow: a
-	-- straight run at full speed barely marks it, a hard carve throws a wall.
 	local lateral = Shared.safeUnit(self.up:Cross(self.heading), Vector3.xAxis)
 	local scrub = math.abs(self.velocity:Dot(lateral))
 
@@ -697,9 +492,27 @@ local function step(dt: number)
 	report(self, now, speed, scrub, onSnow)
 end
 
--- ============================================================
--- WIRING
--- ============================================================
+local function unequipCrashes(self): boolean
+	if os.clock() < self.graceUntil then
+		return false
+	end
+
+	if self.state == AIRBORNE then
+		return true
+	end
+
+	if os.clock() - self.landedAt < Config.UnequipCrashWindow then
+		return true
+	end
+
+	if self.state == WALKING and self.humanoid.Parent then
+		local humanoidState = self.humanoid:GetState()
+		return humanoidState == Enum.HumanoidStateType.Freefall
+			or humanoidState == Enum.HumanoidStateType.Jumping
+	end
+
+	return false
+end
 
 equipEvent.OnClientEvent:Connect(function(isEquipped: boolean)
 	if isEquipped then
@@ -707,28 +520,31 @@ equipEvent.OnClientEvent:Connect(function(isEquipped: boolean)
 		if character then
 			startSkiing(character)
 		end
-	else
-		stopSkiing()
+		return
 	end
+
+	local self = skier
+	if self and crashEvent and unequipCrashes(self) then
+		self.force.Enabled = false
+		crashEvent:FireServer()
+
+		stopSkiing(true)
+		return
+	end
+
+	stopSkiing()
 end)
 
--- Wrapped, not passed directly: CharacterRemoving hands over the character,
--- which would arrive as the leaveLimp flag.
 player.CharacterRemoving:Connect(function()
 	stopSkiing()
 end)
 
--- Fired with no arguments, this asks the server to toggle. The server fires it
--- back with a boolean to report the actual state.
 UserInputService.InputBegan:Connect(function(input, processed)
 	if not processed and input.KeyCode == Config.EquipKey then
 		equipEvent:FireServer()
 	end
 end)
 
--- Wrapped because an error mid-frame would otherwise leave the character
--- platform-standing with gravity cancelled -- frozen in mid-air with no way
--- out. Failing means dropping the skis, not floating forever.
 SkiRemoteView.start()
 
 RunService.RenderStepped:Connect(function(dt)
@@ -738,27 +554,16 @@ RunService.RenderStepped:Connect(function(dt)
 		stopSkiing()
 	end
 
-	-- Wrapped separately. Rendering somebody else going wrong must not take your
-	-- own skiing down with it.
 	local viewOk, viewErr = pcall(SkiRemoteView.update, dt)
 	if not viewOk then
 		warn("[Ski] remote render error: " .. tostring(viewErr))
 	end
 end)
 
---[[
-	Poses run AFTER the engine's animation pass, which is the whole reason this
-	is a separate binding at Character + 1 rather than part of the loop above.
-	The default Animate script writes idle and walk poses into the same Motor6D
-	C0 values during the Character step; anything written before it is silently
-	overwritten on the same frame, and the skis go back to whatever angle the
-	walk cycle left the legs at.
-]]
 RunService:BindToRenderStep("SkiPose", Enum.RenderPriority.Character.Value + 1, function(dt)
 	if skier then
 		skier.pose:update(dt)
 	end
 
-	-- Other people's poses need the same slot for the same reason.
 	SkiRemoteView.updatePoses(dt)
 end)

@@ -1,5 +1,3 @@
--- Wires players and characters into SkiService. Nothing but plumbing lives here.
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -7,8 +5,6 @@ local SkiFolder = ReplicatedStorage:WaitForChild("Ski")
 local Shared = require(SkiFolder:WaitForChild("SkiShared"))
 local SkiService = require(script.Parent:WaitForChild("SkiService"))
 
--- Builds anything the install is missing rather than waiting for it, so a stale
--- SkiRemotes folder can't hang this script.
 SkiService.init(Shared.ensureRemotes())
 
 local function onPlayerAdded(player: Player)

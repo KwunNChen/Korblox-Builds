@@ -2,10 +2,8 @@
 	SkiConfig
 	Every tunable number for the ski system.
 
-	Split in two. The GEAR half is live right now -- it is what builds the skis
-	and poles and decides where they sit on the body. The MOVEMENT half at the
-	bottom is dormant: SkiPhysics reads it, but nothing calls SkiPhysics yet.
-	Ignore it until the gear looks right.
+	Split in two: GEAR builds the skis and poles and decides where they sit on
+	the body, MOVEMENT (further down) is everything SkiPhysics reads.
 ]]
 
 local SkiConfig = {}
@@ -172,6 +170,19 @@ SkiConfig.PoleHandTilt = 0.18
 	0 hangs them straight down. Around 0.5 is the usual downhill carry.
 ]]
 SkiConfig.PoleTrailAngle = 0.55
+
+--[[
+	The same angle, but in the air.
+
+	Off a jump the poles come up and out to near horizontal instead of trailing
+	down by your feet. Partly that is balance and partly it is just what a skier
+	does with their hands when there is nothing to plant against, and it is most
+	of what makes a jump read as deliberate rather than as falling.
+
+	Blended into and out of, not snapped, so the poles swing up as you leave the
+	ground and settle back down as you land.
+]]
+SkiConfig.PoleAirAngle = 1.35
 
 -- How the skis ride when they're on your back:
 --
@@ -454,7 +465,6 @@ SkiConfig.CoyoteTime = 0.12
 SkiConfig.EquipGrace = 0.35
 
 SkiConfig.AirYawRate = 3.4
-SkiConfig.AirPitchRate = 2.8
 SkiConfig.AirDriftAccel = 18
 
 -- ============================================================
@@ -489,6 +499,22 @@ SkiConfig.CrashDuration = 1.8
 -- Spin thrown in at the moment of the wipeout, radians/sec, so you tumble
 -- instead of just going limp and sliding.
 SkiConfig.CrashTumble = 9
+
+--[[
+	Taking the skis off in mid-air wipes you out, and for this long after touching
+	down it still does.
+
+	The window is the point of it. Unequipping while airborne is obviously daft
+	and lands you on your face, but without a window you could simply wait for
+	the frame you touch down and take them off there instead -- landing a jump
+	you had no business landing, with no scrub and no scoring, because the skis
+	came off before the landing was judged. The window makes that the same
+	mistake as the first one.
+
+	Kept short deliberately. Long enough to close the gap, short enough that
+	taking them off at the bottom of a run is never a surprise.
+]]
+SkiConfig.UnequipCrashWindow = 0.05
 
 -- ============================================================
 -- POSES
@@ -580,14 +606,30 @@ SkiConfig.PolePlantReach = 1.75
 -- the geometry -- see the hip values in SkiPose. Want a deeper tuck? Raise the
 -- hip angle in the Tuck pose and the ride height follows on its own.
 
--- Leave empty to use the built-in procedural poses. Drop in an R6 animation id
--- and that slot switches over instead, no other file changes.
---
--- Worth knowing: procedural poses are LOCAL TO YOU. Joint changes made on the
--- client don't replicate, so other players see you riding unposed. Real
--- animations go through the Animator and do replicate -- which is the reason to
--- fill these in eventually.
+--[[
+	Leave a slot empty to use the built-in procedural pose. Drop in an R6
+	animation id and that slot switches over instead, no other file changes.
+
+	Fill these in ONE AT A TIME as they arrive rather than waiting for all five.
+	An empty slot costs nothing -- the procedural pose it replaces is already
+	there and already working.
+
+	Worth knowing: the procedural poses are LOCAL TO YOU. Joint changes made on
+	the client don't replicate, so other players see you riding unposed. Real
+	animations go through the Animator and do replicate, which is the reason to
+	fill these in eventually rather than living with the procedural ones.
+
+	WALKING IS THE ODD ONE OUT and works completely differently from the other
+	five. Riding/Braking/Tuck/Air are all things the SIM drives -- PlatformStand
+	is true and something has to pose the character, so those go through a
+	custom Animator track. Walking is the ordinary Humanoid walk with skis
+	welded on: PlatformStand is false and the character's own Animate script is
+	already doing the posing. So Walking doesn't add a competing system -- it
+	swaps which animation THAT system plays, via SkiShared.setWalkAnimation. Same
+	place to paste an id, wired up underneath in a completely different way.
+]]
 SkiConfig.Animations = {
+	Walking = "",
 	Stance = "",
 	Carve = "",
 	Tuck = "",

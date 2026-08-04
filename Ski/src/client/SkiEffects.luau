@@ -1,17 +1,3 @@
---[[
-	SkiEffects
-	Snow off the edges, a burst on landing, and the camera stretching with speed.
-
-	Reads only. Nothing in here can change how the skis ride, and every piece
-	switches off independently in config -- the system rides identically with all
-	of it disabled.
-
-	LOCAL TO YOU, like the poses. Particles and camera changes made on the client
-	don't replicate, so you see your own spray and not other people's. Sharing it
-	would mean replicating each player's sideways speed continuously, which is a
-	lot of traffic for something cosmetic.
-]]
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -44,9 +30,6 @@ local function newEmitter(): ParticleEmitter
 	emitter.Drag = 5
 	emitter.Rate = 0
 	emitter.Enabled = false
-
-	-- Snow thrown off a ski keeps most of the ski's own motion, so it trails
-	-- behind you instead of hanging in the air where you left it.
 	emitter.VelocityInheritance = 0.4
 
 	return emitter
@@ -63,21 +46,11 @@ local function newTrail(): Trail
 	trail.Lifetime = Config.TrailLifetime
 	trail.LightInfluence = 1
 	trail.FaceCamera = false
-
-	-- Stops a stationary ski smearing a blob where it sits.
 	trail.MinLength = 0.15
 	trail.Enabled = false
 	return trail
 end
 
---[[
-	`isLocal` gates the camera work, and it is not optional.
-
-	Spray belongs to whoever's skiing, but there is only one camera and it is
-	yours. An instance built for somebody else's character that still wrote
-	FieldOfView would be stretching YOUR view to match THEIR speed -- and with
-	several people on the hill they'd fight over it every frame.
-]]
 function SkiEffects.new(character: Model, isLocal: boolean)
 	local self = setmetatable({}, SkiEffects)
 
@@ -98,8 +71,6 @@ function SkiEffects.new(character: Model, isLocal: boolean)
 		end
 
 		if Config.EnableSpray then
-			-- At the tail, so spray comes off behind you rather than out of the
-			-- middle of your boot.
 			local attachment = Instance.new("Attachment")
 			attachment.Name = "SkiSprayPoint"
 			attachment.CFrame = CFrame.new(0, 0, ski.Size.Z * 0.45)
@@ -112,10 +83,6 @@ function SkiEffects.new(character: Model, isLocal: boolean)
 		end
 
 		if Config.EnableTrails then
-			-- A Trail draws a ribbon between two attachments as they move, so
-			-- the gap between these IS the track width. Both sit at the base of
-			-- the ski, across it, which lays the ribbon flat on the snow instead
-			-- of standing it on edge.
 			local left = Instance.new("Attachment")
 			left.Name = "SkiTrailLeft"
 			left.CFrame = CFrame.new(-Config.TrailWidth * 0.5, -ski.Size.Y * 0.5, 0)
@@ -145,15 +112,6 @@ function SkiEffects.new(character: Model, isLocal: boolean)
 	return self
 end
 
---[[
-	The rush is made of STATIONARY particles.
-
-	They don't fly past you, you fly past them. That means the effect scales
-	itself off your actual movement with no velocity maths anywhere, and it
-	cannot disagree with how fast you're really going.
-
-	Parented to the camera, which keeps it local and out of the workspace.
-]]
 function SkiEffects:_buildWindRush()
 	if not Config.EnableWindRush or not self.camera then
 		return
@@ -183,9 +141,6 @@ function SkiEffects:_buildWindRush()
 	emitter.Speed = NumberRange.new(0)
 	emitter.Rate = 0
 	emitter.Enabled = false
-
-	-- Stretched along whatever direction they appear to travel, which is what
-	-- turns a dot into a streak once you're moving quickly.
 	emitter.LockedToPart = false
 	emitter.Squash = NumberSequence.new(3)
 	emitter.Parent = rig
@@ -229,8 +184,6 @@ function SkiEffects:_buildHud()
 	speed.Text = "0"
 	speed.Parent = holder
 
-	-- Fixed size rather than TextScaled: at this height scaling would push it
-	-- down to something unreadable.
 	local unit = Instance.new("TextLabel")
 	unit.Position = UDim2.fromScale(0, 0.7)
 	unit.Size = UDim2.fromScale(1, 0.3)
@@ -249,13 +202,6 @@ function SkiEffects:_buildHud()
 	self.hudValue = speed
 end
 
---[[
-	`scrub` is sideways speed across the skis -- see the note in SkiConfig for
-	why that and not total speed.
-
-	`onSnow` gates it by material, so skiing across rock throws nothing. That is
-	most of what makes the snow read as snow rather than as a white floor.
-]]
 function SkiEffects:update(dt: number, speed: number, scrub: number, onSnow: boolean, riding: boolean)
 	if #self.emitters > 0 then
 		local intensity = if riding and onSnow
@@ -270,8 +216,6 @@ function SkiEffects:update(dt: number, speed: number, scrub: number, onSnow: boo
 		end
 	end
 
-	-- Tracks follow SPEED, not scrub: you leave a line wherever you go, not only
-	-- where you turn. Still gated on snow, same as the spray.
 	for _, trail in self.trails do
 		trail.Enabled = riding and onSnow and speed > 4
 	end
@@ -287,8 +231,6 @@ function SkiEffects:update(dt: number, speed: number, scrub: number, onSnow: boo
 	end
 
 	if self.windEmitter and self.camera then
-		-- Parked on the camera each frame. The particles it leaves behind stay
-		-- put in the world, which is the whole trick.
 		self.windRig.CFrame = self.camera.CFrame
 
 		local over = (speed - Config.WindRushSpeed) / math.max(Config.MaxSpeed - Config.WindRushSpeed, 1)
@@ -306,7 +248,6 @@ function SkiEffects:update(dt: number, speed: number, scrub: number, onSnow: boo
 	end
 end
 
--- One-shot burst on touchdown, sized by how hard you came down.
 function SkiEffects:landingPuff(impactSpeed: number, onSnow: boolean)
 	if not Config.EnableLandingPuff or not onSnow then
 		return
@@ -323,13 +264,6 @@ function SkiEffects:landingPuff(impactSpeed: number, onSnow: boolean)
 	end
 end
 
---[[
-	Switches the visible parts off wholesale, for culling.
-
-	Called once when a skier crosses out of range rather than every frame,
-	which is the point: a culled skier should cost a branch, not a full update
-	that happens to be passing zeroes.
-]]
 function SkiEffects:setActive(active: boolean)
 	for _, emitter in self.emitters do
 		emitter.Enabled = false
@@ -371,8 +305,6 @@ function SkiEffects:destroy()
 		self.hud = nil
 	end
 
-	-- Put the camera back. Left stretched, it follows the player around for the
-	-- rest of the session.
 	if self.camera and Config.EnableSpeedFov then
 		self.camera.FieldOfView = self.baseFov
 	end

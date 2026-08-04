@@ -45,6 +45,18 @@
           "$path": "src/client"
         }
       }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+
+      "KorbloxSki": {
+        "$className": "Folder",
+
+        "Tools": {
+          "$path": "src/tools"
+        }
+      }
     }
   }
 }

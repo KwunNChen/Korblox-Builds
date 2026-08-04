@@ -45,6 +45,10 @@
       "Ski": {
         "$path": "src/client"
       }
+    },
+
+    "Tools": {
+      "$path": "src/tools"
     }
   }
 }

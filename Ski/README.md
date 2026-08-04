@@ -29,6 +29,11 @@ Steering reads `Humanoid.MoveDirection`, so rebound keys, gamepads and mobile
 thumbsticks all work without extra setup. You can also strap in by walking over
 a brick tagged `SkiZone`.
 
+Taking them off in mid-air wipes you out, and for `UnequipCrashWindow` after
+touching down it still does. The window is the point — without it you could
+land anything by unequipping on the frame you hit, before the landing gets
+judged.
+
 ## What's here
 
 | | |
@@ -37,6 +42,7 @@ a brick tagged `SkiZone`.
 | `src/server` | `SkiGear` builds and moves the gear, `SkiService` owns equip state, `SkiRagdoll` handles wipeouts |
 | `src/server-common` | Shared with Variable Snowstorm. Ski only uses `SpeedService`, but `CharacterCache` ships for Snowstorm's sake. Merge this folder, never replace it |
 | `src/client` | `SkiController` runs the sim, `SkiPhysics` is the maths under it, `SkiPose` does the R6 posing, `SkiEffects` the spray and camera, `SkiSound` the audio, `SkiRemoteView` renders everyone else |
+| `src/tools` | `AnimationRig`, a Studio helper for whoever makes the animations. Never runs in game |
 
 Sound ships silent. Roblox audio is private to whichever place owns it, so an ID
 copied from another game plays as nothing at all and reports no error. The IDs
@@ -90,11 +96,47 @@ speed, lean and whether it is on snow, the server writes those as character
 attributes, and everyone else drives the same pose, spray and sound code from
 them.
 
+## If a busy hill drags
+
+`RemotePoseDistance` and `RemoteCullDistance` are the lever. Drawing another
+skier costs the same whether they fill your screen or are a speck across the
+valley: six joint writes a frame, two emitters, two trails and three sound
+loops each, for everyone, including the people behind you.
+
+Poses go first, because they're the per-frame cost and the first thing to stop
+being legible. You can't tell a carve from a tuck on someone a hundred studs
+off, but you can still read their spray and their tracks.
+
+## Adding animations
+
+Everything procedural is a stand-in. Put an asset id into
+`SkiConfig.Animations` and that slot switches to a real animation.
+
+There's a rig tool for whoever is animating. Build an R6 dummy, then run
+
+```
+require(game.ServerStorage.KorbloxSki.Tools.AnimationRig).attach(workspace.Dummy)
+```
+
+and the real skis and poles appear on it, so the stance can be animated against
+the gear rather than imagined.
+
+Six looping slots, and they can arrive one at a time in any order — send
+`Walking` first, since it's the one you're in most:
+
+- **`Walking`** — wired up differently from the rest, and worth knowing why.
+  This is just the ordinary Humanoid walk with skis welded on: `PlatformStand`
+  is false and the character's own `Animate` script is already posing it, so
+  filling this in swaps which animation *that* plays instead of adding a
+  second system next to it. Empty keeps the default walk.
+- **`Stance`, `Carve`, `Tuck`, `Brake`, `Air`** — the states the sim actually
+  drives. Fill one in and it owns the character completely for that pose: the
+  joint poses, the carve overlay, the pole plants and the ski alignment all
+  stand down. Empty keeps the built-in procedural pose.
+
 ## Not in yet
 
-Tricks and scoring. Air pitch is already wired up in `SkiPhysics` and switched
-off in the controller, because flips with nothing scoring them just mean landing
-backwards for free.
+Tricks and scoring.
 
 ## Building
 

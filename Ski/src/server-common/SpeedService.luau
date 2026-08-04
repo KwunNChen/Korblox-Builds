@@ -1,6 +1,3 @@
--- Single owner of Humanoid.WalkSpeed and jump height. Register named modifiers
--- instead of assigning either directly -- see the README for the full API.
-
 local SpeedService = {}
 
 SpeedService.MinWalkSpeed = 4
@@ -66,7 +63,6 @@ local function recompute(humanoid: Humanoid)
 	end
 end
 
--- Only needed if a character's baseline legitimately changes.
 function SpeedService.setBase(humanoid: Humanoid, base: number)
 	getRecord(humanoid).base = base
 	recompute(humanoid)

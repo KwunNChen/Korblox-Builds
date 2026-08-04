@@ -1,24 +1,3 @@
---[[
-	SkiGear
-	Builds the skis and poles and joins them to the character, and moves them
-	between "on your feet" and "stowed on your back".
-
-	BUILT ON THE SERVER on purpose. Gear made here replicates to every client for
-	free, so there is no per-client rendering code and no chance of one player
-	seeing another with bare feet.
-
-	Every part is Massless, non-collidable and non-queryable. The gear must not
-	change how the character falls, must not catch on terrain, and must not show
-	up in anyone's raycasts.
-
-	R6. R15 gets a best-effort attach to the feet and hands so a mixed-rig game
-	degrades instead of erroring.
-
-	SWAPPING IN YOUR OWN MESH: put an id in Config.SkiMeshId or PoleMeshId and
-	that gets used instead of the generated parts. Same joints, same offsets,
-	nothing else changes.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SkiFolder = ReplicatedStorage:WaitForChild("Ski")
@@ -27,14 +6,7 @@ local Config = require(SkiFolder:WaitForChild("SkiConfig"))
 local SkiGear = {}
 
 local GEAR_NAME = "SkiGear"
-
--- Fraction of the ski's length given over to the swept nose.
 local TIP_FRACTION = 0.17
-
--- Roblox puts a cylinder's flat circular faces on its X axis. Every pole part
--- is therefore built with +X running from the grip down to the tip, and one
--- rotation at the joint stands the whole thing upright. Doing it per-part
--- instead would mean every offset below was in a different rotated frame.
 local POLE_UPRIGHT = -math.pi / 2
 
 local function log(message: string, ...)
@@ -58,10 +30,6 @@ local function newPart(name: string, size: Vector3, color: Color3, material: Enu
 	return part
 end
 
--- Motor6D with explicit C0/C1 rather than WeldConstraint, so nothing depends on
--- parts being positioned correctly before they are joined. Parented to Part1
--- (the gear) rather than Part0, so stowing can retarget a joint without having
--- to go and find it somewhere on the character.
 local function join(part0: BasePart, part1: BasePart, c0: CFrame, name: string?): Motor6D
 	local motor = Instance.new("Motor6D")
 	motor.Name = name or (part1.Name .. "Joint")
@@ -74,8 +42,6 @@ local function join(part0: BasePart, part1: BasePart, c0: CFrame, name: string?)
 end
 
 local function meshFor(part: BasePart, meshId: string, scale: Vector3, offset: Vector3)
-	-- SpecialMesh rather than MeshPart: MeshPart.MeshId cannot be assigned at
-	-- runtime in a live game, SpecialMesh.MeshId can.
 	local mesh = Instance.new("SpecialMesh")
 	mesh.MeshType = Enum.MeshType.FileMesh
 	mesh.MeshId = meshId
@@ -88,18 +54,6 @@ local function anglesFromDegrees(degrees: Vector3): CFrame
 	return CFrame.Angles(math.rad(degrees.X), math.rad(degrees.Y), math.rad(degrees.Z))
 end
 
--- ============================================================
--- THE SKIS
--- ============================================================
-
---[[
-	Laid out along local Z, tail at +Z and tip at -Z, because -Z is forward in
-	Roblox part space.
-
-	Three body segments rather than one block: wide at the tail, narrow
-	underfoot, wide again at the front. That sidecut is most of what stops a ski
-	reading as a plank. The waist segment is the root everything else hangs off.
-]]
 local function buildSki(side: string, sign: number, rig: Model, leg: BasePart): (BasePart, Motor6D)
 	local name = side .. "Ski"
 
@@ -127,8 +81,6 @@ local function buildSki(side: string, sign: number, rig: Model, leg: BasePart): 
 	waist.CFrame = leg.CFrame
 	waist.Parent = rig
 
-	-- Camber: the waist is the root and sits proud, so the tail and front drop
-	-- away from it by that much. Set SkiCamber to 0 for a dead flat ski.
 	local drop = -Config.SkiCamber
 
 	local tail = newPart(name .. "Tail", Vector3.new(Config.SkiTailWidth, Config.SkiThickness, segmentLength), Config.SkiColor, Config.SkiMaterial)
@@ -141,9 +93,6 @@ local function buildSki(side: string, sign: number, rig: Model, leg: BasePart): 
 	front.Parent = rig
 	join(waist, front, CFrame.new(0, drop, -segmentLength))
 
-	-- The nose: walk forward from the front segment's leading edge, pitching up
-	-- a little each step. Deriving the angle from the rise means SkiTipRise
-	-- stays a distance you can picture rather than an angle you have to guess.
 	local segmentCount = math.max(Config.SkiTipSegments, 1)
 	local noseLength = tipRun / segmentCount
 	local segmentAngle = (math.atan2(Config.SkiTipRise, tipRun) * 2) / segmentCount
@@ -165,8 +114,6 @@ local function buildSki(side: string, sign: number, rig: Model, leg: BasePart): 
 		cursor *= CFrame.new(0, 0, -noseLength)
 	end
 
-	-- Toe piece forward (-Z), heel piece back. Both clear of the leg, so they
-	-- read as hardware on the ski rather than a block round the ankle.
 	for _, piece in { { "Toe", Config.BindingToeSize, -1 }, { "Heel", Config.BindingHeelSize, 1 } } do
 		local pieceName, size, direction = piece[1] :: string, piece[2] :: Vector3, piece[3] :: number
 
@@ -189,10 +136,6 @@ local function buildSki(side: string, sign: number, rig: Model, leg: BasePart): 
 
 	return waist, attach
 end
-
--- ============================================================
--- THE POLES
--- ============================================================
 
 local function poleHandCFrame(sign: number): CFrame
 	return CFrame.new(sign * Config.PoleHandOffset.X, Config.PoleHandOffset.Y, Config.PoleHandOffset.Z)
@@ -218,7 +161,6 @@ local function buildPole(side: string, sign: number, rig: Model, arm: BasePart):
 		return body, attach
 	end
 
-	-- Grip is the root, and +X from here runs down the shaft to the tip.
 	local grip = newPart(name, Vector3.new(Config.PoleGripLength, Config.PoleGripThickness, Config.PoleGripThickness), Config.PoleGripColor, Enum.Material.SmoothPlastic)
 	grip.Shape = Enum.PartType.Cylinder
 	grip.CFrame = arm.CFrame
@@ -241,11 +183,6 @@ local function buildPole(side: string, sign: number, rig: Model, arm: BasePart):
 	return grip, attach
 end
 
--- ============================================================
--- THE CARRY STRAP
--- ============================================================
-
--- Everything the strap is made of, so stowing can show and hide it in one loop.
 local STRAP_PARTS = {
 	"StrapFront",
 	"StrapBack",
@@ -256,14 +193,6 @@ local STRAP_PARTS = {
 	"RightSkiCinchAft",
 }
 
---[[
-	A sling over one shoulder: a band down the chest, a band across the back, and
-	a short piece joining them over the shoulder itself.
-
-	Joined to the Torso, and hidden rather than moved when you strap in. Hiding
-	is the cheap option and the right one -- there is nowhere sensible for a
-	sling to go while you are wearing the skis, and you would take it off anyway.
-]]
 local function buildStrap(rig: Model, torso: BasePart)
 	if not Config.EnableStrap then
 		return
@@ -273,8 +202,6 @@ local function buildStrap(rig: Model, torso: BasePart)
 	local halfHeight = torso.Size.Y * 0.5
 	local halfDepth = torso.Size.Z * 0.5
 
-	-- Tilted the opposite way front and back, so the two halves meet over the
-	-- same shoulder instead of forming an X around the body.
 	local function band(name: string, z: number, tilt: number)
 		local part = newPart(
 			name,
@@ -306,9 +233,6 @@ local function buildStrap(rig: Model, torso: BasePart)
 	)
 end
 
--- Two bands round each ski, so the pair reads as strapped together rather than
--- floating in formation. Joined to the ski itself, so they follow it whatever
--- carry style is set.
 local function buildCinches(name: string, rig: Model, ski: BasePart)
 	if not Config.EnableStrap then
 		return
@@ -337,10 +261,6 @@ local function setStrapVisible(rig: Model, visible: boolean)
 	end
 end
 
--- ============================================================
--- LIMBS
--- ============================================================
-
 local function limbs(character: Model)
 	return {
 		leftLeg = character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftFoot"),
@@ -350,10 +270,6 @@ local function limbs(character: Model)
 		torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso"),
 	}
 end
-
--- ============================================================
--- BUILD / DESTROY
--- ============================================================
 
 function SkiGear.get(character: Model): Model?
 	return character:FindFirstChild(GEAR_NAME) :: Model?
@@ -377,9 +293,6 @@ function SkiGear.build(character: Model): Model?
 
 	local rig = Instance.new("Model")
 	rig.Name = GEAR_NAME
-
-	-- Parented before anything is built, so both ends of every Motor6D are
-	-- already in the world when the joint is made.
 	rig.Parent = character
 
 	buildStrap(rig, parts.torso :: BasePart)
@@ -396,34 +309,10 @@ function SkiGear.build(character: Model): Model?
 	return rig
 end
 
--- ============================================================
--- STOWING
--- ============================================================
-
---[[
-	Skis on the back, tips up.
-
-	Reading the rotation right to left: Rx(90) stands the ski on end so its tip
-	points up, then Rz(lean) tips it over. Doing those two the other way round
-	rotates it about its own length instead, which spins the ski rather than
-	leaning it.
-
-	The only real difference between the styles is whether both skis lean the
-	SAME way. Mirror the lean and you get an X; share it and you get a pair
-	carried together, which is how skis are actually strapped to a pack.
-
-	Separating a pair is done along the torso's Z. That is not arbitrary: after
-	Rx(90) the ski's thickness axis points that way regardless of lean, so
-	offsetting along it puts the skis base to base -- the direction they'd be
-	strapped in -- instead of sliding one along the other's length.
-]]
 local function skiBackCFrame(sign: number): CFrame
 	local style = Config.SkiCarryStyle
 	local base = Config.SkiBackOffset
 
-	-- Applied outermost, so it tips the whole assembled bundle backwards in
-	-- torso space rather than rotating each ski about its own length. That is
-	-- what keeps the tops clear of the back of the head.
 	local backLean = CFrame.Angles(Config.SkiBackLean, 0, 0)
 
 	if style == "Crossed" then
@@ -434,10 +323,6 @@ local function skiBackCFrame(sign: number): CFrame
 	end
 
 	if style == "Diagonal" then
-		-- Both lean the same way, so they stay a parallel pair. Separated along
-		-- Z rather than X: after Rx(90) the ski's thickness axis points that
-		-- way, so the two sit base to base the way they'd be strapped together,
-		-- instead of one sliding along the other's length.
 		return CFrame.new(base.X, base.Y, base.Z + sign * Config.SkiCarrySpread * 0.5)
 			* backLean
 			* CFrame.Angles(0, 0, Config.SkiCarryAngle)
@@ -454,19 +339,6 @@ local function skiBackCFrame(sign: number): CFrame
 		warn(string.format("[Ski] SkiCarryStyle %q is not one of AFrame/Diagonal/Vertical/Crossed -- using AFrame", tostring(style)))
 	end
 
-	--[[
-		The upside-down V.
-
-		Each ski leans in by SkiApexAngle, which swings its tip sideways by
-		halfLength * sin(angle). Push the ski out by exactly that much and the
-		tip lands back on the spine -- so the tips meet at the top and the tails
-		open out below.
-
-		Deriving the offset instead of exposing it is the point. Tilt and offset
-		tuned independently is how you end up with an X (offset too small) or a
-		gap (too big); tied together it is always a clean apex, and the angle is
-		the only thing left to tune.
-	]]
 	local lean = Config.SkiApexAngle
 	local converge = Config.SkiLength * 0.5 * math.sin(lean)
 
@@ -494,8 +366,6 @@ local function retarget(rig: Model, rootName: string, part0: BasePart, c0: CFram
 	end
 end
 
--- Moves the same joints rather than rebuilding anything, so stowing costs four
--- property writes and never flickers.
 function SkiGear.setStowed(character: Model, stowed: boolean)
 	local rig = SkiGear.get(character)
 	if not rig then
@@ -509,7 +379,6 @@ function SkiGear.setStowed(character: Model, stowed: boolean)
 
 	local torso = parts.torso :: BasePart
 
-	-- The strap only exists while they're on your back.
 	setStrapVisible(rig, stowed)
 
 	if stowed then
