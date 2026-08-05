@@ -235,62 +235,82 @@ local function ragdollRemains(character: Model)
 end
 
 --[[
-	Makes sure a corpse actually goes away. NOTHING DOES THIS BY DEFAULT.
+	Makes sure a corpse actually goes away. NOTHING DOES THIS BY DEFAULT, and
+	getting it wrong is invisible -- corpses just accumulate until the server
+	is a boneyard.
 
-	CorpseLifetime <= 0 used to mean "skip scheduling cleanup, the normal
-	respawn clears it" -- which was never true. Respawning only reassigns
-	player.Character to a NEW Model; the old corpse is abandoned in Workspace
-	exactly as it was, forever, because nothing ever calls :Destroy() on it.
-	That is the whole reason corpses were piling up regardless of the timer.
+	ARM THIS FIRST, BEFORE ANY OTHER KILL WORK. That is the whole reason it is
+	written to be callable before the character has even been touched. Every
+	caller runs inside ImpactService's pcall, so anything that throws between
+	the kill and this call -- a malformed rig, a missing Torso, a joint that
+	is not what it claims -- silently skips cleanup and leaves that corpse
+	standing forever, with the error swallowed into a warn nobody reads. It
+	must not be possible to lose the corpse timer to an unrelated failure.
 
-	Two independent mechanisms now, and a corpse only needs one to fire:
+	Three mechanisms, and a corpse only needs one to fire:
 
-	  THE BACKSTOP. CorpseLifetime, if positive, force-destroys the corpse
-	  after that many seconds no matter what else happens. NPCs have no
-	  respawn to hook at all, so for them this -- or GoreLifetime as a floor
-	  when it is left at 0 -- is the ONLY thing that will ever clean them up.
+	  THE TIMER. task.delay rather than Debris:AddItem. Debris shares one
+	  global queue with a MaxItems ceiling, and severed limbs are already
+	  filling it -- a heavy barrage can push corpses out of that queue
+	  entirely. An owned delay per corpse cannot be evicted by anything.
 
-	  RESPAWN. For a player corpse, destroyed the instant CharacterAdded fires
-	  for the player who died, or immediately if they leave first
-	  (PlayerRemoving) rather than leaving an orphan with no owner left to
-	  respawn at all. This is what CorpseLifetime = 0 was always meant to mean
-	  for a player -- it just never actually happened before.
+	  RESPAWN. Destroyed the instant CharacterAdded fires for the player who
+	  died. Roblox's own respawn usually clears the old character, but only
+	  when CharacterAutoLoads is on and nothing custom has taken over the
+	  respawn -- so this is belt and braces, not a duplicate.
 
-	Both can be armed on the same corpse; whichever fires first destroys it,
-	and the guard on corpse.Parent makes the second one a harmless no-op.
+	  DISCONNECT. PlayerRemoving, so a corpse whose owner left never waits out
+	  a respawn that is not coming.
+
+	All three can be armed on the same corpse; whichever fires first destroys
+	it and the rest become harmless no-ops.
 ]]
 local function cleanupCorpse(character: Model)
+	-- Never zero, whatever the config says. A corpse with no timer is the bug
+	-- this function exists to make impossible, so 0 falls back rather than
+	-- meaning "never".
+	local lifetime = if Config.CorpseLifetime > 0 then Config.CorpseLifetime else Config.GoreLifetime
+
 	local player = Players:GetPlayerFromCharacter(character)
+	local done = false
 
-	local backstop = if Config.CorpseLifetime > 0
-		then Config.CorpseLifetime
-		elseif not player then Config.GoreLifetime
-		else nil
+	local characterConn: RBXScriptConnection?
+	local leavingConn: RBXScriptConnection?
 
-	if backstop then
-		Debris:AddItem(character, backstop)
+	local function cleanup(reason: string)
+		if done then
+			return
+		end
+		done = true
+
+		if characterConn then
+			characterConn:Disconnect()
+		end
+		if leavingConn then
+			leavingConn:Disconnect()
+		end
+
+		if character.Parent then
+			character:Destroy()
+			log("corpse %s removed (%s)", character.Name, reason)
+		end
 	end
+
+	task.delay(lifetime, function()
+		cleanup("timer")
+	end)
 
 	if not player then
 		return
 	end
 
-	local corpse = character
-	local characterConn: RBXScriptConnection
-	local leavingConn: RBXScriptConnection
+	characterConn = player.CharacterAdded:Connect(function()
+		cleanup("respawn")
+	end)
 
-	local function cleanup()
-		characterConn:Disconnect()
-		leavingConn:Disconnect()
-		if corpse.Parent then
-			corpse:Destroy()
-		end
-	end
-
-	characterConn = player.CharacterAdded:Connect(cleanup)
 	leavingConn = Players.PlayerRemoving:Connect(function(leaving)
 		if leaving == player then
-			cleanup()
+			cleanup("left")
 		end
 	end)
 end
@@ -363,12 +383,16 @@ function Dismember.apply(character: Model, humanoid: Humanoid, blastPosition: Ve
 		return
 	end
 
+	-- FIRST, before anything that can throw. See cleanupCorpse -- every path
+	-- below this runs inside ImpactService's pcall, and a corpse that loses
+	-- its timer to an unrelated error stands there for the rest of the round.
+	cleanupCorpse(character)
+
 	Dismember.prepareRagdoll(humanoid)
 
 	if not Config.EnableGore then
 		humanoid.Health = 0
 		ragdollRemains(character)
-		cleanupCorpse(character)
 		return
 	end
 
@@ -399,7 +423,6 @@ function Dismember.apply(character: Model, humanoid: Humanoid, blastPosition: Ve
 		-- ragdoll, since there is no R15 joint table here to swap.
 		humanoid.Health = 0
 		ragdollRemains(character)
-		cleanupCorpse(character)
 		return
 	end
 
@@ -414,8 +437,6 @@ function Dismember.apply(character: Model, humanoid: Humanoid, blastPosition: Ve
 
 	humanoid.Health = 0
 	ragdollRemains(character)
-
-	cleanupCorpse(character)
 
 	log("%s killed by shell, %d limbs off", character.Name, severed)
 end

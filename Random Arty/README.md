@@ -238,31 +238,34 @@ StarterPlayer/StarterPlayerScripts
 
 ## Installing in a game
 
-Three services, one model file, so you place the folders yourself. The folders inside the
-.rbxm are named after where they go.
+1. **Drag `RandomArtillery.rbxm` into ServerStorage.** This creates a `RandomArtillery` folder
+   there containing all the pieces. ServerStorage is temporary — nothing executes there, which
+   is the point. If you drop the .rbxm anywhere else (ServerScriptService, Workspace), the
+   server scripts start running before the shared modules are loaded and everything crashes.
 
-1. Drag `RandomArtillery.rbxm` into **ServerStorage**. Scripts don't execute there. Drop it
-   into ServerScriptService or Workspace instead and the server scripts start running before
-   the shared modules exist.
+2. **Move folders from `RandomArtillery/ReplicatedStorage/` into the real ReplicatedStorage:**
+   - `Artillery`
+   - `ArtilleryState`
+   - `ArtilleryShell`
+   
+   Miss `ArtilleryShell` and the whole thing disables itself with a warning in Output.
 
-2. From its `ReplicatedStorage` folder, move `Artillery`, `ArtilleryState`, and
-   `ArtilleryShell` into the real ReplicatedStorage. Miss `ArtilleryShell` and artillery
-   disables itself with a warning in Output.
+3. **Move folders from `RandomArtillery/ServerScriptService/` into the real ServerScriptService:**
+   - `Artillery`
+   - `Common`
+   
+   If your game already has a `Common` folder (from Variable Snowstorm, Ski, etc.), open the
+   .rbxm's `Common` and drag `CharacterCache` and `SpeedService` into your existing folder
+   instead of replacing it. They are the same files.
 
-3. From its `ServerScriptService` folder, move `Artillery` and `Common` into the real
-   ServerScriptService. If your game already has a `Common` folder — and it will if you
-   installed Variable Snowstorm or Ski — drag `CharacterCache` and `SpeedService` into that
-   one rather than replacing it. They are the same files.
+4. **Move `RandomArtillery/StarterPlayerScripts/Artillery` into your StarterPlayer >
+   StarterPlayerScripts.** This is the half that draws the shells. Skip it and barrages still
+   land and still kill, but nothing appears in the sky and there's no warning sound — which
+   looks and plays exactly like a broken install.
 
-4. From its `StarterPlayerScripts` folder, move `Artillery` into StarterPlayer >
-   StarterPlayerScripts. Skip this and barrages still land and still kill people, but nothing
-   draws and there's no warning sound. That failure looks exactly like a broken install and
-   plays like a very unfair one.
+5. **Delete the now-empty `RandomArtillery` folder from ServerStorage.**
 
-5. Delete the empty `RandomArtillery` folder.
-
-Press Play. After that the only file you edit is
-`ReplicatedStorage.Artillery.ArtilleryConfig`.
+Press Play. From here, the only thing you edit is `ReplicatedStorage.Artillery.ArtilleryConfig`.
 
 ### This is R6 only
 

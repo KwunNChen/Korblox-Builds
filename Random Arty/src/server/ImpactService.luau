@@ -278,12 +278,17 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 			-- Layer 3 kills die intact, so what is left of a body tells you
 			-- which layer caught them. INTACT STILL MEANS LIMP -- it ragdolls
 			-- and gets the same cleanup as every other kill, it just keeps all
-			-- its limbs. prepareRagdoll has to run before the damage lands or
-			-- Roblox breaks the joints itself on death first.
+			-- its limbs.
+			--
+			-- Cleanup is armed FIRST for the same reason it is in Dismember.apply:
+			-- this whole function runs inside a pcall, so anything that throws
+			-- after the kill would otherwise leave the corpse standing forever.
+			-- prepareRagdoll still has to run before the damage lands, or Roblox
+			-- breaks the joints itself on death first.
+			Dismember.cleanupCorpse(character)
 			Dismember.prepareRagdoll(humanoid)
 			applyDamage(humanoid, damage)
 			Dismember.finishRagdoll(character)
-			Dismember.cleanupCorpse(character)
 			outcome = "killed intact"
 		end
 	else

@@ -16,44 +16,46 @@
 	INSTALL
 	========================================================
 
-	The folders in this package are named after where they go. Drag each one
-	into the matching service.
+	1. Drag RandomArtillery.rbxm into ServerStorage. This creates a RandomArtillery
+	   folder containing all the pieces. ServerStorage is temporary: nothing
+	   runs there, which is the point. Put the .rbxm anywhere else and the server
+	   scripts start running before the shared modules are loaded. Everything
+	   crashes.
 
-	1. This package should be sitting in ServerStorage. If it's anywhere else,
-	   move it there first. Scripts don't execute in ServerStorage. Leave it in
-	   ServerScriptService or Workspace and the server scripts start running
-	   before the shared modules exist.
-
-	2. Open the "ReplicatedStorage" folder. Move all three children into the
-	   real ReplicatedStorage service:
+	2. Move three folders from RandomArtillery/ReplicatedStorage/ into the real
+	   ReplicatedStorage:
 
 	       Artillery
 	       ArtilleryState
 	       ArtilleryShell
 
-	   Miss ArtilleryShell and artillery turns itself off with a warning in
+	   Miss ArtilleryShell and artillery disables itself with a warning in
 	   Output.
 
-	3. Open the "ServerScriptService" folder. Move both children into the real
-	   ServerScriptService service:
+	3. Move two folders from RandomArtillery/ServerScriptService/ into the real
+	   ServerScriptService:
 
 	       Artillery
 	       Common
 
-	   If your game already has a Common folder -- and it will if you installed
-	   Variable Snowstorm or Ski -- open this one and drag CharacterCache and
-	   SpeedService into yours instead of replacing it. They are the same files.
+	   If your game already has a Common folder (Variable Snowstorm, Ski, etc.),
+	   open the .rbxm's Common instead and drag CharacterCache and SpeedService
+	   into your existing folder rather than replacing it. They are the same
+	   files.
 
-	4. Open the "StarterPlayerScripts" folder. Move its Artillery folder into:
+	4. Move the Artillery folder from RandomArtillery/StarterPlayerScripts/ into:
 
 	       StarterPlayer > StarterPlayerScripts
 
-	   Don't skip this one. It's the half that draws the shells. Miss it and
-	   barrages still land and still kill people, but nothing appears in the sky
-	   and there is no warning sound -- which looks exactly like a broken
-	   install, and plays like a very unfair one.
+	   Don't skip this. It's the half that draws the shells. Miss it and barrages
+	   still land and still kill people, but nothing appears in the sky and
+	   there's no warning sound. That looks and plays exactly like a broken
+	   install.
 
-	5. Delete the empty RandomArtillery folder.
+	5. Delete the now-empty RandomArtillery folder from ServerStorage.
+
+	Press Play. From here, the only thing you edit is
+	ReplicatedStorage.Artillery.ArtilleryConfig.
 
 
 	WHEN YOU'RE DONE
@@ -89,7 +91,7 @@
 	    3  within 46    damage only. A kill here dies intact
 	    4  within 70    dazed for a few seconds, no damage
 
-	LAYER 1 IS PURE DISTANCE. No cover, no walls, no bunker roof -- a shell that
+	LAYER 1 IS PURE DISTANCE. No cover, no walls, no bunker roof: a shell that
 	lands on top of you is not survivable by standing behind something. Cover
 	only scales damage in layers 2 and 3.
 
@@ -123,8 +125,8 @@
 	That usually answers it outright. The common causes:
 
 	  LEVEL DIFFERENCE. Height counts toward the blast radius. It counts less
-	  than ground distance -- BlastVerticalScale is 0.6, so the blast is a
-	  flattened ellipsoid that reaches up and down slopes -- but a big enough
+	  than ground distance (BlastVerticalScale is 0.6, so the blast is a
+	  flattened ellipsoid that reaches up and down slopes), but a big enough
 	  drop still puts you out of range. Raise it toward 1 for a true sphere.
 
 
@@ -141,14 +143,14 @@
 	Three things that USED to make it random, fixed, and easy to reintroduce:
 
 	  ForceField. Humanoid:TakeDamage is blocked by spawn protection, but
-	  assigning Humanoid.Health is not -- so layers 2 and 3 did nothing to a
+	  assigning Humanoid.Health is not, so layers 2 and 3 did nothing to a
 	  fresh spawn while layer 1 killed straight through the shield. Every layer
 	  now goes through one applyDamage helper that assigns Health directly, so
 	  ARTILLERY PENETRATES SPAWN PROTECTION and every layer agrees about it. To
-	  protect a spawn, tag it ArtillerySafeZone -- see below.
+	  protect a spawn, tag it ArtillerySafeZone (see below).
 
 	  MaxFalloffDamage set to exactly 100. A full health bar, so a healthy
-	  player could never quite die outside the kill sphere -- one tenth of a
+	  player could never quite die outside the kill sphere: one tenth of a
 	  stud past the boundary dealt 99.3 and left them standing.
 
 	  A single cover raycast. One ray to the torso is a coin flip at partial
@@ -179,7 +181,7 @@
 	above it. Tag as many parts as you like.
 
 	THIS IS THE ONLY WAY TO PROTECT A SPAWN. A ForceField does not stop
-	artillery -- see the damage note above.
+	artillery (see the damage note above).
 
 
 	========================================================
@@ -213,7 +215,7 @@
 	                      be a different image from SmokeTexture
 
 	SmokeTexture is the only asset the system needs. DEBRIS AND THE DUST WAVE ARE
-	REAL PARTS -- they depend on no image at all, so they cannot be broken by a
+	REAL PARTS. They depend on no image at all, so they cannot be broken by a
 	bad id.
 
 	IT SHIPS AS AN ENGINE PATH, NOT AN ID, ON PURPOSE. An engine path cannot be
@@ -221,8 +223,8 @@
 	no upload. Ids kept going into this slot and kept coming out invisible.
 
 	NEVER LEAVE SmokeTexture EMPTY. A ParticleEmitter with no Texture falls back
-	to Roblox's default sprite, which is a WHITE SPARKLE -- the glittery confetti
-	look, and no amount of size or colour tuning removes it, because the sparkle
+	to Roblox's default sprite, which is a WHITE SPARKLE: the glittery confetti
+	look. No amount of size or colour tuning removes it, because the sparkle
 	IS the sprite.
 
 	TWO FORMS ARE VALID, and mixing them is the classic mistake:
@@ -239,7 +241,7 @@
 	To get the right one: drop the decal onto any part in Studio, then read the
 	Texture property off the Decal instance it makes. That value is the image id.
 
-	Use a GREYSCALE image -- ImpactSmokeColor tints whatever you give it.
+	Use a GREYSCALE image. ImpactSmokeColor tints whatever you give it.
 
 
 	========================================================
@@ -247,15 +249,15 @@
 	========================================================
 
 	Roblox audio is private by default, so an id lifted from another game is
-	silent here with no error at all. Four slots in ArtilleryConfig:
+	silent here, and nothing in Output says why. Four slots in ArtilleryConfig:
 
-	    BatteryReportSoundId   distant thump of the guns firing -- THE WARNING
+	    BatteryReportSoundId   distant thump of the guns firing (THE WARNING)
 	    ShellWhistleSoundId    the incoming scream, looped
 	    ImpactNearSoundId      sharp crack for close shells
 	    ImpactFarSoundId       hollow crump for distant ones
 
 	View > Toolbox > Audio, right click, Copy Asset ID. Grab the AUDIO asset's
-	id, not the id of a model wrapping it -- that fails silently too.
+	id, not the id of a model wrapping it. That fails silently too.
 
 	Any left empty simply does not play. The system warns once if all four are.
 
@@ -289,20 +291,20 @@
 	NATURAL TIMER NEVER FIRES, ONLY DebugBarrageNow DOES?
 
 	  This is MinPlayersForBarrage, almost always. The natural loop skips its
-	  cycle entirely below that many players online -- default 4 -- while
+	  cycle entirely below that many players online (default 4), while
 	  DebugBarrageNow has no player-count check at all and always fires. Testing
 	  solo or with a couple of friends means the natural timer is never
 	  satisfied, no matter how long you wait.
 
 	  The loop logs "natural barrage skipped -- N online, MinPlayersForBarrage is
 	  M" every time this happens (needs DebugLog = true). If you see that, the
-	  timer is fine -- the player count is what is stopping it. Set
+	  timer is fine: the player count is what is stopping it. Set
 	  MinPlayersForBarrage = 1 while testing alone.
 
 	SEEING NO SHELLS?
 
 	  1. Did the server fire any? Look for "BARRAGE INCOMING" in Output. If it
-	     isn't there, the barrage never ran -- check that someone is alive, and
+	     isn't there, the barrage never ran. Check that someone is alive, and
 	     that Enabled is true in the config.
 
 	  2. Did it reach your client? "[Artillery/client] ready" prints at join. No
@@ -321,7 +323,7 @@
 	    MinPlayersForBarrage   below this online, natural timer skips its cycle.
 	                           DebugBarrageNow ignores it. 1 while testing solo
 	    ShellsPerBarrage       how many shells one barrage drops
-	    BarrageWarningLead     seconds of warning. THE mechanic -- don't go low
+	    BarrageWarningLead     seconds of warning. THE mechanic: don't go low
 	    ClusterRadius          how far apart players still count as a crowd
 	    SkipShelteredPlayers   players under a roof are not aimed at
 	    ShelterBlockedThreshold how enclosed you must be to count. 0.5 is 3 of 5
@@ -334,7 +336,7 @@
 	    DebrisMatchSurface     debris made of whatever the shell hit
 	    DustDecalTexture       the dust cloud's image. Falls back to SmokeTexture
 	    DustDecalStartSize/End what it grows from and to. The gap IS the effect
-	    DustDecalStartHeight/End the sink -- where it appears, where it settles
+	    DustDecalStartHeight/End the sink: where it appears, where it settles
 	    MaxLiveDust            ceiling on clouds live across a whole barrage
 	    ChunkCount             chunks thrown per shell. Main density knob
 	    MaxLiveChunks          ceiling across every burst on screen at once
@@ -373,7 +375,7 @@
 
 	The arc is real projectile motion, not a curve. Given the launch point, the
 	impact point and the flight time, it solves for the launch velocity and then
-	accelerates the shell downward the whole way -- so it comes in faster than
+	accelerates the shell downward the whole way, so it comes in faster than
 	it went out. A Bezier of the same shape travels at constant speed and reads
 	as floaty.
 
@@ -401,7 +403,7 @@
 	THERE IS NO EXPLOSION BALL. A brief light stays, with no visible geometry;
 	EnableImpactLight = false removes that too.
 
-	THE DUST IS ONE IMAGE, not particles and not a field of geometry -- both
+	THE DUST IS ONE IMAGE, not particles and not a field of geometry. Both
 	were tried, and both read as many separate pieces instead of one cloud. It
 	GROWS AND SINKS over its life rather than sitting static:
 
@@ -414,7 +416,7 @@
 	place. It is angled to the surface normal, so it lies flat on slopes.
 
 	THIS IS THE ONE IMPACT EFFECT LEFT THAT NEEDS AN IMAGE. Debris cannot fail;
-	this can, silently -- a decal id where an image id was needed renders
+	this can, silently: a decal id where an image id was needed renders
 	nothing. If dust never shows up, DustDecalTexture (or its fallback,
 	SmokeTexture) is why.
 
@@ -422,7 +424,7 @@
 	DustDecalFadeTime, then destroyed. EnableDustDecal turns it off.
 	MaxLiveDust caps how many can exist across one barrage at once.
 
-	The debris is made of whatever the shell landed on -- one downward raycast
+	The debris is made of whatever the shell landed on: one downward raycast
 	reads the part's Color, or the terrain material's. Snow throws white, mud
 	throws brown, and nothing has to be authored per map.
 

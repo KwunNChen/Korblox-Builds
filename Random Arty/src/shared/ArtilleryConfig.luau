@@ -733,25 +733,26 @@ ArtilleryConfig.LimbSpin = 18
 ArtilleryConfig.GoreLifetime = 20
 
 --[[
-	Seconds before the ragdolled corpse itself is force-removed, regardless of
-	anything else. Above 0, this is a hard cap that fires no matter what.
+	Seconds before the ragdolled corpse is removed. A player's corpse also goes
+	the instant they respawn or leave, whichever happens first.
 
-	AT 0 THIS IS NOT "OFF" -- corpses still get cleaned up, just by a different
-	mechanism. A player's corpse is destroyed the instant they respawn
-	(CharacterAdded), or immediately if they leave first, because Roblox never
-	does this on its own: respawning only points player.Character at a new
-	Model, and the old corpse sits in Workspace untouched forever unless
-	something destroys it. That used to be nothing, at any value of this
-	setting including a positive one that was never actually reached in
-	testing -- which is the whole reason corpses were piling up regardless of
-	what this said.
+	THIS CANNOT BE SET TO "NEVER", deliberately. 0 falls back to GoreLifetime
+	rather than disabling cleanup -- a corpse with no timer is a leak, not a
+	feature, and it is invisible until the map is a boneyard.
 
-	NPCs cannot respawn, so 0 here falls back to GoreLifetime for them instead
-	of leaving them permanently in the world -- they would otherwise have no
-	exit at all.
+	Nothing else will do it for you. Respawning only points player.Character at
+	a NEW Model; the old corpse sits in Workspace untouched forever unless
+	something destroys it.
 
-	Raise this above 0 if you want a corpse to keep lying there for a while
-	even after the player who died has already respawned and moved on.
+	IF CORPSES ARE PILING UP ANYWAY, the timer is not the thing to check --
+	it is whether cleanup was ever armed. Every kill path runs inside a pcall,
+	so anything throwing between the kill and the cleanup call used to skip it
+	entirely and swallow the error into a warn. Cleanup is now armed BEFORE any
+	of that work, and logs "corpse X removed (timer|respawn|left)" under
+	DebugLog -- no line means the kill path never reached it at all.
+
+	Raise it if you want bodies lying around after the player has respawned and
+	moved on.
 ]]
 ArtilleryConfig.CorpseLifetime = 10
 
