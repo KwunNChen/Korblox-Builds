@@ -20,7 +20,6 @@
 	jointed ragdoll: there is no R15 joint table here to swap onto ball sockets.
 ]]
 
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -175,7 +174,15 @@ local function severLimb(character: Model, limbName: string, blastPosition: Vect
 		addStump(torso, socket)
 	end
 
-	Debris:AddItem(limb, Config.GoreLifetime)
+	-- task.delay, not Debris:AddItem -- see the note on cleanupCorpse. Debris
+	-- shares one global queue with a MaxItems ceiling, and a barrage severing
+	-- limbs on every kill fills it fast; anything pushed out past the cap is
+	-- never destroyed at all. An owned delay per limb can't be evicted.
+	task.delay(Config.GoreLifetime, function()
+		if limb.Parent then
+			limb:Destroy()
+		end
+	end)
 	return true
 end
 
@@ -291,8 +298,17 @@ local function cleanupCorpse(character: Model)
 		end
 
 		if character.Parent then
-			character:Destroy()
-			log("corpse %s removed (%s)", character.Name, reason)
+			local ok, err = pcall(function()
+				character:Destroy()
+			end)
+			if ok then
+				log("corpse %s removed (%s)", character.Name, reason)
+			else
+				-- Destroy() should never fail, but a silent failure here is
+				-- exactly what "corpses never disappear despite the timer"
+				-- looks like from outside. This makes it loud instead.
+				warn(string.format("[Artillery] corpse %s FAILED to remove (%s): %s", character.Name, reason, err))
+			end
 		end
 	end
 
@@ -330,6 +346,23 @@ end
 function Dismember.prepareRagdoll(humanoid: Humanoid)
 	humanoid.BreakJointsOnDeath = false
 	humanoid.PlatformStand = true
+
+	-- BEFORE Health hits 0, not after. The moment PlatformStand goes true the
+	-- assembly becomes physics-live, and Roblox auto-assigns ownership to
+	-- whichever client is nearest -- almost always the player who is about to
+	-- die, standing right on top of their own corpse. Claim it here, first,
+	-- or that window is already closed by the time ragdollRemains runs.
+	-- ModelStreamingMode is claimed at spawn time now (ArtilleryRuntime), not
+	-- here -- reactively setting it moments before death was too late to
+	-- matter, since the character had already been streaming under the
+	-- default mode for however long it was alive.
+	local character = humanoid.Parent :: Model?
+	local root = character and (character.PrimaryPart or character:FindFirstChild("HumanoidRootPart"))
+	if root then
+		pcall(function()
+			(root :: BasePart):SetNetworkOwner(nil)
+		end)
+	end
 end
 
 Dismember.finishRagdoll = ragdollRemains
