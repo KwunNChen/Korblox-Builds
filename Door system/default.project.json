@@ -1,0 +1,34 @@
+{
+  "name": "KorbloxBlastDoor",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "BlastDoor": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "BlastDoor": {
+        "$path": "src/server"
+      }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+
+      "KorbloxBlastDoor": {
+        "$className": "Folder",
+
+        "Tools": {
+          "$path": "src/tools"
+        }
+      }
+    }
+  }
+}

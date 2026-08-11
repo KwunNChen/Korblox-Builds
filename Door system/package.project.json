@@ -1,0 +1,30 @@
+{
+  "name": "KorbloxBlastDoor",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "ReplicatedStorage": {
+      "$className": "Folder",
+
+      "BlastDoor": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "Folder",
+
+      "BlastDoor": {
+        "$path": "src/server"
+      }
+    },
+
+    "Tools": {
+      "$path": "src/tools"
+    }
+  }
+}
