@@ -14,6 +14,7 @@ export type EventConfig = {
 	Sounds: { AssetId }?,
 	SharesWith: string?,
 	Concurrent: boolean?,
+	IgnoresCrowd: boolean?,
 }
 
 local Config = {}
@@ -187,8 +188,36 @@ Config.MaxLineLength = 8
 -- Playback. Voicelines come out of the speaker's head so squadmates hear them
 -- positionally -- that is the whole point of them.
 Config.Volume = 0.85
-Config.RollOffMinDistance = 12
-Config.RollOffMaxDistance = 140
+
+--[[
+	How the volume falls off with distance.
+
+	This MUST be set. Sound.RollOffMode defaults to "Inverse", and in that mode
+	RollOffMaxDistance is ignored entirely -- the curve is driven by MinDistance
+	alone and the clip stays faintly audible far past whatever you put in Max.
+	For the first release that meant barks carried across the map while the
+	config claimed a 140 stud limit.
+
+	"InverseTapered" behaves like real sound near the source -- roughly inverse
+	square -- then tapers so it actually reaches silence at MaxDistance. That is
+	the combination worth having: natural close up, genuinely bounded far away.
+
+	The other options, if you want to experiment:
+	  Inverse        natural, but NO maximum. Do not use here.
+	  Linear         hard straight ramp to silence. Predictable, unnatural.
+	  LinearSquare   quieter sooner than Linear, still bounded.
+	  InverseTapered natural near, bounded far.  <- default
+]]
+Config.RollOffMode = "InverseTapered"
+
+-- Full volume within this radius.
+Config.RollOffMinDistance = 10
+
+-- Silent beyond this. A shout should reach the people you are fighting
+-- alongside, not someone across the compound -- and since barks have no team
+-- filter, anything you say is heard by enemies in range too, so range is a
+-- tactical setting as much as an audio one.
+Config.RollOffMaxDistance = 70
 
 -- Bind NPCs, dummies and admin-spawned clones as well as player characters.
 -- They get their own Hurt and Death lines, and -- the useful part -- killing one
@@ -206,8 +235,34 @@ Config.Debug = false
 -- Raise it if you want only solid hits to register.
 Config.HurtDamageThreshold = 1
 
--- At or below this fraction of a magazine, a reload triggers LowAmmo instead.
+-- At or below this fraction of a magazine, LowAmmo fires. Hitting exactly zero
+-- fires OutOfAmmo instead -- that is the dry click, and it wants its own line.
 Config.LowAmmoFraction = 0.2
+
+-- How close to an explosion you must be to react to it.
+Config.IncomingRadius = 70
+
+-- Objective barks. Automatically inert in places with no TObjectiveSystem; this
+-- switch is for turning them off in places that have one.
+Config.ObjectiveBarks = true
+Config.ObjectiveRadius = 150
+
+-- The objective system tracks sides as 'Raiders' and 'Defenders'. Map those to
+-- the real Team names so only the capturing side celebrates.
+Config.ObjectiveTeamNames = {
+	Raiders = "Opfor",
+	Defenders = "Korblox",
+}
+
+-- Crowd control. Barks are per character, so without a limiter a twenty-player
+-- push produces twenty simultaneous voices and none of them are legible.
+--
+-- Counted per locality rather than globally: a firefight across the map should
+-- not silence the one happening next to you.
+Config.CrowdWindow = 1.5   -- seconds a recent bark keeps counting for
+Config.CrowdRadius = 70    -- studs; matches RollOffMaxDistance, so a bark only
+                           -- competes with others a listener can actually hear
+Config.CrowdLimit = 2      -- nearby speakers allowed inside the window
 
 -- Per-event tuning.
 --
@@ -251,6 +306,42 @@ Config.Events = {
 
 	-- Deliberately NOT near-zero. Time-to-kill is slow here, so you take a great
 	-- many hits per life; without a real gap this becomes a constant whimper.
+	-- The weapon is up again. Fires at the END of a ReloadType 1 reload -- the
+	-- signal Reload deliberately does not use.
+	ReloadDone = {
+		Priority = 2,
+		Cooldown = 0.25,
+		Chance = 0.5,
+		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
+	},
+
+	-- The dry click. Previously unreachable: the ammo watcher required value > 0,
+	-- which excluded the one moment worth shouting about.
+	OutOfAmmo = {
+		Priority = 4,
+		Cooldown = 3,
+		Chance = 1.0,
+		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
+	},
+
+	-- Something exploded near you. Fires on everyone within IncomingRadius, not
+	-- on whoever fired it.
+	Incoming = {
+		Priority = 7,
+		Cooldown = 6,
+		Chance = 0.8,
+		Sounds = { "PLACEHOLDER", "PLACEHOLDER", "PLACEHOLDER" },
+	},
+
+	-- A capture point changed hands. Only the capturing side speaks, and only
+	-- those near the point.
+	PointTaken = {
+		Priority = 4,
+		Cooldown = 10,
+		Chance = 0.7,
+		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
+	},
+
 	Hurt = {
 		Priority = 6,
 		Cooldown = 5,
@@ -263,6 +354,20 @@ Config.Events = {
 		Cooldown = 0.25,
 		Chance = 1.0,
 		Concurrent = true,
+		-- Must ignore the crowd limiter, and this is not a preference.
+		--
+		-- A kill arrives at the end of a chain that has already made noise: the
+		-- victim's Hurt bark when you first hit them, then the victim's Death bark
+		-- an instant before this one. Both are within CrowdRadius of the killer at
+		-- any normal engagement range, so a Kill request routinely saw the limit
+		-- already reached and was refused -- by the very death that earned it.
+		-- Kills only landed when the victim took longer than CrowdWindow to die
+		-- after their last Hurt bark, which reads exactly like "it works sometimes".
+		--
+		-- Concurrent was never the problem: it already exempts Kill from priority
+		-- and from the one-voice rule. The crowd gate is a separate gate and it
+		-- applied anyway.
+		IgnoresCrowd = true,
 		Sounds = {"rbxassetid://95443426895855"},
 	},
 
@@ -272,6 +377,9 @@ Config.Events = {
 		Priority = 10,
 		Cooldown = 0,
 		Chance = 1.0,
+		-- Always lands. A death carries information nobody else can supply, so
+		-- it is the one line the crowd limiter must not swallow.
+		IgnoresCrowd = true,
 		Sounds = {"rbxassetid://3526632933", "rbxassetid://1869828588", "rbxassetid://101474734749359", "rbxassetid://140539866173088"},
 	},
 }

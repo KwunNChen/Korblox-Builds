@@ -15,10 +15,14 @@ outside:
 | Event | Hooked from | How |
 |---|---|---|
 | `Reload` | `TREK_Remotes.GFX` (`'Reload'`) | fired at reload **start**, before the ReloadSpeed wait |
+| `ReloadDone` | `TREK_Remotes.Reload` | the end-of-reload signal — "back up" |
 | `LowAmmo` | `tool.TAmmo.*.Ammo` | value watcher, fires on the shot that crosses the threshold |
+| `OutOfAmmo` | `tool.TAmmo.*.Ammo` | the same watcher, at exactly zero — the dry click |
+| `Incoming` | `TREK_Remotes.Explosion` | fires on everyone near the blast, not on whoever fired |
 | `Hurt` | `Humanoid.HealthChanged` | plain Roblox, so explosions and vehicles count too |
 | `Death` | `Humanoid.Died` | plain Roblox |
 | `Kill` | `Humanoid.WeaponTag` | the killer tag TREK writes in `LeaderBoardModule.tagPlr` |
+| `PointTaken` | `TObjectiveSystem.Points.*.Owner` | optional; inert in places without the objective system |
 
 Delete the folder and your TREK install is byte-for-byte what it was.
 
@@ -81,11 +85,15 @@ placeholders is simply silent. Anything unusable is named once at startup:
 
 | | Priority | Cooldown | Chance | Notes |
 |---|---|---|---|---|
-| `Death` | 10 | 0s | 1.0 | always lands; cooldown is moot, you die once per life |
+| `Death` | 10 | 0s | 1.0 | always lands; **ignores the crowd limiter** |
+| `Incoming` | 7 | 6s | 0.8 | everyone within `IncomingRadius` of a blast |
 | `Hurt` | 6 | 5s | 1.0 | above Kill on purpose — taking fire beats a kill quip |
-| `Kill` | 5 | 0.25s | 1.0 | **concurrent**: layers over whatever is playing |
+| `Kill` | 5 | 0.25s | 1.0 | **concurrent**: layers over whatever is playing; **ignores the crowd limiter** |
+| `OutOfAmmo` | 4 | 3s | 1.0 | the dry click, at exactly zero |
+| `PointTaken` | 4 | 10s | 0.7 | capturing side only, near the point |
 | `LowAmmo` | 3 | 0.25s | 0.85 | shares Reload's voice |
 | `Reload` | 2 | 0.25s | 1.0 | |
+| `ReloadDone` | 2 | 0.25s | 0.5 | |
 
 **Priority** decides who wins. A line already playing is cut off only by
 something *strictly* higher, so two equal-priority events cannot trade the
@@ -105,6 +113,75 @@ is blocked. `Cooldown` and `Chance` still apply.
 is `0`, which is safe: it does not permit overlap, because a playing clip
 occupies the channel and Priority governs. It only removes the breath between
 consecutive callouts.
+
+## How far a bark carries
+
+```lua
+Config.RollOffMode        = "InverseTapered"
+Config.RollOffMinDistance = 10   -- full volume inside this
+Config.RollOffMaxDistance = 70   -- silent beyond this
+```
+
+**`RollOffMode` must be set, and for a long time it was not.** `Sound.RollOffMode`
+defaults to `Inverse`, and in that mode `RollOffMaxDistance` is **ignored** — the
+curve is driven by MinDistance alone and the clip stays faintly audible far past
+whatever the config claims. Barks carried across the map while the config said
+140 studs.
+
+`InverseTapered` behaves like real sound near the source, roughly inverse square,
+then tapers so it actually reaches silence at MaxDistance. Natural close up,
+genuinely bounded far away. Approximate volume by distance:
+
+| studs | 5 | 10 | 20 | 35 | 50 | 60 | 70+ |
+|---|---|---|---|---|---|---|---|
+| volume | 100% | 100% | 42% | 17% | 7% | 3% | silent |
+
+Range is a tactical setting, not just an audio one: barks have no team filter, so
+anything you say is heard by enemies inside that radius too. 70 studs reaches the
+people you are fighting alongside and not someone across the compound.
+
+`CrowdRadius` is deliberately the same number, so the limiter only counts barks a
+listener could actually hear.
+
+## Crowd mixing
+
+Arbitration is per character, so without a limiter a twenty-player push produces
+twenty simultaneous voices — each obeying its own cooldown perfectly, and none
+of them legible.
+
+A bark is refused when `CrowdLimit` **other characters** have already started a
+bark within `CrowdWindow` seconds and `CrowdRadius` studs of the speaker:
+
+```lua
+Config.CrowdWindow = 1.5
+Config.CrowdRadius = 70   -- matches RollOffMaxDistance
+Config.CrowdLimit  = 2
+```
+
+Counted per locality rather than globally, so a firefight on the far side of the
+map cannot silence the one next to you.
+
+**Your own recent lines do not count against you.** This gate exists because
+several voices at once are unintelligible; one voice saying two things in
+sequence is not that, and how often a single character may speak is already
+governed entirely by `Cooldown` and by the channel. Counting a speaker's own last
+line against their next one is double jeopardy.
+
+The gate sits after the cooldown check and before the chance roll, so a bark
+dropped for crowding does not also burn its cooldown; the speaker can talk again
+as soon as the noise dies down.
+
+`IgnoresCrowd = true` bypasses it entirely. Two events do:
+
+- **`Death`**, because a death carries information nobody else can supply.
+- **`Kill`**, because a kill arrives at the end of a chain that has already made
+  noise — the victim's `Hurt` bark when you first hit them, then the victim's
+  `Death` bark an instant before. Both are inside `CrowdRadius` of the killer at
+  any normal range, so without this flag a kill bark was routinely refused by the
+  very death that earned it, landing only when the victim took longer than
+  `CrowdWindow` to die after their last `Hurt` line. `Concurrent` does not help
+  here: it exempts `Kill` from priority and the one-voice rule, but the crowd gate
+  is a separate gate and applied regardless.
 
 ## Sharing a voice
 
@@ -165,10 +242,20 @@ TREK's `handleReload` refills the magazine synchronously on the same RemoteEvent
 this system listens to, so reading ammo inside that handler is a race you would
 usually lose. Watching the counter sidesteps it.
 
-Magazine size comes from `trekServerFuncs.checkForModule` when reachable, and
-falls back to the largest value ever seen on that counter. Note `LowAmmoFraction`
-is a fraction: on a 6-round magazine 0.25 triggers at one round left, which is
-late. Consider a floor if you run small magazines.
+**The counter is a `DoubleConstrainedValue`, not a `NumberValue`.** TREK builds
+it in `createAmmoStore` with `Instance.new('DoubleConstrainedValue')` and sets
+`MaxValue = MagCapacity`. The two classes are siblings under `ValueBase`, so an
+`IsA("NumberValue")` test is false for every weapon in the game — which is
+exactly how this event spent its first release doing nothing at all.
+
+That `MaxValue` is the magazine size, so capacity needs no config lookup.
+
+`TAmmo` is also created lazily on the same `ChildAdded` signal that triggers the
+watcher, after a yield — so the watcher waits for it rather than checking once
+and giving up, which used to lose the race on a weapon's first equip.
+
+Counters are deduplicated by identity: equipping the same weapon twenty times
+connects once, not twenty times.
 
 ## What's here
 

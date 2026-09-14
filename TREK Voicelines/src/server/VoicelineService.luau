@@ -9,6 +9,34 @@ local Config = require(game:GetService("ReplicatedStorage")
 
 local Service = {}
 
+--[[
+	The falloff curve, resolved once at load.
+
+	Two reasons this is not a direct `Enum.RollOffMode[Config.RollOffMode]` at
+	playback time. It would run on every single bark for a value that never
+	changes; and more importantly an unrecognised name THROWS rather than
+	returning nil -- "The enum item 'X' does not exist" -- so the obvious
+	`... or default` guard protects nothing and the error surfaces mid-bark,
+	inside a Died or OnServerEvent handler, taking the rest of that handler with
+	it. Walking GetEnumItems cannot throw.
+
+	Setting this at all is the point: RollOffMode defaults to Inverse, which
+	ignores RollOffMaxDistance completely.
+]]
+local ROLLOFF_MODE: Enum.RollOffMode = (function()
+	for _, item in ipairs(Enum.RollOffMode:GetEnumItems()) do
+		if item.Name == Config.RollOffMode then
+			return item
+		end
+	end
+
+	warn(string.format(
+		"[TREKVoicelines] Config.RollOffMode %q is not a real RollOffMode -- using InverseTapered",
+		tostring(Config.RollOffMode)
+	))
+	return Enum.RollOffMode.InverseTapered
+end)()
+
 type Channel = {
 	busyUntil: number,
 	playing: Sound?,
@@ -20,6 +48,56 @@ type Channel = {
 -- Keyed by character. Weak so a character that is destroyed without us hearing
 -- about it cannot pin its channel in memory.
 local channels: { [Model]: Channel } = setmetatable({}, { __mode = "k" }) :: any
+
+--[[
+	Recently started barks, as { at, position }, newest last.
+
+	Arbitration is otherwise entirely per character, so nothing stops twenty
+	people in a push from shouting at once -- each one is obeying its own
+	cooldown perfectly. This is the only state in the system that is global.
+
+	Pruned on every append rather than on a timer, so it stays proportional to
+	how much shouting is actually happening rather than to how long the server
+	has been up.
+]]
+local recentBarks: { { at: number, position: Vector3, speaker: Model } } = {}
+
+local function noteBark(now: number, position: Vector3, speaker: Model)
+	local keep = {}
+	for _, bark in ipairs(recentBarks) do
+		if now - bark.at < Config.CrowdWindow then
+			table.insert(keep, bark)
+		end
+	end
+	table.insert(keep, { at = now, position = position, speaker = speaker })
+	recentBarks = keep
+end
+
+--[[
+	How many OTHER characters started a bark near this spot inside the window.
+
+	The speaker's own recent lines are excluded deliberately. This gate exists
+	because several voices at once are unintelligible; one voice saying two things
+	in sequence is not that, and how often a single character may speak is already
+	fully governed by Cooldown and by the channel. Counting your own last line
+	against you was double jeopardy -- and it is what made Kill unreliable, since a
+	kill always follows barks from the fight that produced it.
+]]
+local function nearbyBarkCount(now: number, position: Vector3, speaker: Model): number
+	local count = 0
+	local radius = Config.CrowdRadius
+
+	for _, bark in ipairs(recentBarks) do
+		if bark.speaker ~= speaker
+			and now - bark.at < Config.CrowdWindow
+			and (bark.position - position).Magnitude <= radius
+		then
+			count += 1
+		end
+	end
+
+	return count
+end
 
 local function channelFor(character: Model): Channel
 	local c = channels[character]
@@ -163,6 +241,17 @@ function Service.request(character: Model, event: string): boolean
 		end
 	end
 
+	-- Crowd gate. Placed after the cooldown check so a refused bark costs
+	-- nothing, and before the chance roll so a dropped bark does not also burn
+	-- the cooldown -- the speaker should still be able to talk once the noise
+	-- around them dies down.
+	local speakerRoot = character:FindFirstChild("HumanoidRootPart")
+	if not cfg.IgnoresCrowd and speakerRoot and speakerRoot:IsA("BasePart") then
+		if nearbyBarkCount(now, speakerRoot.Position, character) >= Config.CrowdLimit then
+			return false
+		end
+	end
+
 	if cfg.Chance < 1 and math.random() > cfg.Chance then
 		-- A failed roll still counts as fired, otherwise the next tick of a
 		-- continuous event (taking fire) just rolls again immediately.
@@ -181,9 +270,15 @@ function Service.request(character: Model, event: string): boolean
 	sound.Volume = Config.Volume
 	sound.RollOffMinDistance = Config.RollOffMinDistance
 	sound.RollOffMaxDistance = Config.RollOffMaxDistance
+
+	sound.RollOffMode = ROLLOFF_MODE
 	sound.Parent = emitter
 
 	channel.lastFired[voice] = now
+
+	if speakerRoot and speakerRoot:IsA("BasePart") then
+		noteBark(now, speakerRoot.Position, character)
+	end
 
 	if concurrent then
 		-- Deliberately never touches channel.playing or busyUntil: it must not
@@ -208,11 +303,18 @@ function Service.request(character: Model, event: string): boolean
 			sound:Destroy()
 		end)
 
-		-- Backstop. Ended never fires for an id that fails to load, and without
-		-- this the channel would stay wedged for the rest of the round.
+		-- Backstop. Ended never fires for an id that fails to load, and it is
+		-- also disconnected outright if the emitter is destroyed mid-line --
+		-- TREK gibbing a head does exactly that.
+		--
+		-- release() is therefore called unconditionally. Guarding it on
+		-- sound.Parent, as this once did, skipped precisely the case it existed
+		-- for: a destroyed Sound is still truthy in channel.playing, so the
+		-- channel stayed occupied at that priority forever and the character
+		-- could never speak below it again.
 		task.delay(Config.MaxLineLength, function()
+			release(channel, sound)
 			if sound.Parent then
-				release(channel, sound)
 				sound:Destroy()
 			end
 		end)

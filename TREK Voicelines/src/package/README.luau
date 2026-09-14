@@ -48,11 +48,23 @@ ADDING YOUR CLIPS:
 	never hear the same line twice running and no clip is favoured over another.
 
 THE EVENTS:
-	Reload     the player started reloading
-	LowAmmo    a magazine dropped to 25% or less while firing
-	Hurt       took a hit of 8 or more
-	Kill       killed someone
-	Death      died
+	Reload      the player started reloading
+	ReloadDone  the reload finished -- "back up"
+	LowAmmo     a magazine dropped to LowAmmoFraction or less while firing
+	OutOfAmmo   the magazine hit exactly zero -- the dry click
+	Incoming    an explosion went off nearby (everyone near it, not the firer)
+	Hurt        took a hit
+	Kill        killed someone
+	Death       died
+	PointTaken  a capture point changed hands (needs TObjectiveSystem)
+
+CROWD MIXING:
+	Without a limiter, twenty people pushing an objective produce twenty
+	simultaneous voices. A bark is dropped if CrowdLimit others already started
+	within CrowdWindow seconds and CrowdRadius studs of the speaker.
+
+	It is counted per locality, so a fight across the map does not silence the
+	one next to you. Death sets IgnoresCrowd and always lands.
 
 	LowAmmo shares Reload's voice: same clips, same no-repeat memory, same
 	cooldown clock. Going low and then reloading a second later cannot repeat a

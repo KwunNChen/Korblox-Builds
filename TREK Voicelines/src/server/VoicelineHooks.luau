@@ -15,66 +15,76 @@ local Config = require(game:GetService("ReplicatedStorage")
 
 local Hooks = {}
 
--- Per-tool ammo bookkeeping, so LowAmmo can be judged against a real magazine
--- size rather than a guess.
-type AmmoWatch = { capacity: number, last: number }
+-- Magazine counters already watched. Keyed by the counter itself, so equipping
+-- the same weapon twenty times connects once rather than twenty times.
+--
+-- Without this, every equip re-parents the tool into the character and fires
+-- ChildAdded again, stacking another listener on the same counter. The bark
+-- cooldown hides the duplicates, so it shows up only as CPU and as a growing
+-- pile of closures.
+local watchedCounters: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
-local function magCapacity(tool: Instance, mode: any): number?
-	local funcs = (shared :: any).S and (shared :: any).S.trekServerFuncs
-	if not funcs or not funcs.checkForModule then
-		return nil
-	end
+--[[
+	Watch one weapon's magazines.
 
-	local ok, reqmod = pcall(funcs.checkForModule, tool)
-	if not ok or type(reqmod) ~= "table" then
-		return nil
-	end
+	TREK stores ammo as a DoubleConstrainedValue, NOT a NumberValue -- see
+	TREKServerGeneral's createAmmoStore, which does
+	Instance.new('DoubleConstrainedValue') and then sets MaxValue = MagCapacity.
+	The two are sibling subclasses of ValueBase, so an IsA("NumberValue") test is
+	false for every weapon in the game and silently disables this whole event.
 
-	local entry = reqmod[mode] or reqmod[tonumber(mode) :: any]
-	if type(entry) == "table" and type(entry.MagCapacity) == "number" then
-		return entry.MagCapacity
-	end
-
-	return nil
-end
-
--- Watch one weapon's magazines. Fires LowAmmo on the shot that crosses the
--- threshold, which is race-free -- unlike reading ammo during a reload, where
--- TREK's own handler refills the magazine on the same event we are listening to.
-local function watchTool(character: Model, tool: Instance)
-	local ammo = tool:FindFirstChild("TAmmo")
+	That MaxValue is the magazine size, which is why no config lookup is needed
+	to know capacity.
+]]
+local function watchTool(tool: Instance)
+	-- TREK creates TAmmo lazily, on the same ChildAdded signal that got us here,
+	-- and yields before doing it. Checking without waiting loses the race on a
+	-- weapon's first equip and abandons that tool for good.
+	local ammo = tool:FindFirstChild("TAmmo") or tool:WaitForChild("TAmmo", 10)
 	if not ammo then
 		return
 	end
 
 	for _, modeFolder in ipairs(ammo:GetChildren()) do
 		local counter = modeFolder:FindFirstChild("Ammo")
-		if not counter or not counter:IsA("NumberValue") then
+		if not counter or not counter:IsA("ValueBase") or watchedCounters[counter] then
 			continue
 		end
+		watchedCounters[counter] = true
 
-		local watch: AmmoWatch = {
-			capacity = magCapacity(tool, modeFolder.Name) or math.max(counter.Value, 1),
-			last = counter.Value,
-		}
+		local value = counter :: any
+		local last = value.Value
 
 		counter:GetPropertyChangedSignal("Value"):Connect(function()
-			local value = counter.Value
+			local current = value.Value
+			local dropped = current < last
+			last = current
 
-			-- Capacity fallback: if we never got a real MagCapacity, the
-			-- largest value we have ever seen is the best stand-in.
-			if value > watch.capacity then
-				watch.capacity = value
-			end
-
-			local dropped = value < watch.last
-			watch.last = value
-
-			if not dropped or watch.capacity <= 0 then
+			if not dropped then
 				return
 			end
 
-			if value > 0 and value / watch.capacity <= Config.LowAmmoFraction then
+			-- Resolved per shot rather than captured. Capturing the character
+			-- would pin every corpse in memory: the tool outlives the character
+			-- in the Backpack, so a captured reference never becomes collectable.
+			local character = tool:FindFirstAncestorOfClass("Model")
+			if not character then
+				return
+			end
+
+			if current <= 0 then
+				Service.request(character, "OutOfAmmo")
+				return
+			end
+
+			-- MaxValue is MagCapacity straight from the weapon config. Falls back
+			-- to the largest value seen if some other system made this counter.
+			local capacity = tonumber(value.MaxValue) or 0
+			if capacity <= 0 then
+				capacity = math.max(current, last, 1)
+			end
+
+			if current / capacity <= Config.LowAmmoFraction then
 				Service.request(character, "LowAmmo")
 			end
 		end)
@@ -101,7 +111,14 @@ local function onCharacter(player: Player?, character: Model)
 	end
 	bound[humanoid] = true
 
-	Service.reset(character)
+	-- Clear the channel when this character goes away, not when it arrives.
+	-- Resetting on arrival was a no-op: channels are created lazily by
+	-- Service.request, so a character bound moments ago has never had one. The
+	-- outgoing character is the one holding a half-played line and a stale
+	-- priority, and nothing was ever clearing it.
+	character.Destroying:Connect(function()
+		Service.reset(character)
+	end)
 
 	local lastHealth = humanoid.Health
 
@@ -160,13 +177,16 @@ local function onCharacter(player: Player?, character: Model)
 
 	for _, child in ipairs(character:GetChildren()) do
 		if child:IsA("Tool") then
-			watchTool(character, child)
+			task.spawn(watchTool, child)
 		end
 	end
 
+	-- task.spawn because watchTool now waits for TAmmo; blocking here would
+	-- stall the rest of this character's binding behind a weapon that never
+	-- gets one.
 	character.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") then
-			watchTool(character, child)
+			task.spawn(watchTool, child)
 		end
 	end)
 end
@@ -200,6 +220,107 @@ local function onPlayer(player: Player)
 	player.CharacterAdded:Connect(function(character)
 		onCharacter(player, character)
 	end)
+
+	-- Fires before the old character is destroyed, so a death line still playing
+	-- at respawn is stopped rather than left ringing over the next life. This is
+	-- also the path that matters on an admin LoadCharacter of everyone at once.
+	player.CharacterRemoving:Connect(function(character)
+		Service.reset(character)
+	end)
+end
+
+-- Every humanoid currently bound, as a plain array. Used by area events that
+-- have a world position but no particular speaker -- an explosion, a captured
+-- point -- and need to ask who is near enough to react.
+local function boundHumanoids(): { Humanoid }
+	local out = {}
+	for humanoid in pairs(bound) do
+		if humanoid.Parent then
+			table.insert(out, humanoid)
+		end
+	end
+	return out
+end
+
+-- Characters within `radius` of a world point, optionally filtered to one team.
+-- `team` nil means anyone.
+local function charactersNear(position: Vector3, radius: number, team: string?): { Model }
+	local out = {}
+
+	for _, humanoid in ipairs(boundHumanoids()) do
+		if humanoid.Health <= 0 then
+			continue
+		end
+
+		local character = humanoid.Parent
+		if not character or not character:IsA("Model") then
+			continue
+		end
+
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if not root or not root:IsA("BasePart") then
+			continue
+		end
+
+		if (root.Position - position).Magnitude > radius then
+			continue
+		end
+
+		if team then
+			local player = Players:GetPlayerFromCharacter(character)
+			if not player or not player.Team or player.Team.Name ~= team then
+				continue
+			end
+		end
+
+		table.insert(out, character)
+	end
+
+	return out
+end
+
+--[[
+	Bark when a capture point changes hands.
+
+	Watches the same `Owner` StringValue the objective system's own MainHandler
+	watches, so nothing in that system is edited. Entirely optional: if the place
+	has no TObjectiveSystem this binds nothing and costs nothing.
+]]
+local function watchObjectivePoints()
+	if not Config.ObjectiveBarks then
+		return
+	end
+
+	local system = workspace:FindFirstChild("TObjectiveSystem")
+	local points = system and system:FindFirstChild("Points")
+	if not points then
+		return
+	end
+
+	for _, point in ipairs(points:GetChildren()) do
+		local owner = point:FindFirstChild("Owner")
+		local marker = point:FindFirstChild("Point")
+		if not owner or not owner:IsA("StringValue") then
+			continue
+		end
+		if not marker or not marker:IsA("BasePart") then
+			continue
+		end
+
+		owner:GetPropertyChangedSignal("Value"):Connect(function()
+			local value = owner.Value
+			-- 'None' is a point going neutral mid-capture, which happens
+			-- constantly while it is contested. Only a completed capture speaks.
+			if value ~= "Raiders" and value ~= "Defenders" then
+				return
+			end
+
+			local team = Config.ObjectiveTeamNames[value]
+			for _, character in ipairs(charactersNear(marker.Position, Config.ObjectiveRadius, team)) do
+				Service.request(character, "PointTaken")
+			end
+		end)
+	end
 end
 
 -- Characters whose reload was announced at the start, so the matching end-of-
@@ -236,9 +357,8 @@ function Hooks.start()
 		Service.request(character, "Reload")
 	end)
 
-	-- Reload END. Only used when no start signal arrived, which means a
-	-- ReloadType 2 recharge weapon -- those trickle rounds in and never send
-	-- GFX('Reload'), so finishing is the only moment there is to announce.
+	-- Reload END. TREK sends this after the ReloadSpeed wait, so it is the
+	-- "weapon is up again" moment.
 	remotes:WaitForChild("Reload").OnServerEvent:Connect(function(player: Player)
 		local character = player.Character
 		if not character then
@@ -249,16 +369,38 @@ function Hooks.start()
 		reloadAnnounced[character] = nil
 
 		if announced and os.clock() - announced < RELOAD_STAMP_TTL then
+			-- A start was announced, so this is the completion of a ReloadType 1
+			-- reload: "back up", not "reloading".
+			Service.request(character, "ReloadDone")
 			return
 		end
 
+		-- No start signal ever came, which means a ReloadType 2 recharge weapon.
+		-- Those trickle rounds in and never send GFX('Reload'), so finishing is
+		-- the only moment there is to announce at all.
 		Service.request(character, "Reload")
+	end)
+
+	-- Explosive impact. Gun and Turret both fire this with the blast position.
+	-- The bark goes to characters NEAR the blast rather than to whoever fired --
+	-- a reaction to incoming fire is worth hearing; one bark per explosive round
+	-- from the shooter is just noise.
+	remotes:WaitForChild("Explosion").OnServerEvent:Connect(function(_player: Player, position: any)
+		if typeof(position) ~= "Vector3" then
+			return
+		end
+
+		for _, character in ipairs(charactersNear(position, Config.IncomingRadius, nil)) do
+			Service.request(character, "Incoming")
+		end
 	end)
 
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in ipairs(Players:GetPlayers()) do
 		onPlayer(player)
 	end
+
+	watchObjectivePoints()
 
 	-- NPCs, dummies and admin-spawned clones. Guarded by `bound`, so a player
 	-- character picked up here is not connected a second time.
