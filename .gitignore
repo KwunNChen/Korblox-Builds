@@ -11,3 +11,9 @@ rokit.exe
 # OS noise
 Thumbs.db
 .DS_Store
+
+# Extracted reference material. Adonis, the TREK framework and the Vehicles of
+# Requsition plugin are other people's code -- kept locally for checking
+# compatibility against, never published. Regenerate it from the place file if
+# you need it on another machine.
+TREK Voicelines/reference/

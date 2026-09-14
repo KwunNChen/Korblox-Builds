@@ -1,0 +1,38 @@
+{
+  "name": "Point",
+  "tree": {
+    "$className": "Folder",
+
+    "Owner": {
+      "$className": "StringValue",
+      "$properties": { "Value": "None" }
+    },
+
+    "Progress": {
+      "$className": "DoubleConstrainedValue",
+      "$properties": {
+        "MaxValue": 20,
+        "MinValue": -20,
+        "Value": 0
+      }
+    },
+
+    "Value": {
+      "$className": "NumberValue",
+      "$properties": { "Value": 1 }
+    },
+
+    "Capital":   { "$className": "BoolValue", "$properties": { "Value": false } },
+    "Contested": { "$className": "BoolValue", "$properties": { "Value": false } },
+
+    "Point": {
+      "$className": "Part",
+      "$properties": {
+        "Size": [10, 0.1, 10],
+        "Anchored": true,
+        "CanCollide": false,
+        "Transparency": 0.9
+      }
+    }
+  }
+}

@@ -2,6 +2,11 @@
 
 local Players = game:GetService("Players")
 
+-- Generic opt-out: any other death system can set this attribute on a
+-- character before killing it to skip this script's ragdoll entirely (e.g.
+-- Door system's crush kill, which turns victims to mist instead).
+local SUPPRESS_ATTRIBUTE = "SuppressRagdoll"
+
 local RAGDOLL_JOINTS = { "Neck", "Right Shoulder", "Left Shoulder", "Right Hip", "Left Hip" }
 
 local FALL_PUSH_SPEED = 10
@@ -84,6 +89,10 @@ local function onCharacterAdded(character: Model)
 	humanoid.BreakJointsOnDeath = false
 
 	humanoid.Died:Connect(function()
+		if character:GetAttribute(SUPPRESS_ATTRIBUTE) then
+			return
+		end
+
 		humanoid.PlatformStand = true
 		applyFallMomentum(character, humanoid)
 		ragdoll(character)

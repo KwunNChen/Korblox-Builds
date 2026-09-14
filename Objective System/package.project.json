@@ -1,0 +1,104 @@
+{
+  "name": "KorbloxObjectiveSystem",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "Workspace": {
+      "$className": "Folder",
+
+      "TObjectiveSystem": {
+      "$className": "Folder",
+
+      "Settings": {
+        "$className": "Configuration",
+
+        "DefendingTeams": {
+          "$className": "Folder",
+          "$attributes": { "CategoryColour": { "Color3": [0.227451, 0.4039216, 0.19607845] } },
+          "Team": { "$className": "ObjectValue" }
+        },
+
+        "RaidingTeams": {
+          "$className": "Folder",
+          "$attributes": { "CategoryColour": { "Color3": [0.6313726, 0.14117648, 0.14117648] } },
+          "Team": { "$className": "ObjectValue" }
+        },
+
+        "NeutralTeams": {
+          "$className": "Folder",
+          "$attributes": { "CategoryColour": { "Color3": [0.48235297, 0.5803922, 0.5803922] } },
+          "Team": { "$className": "ObjectValue" }
+        },
+
+        "Objective": {
+          "$className": "NumberValue",
+          "$properties": { "Value": 5000 }
+        },
+
+        "AdminControls": {
+          "$className": "Folder",
+
+          "GroupId": {
+            "$className": "NumberValue",
+            "$properties": { "Value": 35065811 },
+            "RankId": {
+              "$className": "NumberValue",
+              "$properties": { "Value": 254 }
+            }
+          },
+
+          "UserId": {
+            "$className": "NumberValue",
+            "$properties": { "Value": 0 }
+          }
+        }
+      },
+
+      "Points": {
+        "$className": "Folder",
+        "A": { "$path": "src/point.project.json" },
+        "B": { "$path": "src/point.project.json" },
+        "C": { "$path": "src/point.project.json" }
+      },
+
+      "System": {
+        "$className": "Folder",
+
+        "StatRaiders":   { "$className": "NumberValue", "$properties": { "Value": 0 } },
+        "StatDefenders": { "$className": "NumberValue", "$properties": { "Value": 0 } },
+        "RaidOfficial":  { "$className": "BoolValue",   "$properties": { "Value": false } },
+        "Ended":         { "$className": "BoolValue",   "$properties": { "Value": false } },
+
+        "Remotes": {
+          "$className": "Folder",
+          "Victory": { "$className": "RemoteEvent" },
+          "notif":   { "$className": "RemoteEvent" },
+          "Begin":   { "$className": "BindableEvent" },
+          "Pause":   { "$className": "BindableEvent" },
+          "End":     { "$className": "BindableEvent" }
+        },
+
+        "DefenderGroup": {
+          "$className": "Folder",
+          "Title": { "$className": "StringValue", "$properties": { "Value": "Defenders" } },
+          "Image": { "$className": "StringValue", "$properties": { "Value": "http://www.roblox.com/asset/?id=11322093465" } }
+        },
+
+        "RaiderGroup": {
+          "$className": "Folder",
+          "Title": { "$className": "StringValue", "$properties": { "Value": "Phayris Marauders" } },
+          "Image": { "$className": "StringValue", "$properties": { "Value": "http://www.roblox.com/asset/?id=5579198179" } }
+        }
+      },
+
+      "Scripts": {
+        "$path": "src/server"
+      }
+      }
+    }
+  }
+}

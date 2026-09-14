@@ -1,0 +1,234 @@
+--!strict
+-- Owns the one voice channel each character has: decides whether a requested
+-- line is allowed to speak right now, and plays it if so.
+--
+-- Everything arrives here through request(). Hooks never touch Sound directly.
+
+local Config = require(game:GetService("ReplicatedStorage")
+	:WaitForChild("TREKVoicelines"):WaitForChild("VoicelineConfig"))
+
+local Service = {}
+
+type Channel = {
+	busyUntil: number,
+	playing: Sound?,
+	priority: number,
+	lastFired: { [string]: number },
+	lastIndex: { [string]: number },
+}
+
+-- Keyed by character. Weak so a character that is destroyed without us hearing
+-- about it cannot pin its channel in memory.
+local channels: { [Model]: Channel } = setmetatable({}, { __mode = "k" }) :: any
+
+local function channelFor(character: Model): Channel
+	local c = channels[character]
+	if not c then
+		c = { busyUntil = 0, playing = nil, priority = 0, lastFired = {}, lastIndex = {} }
+		channels[character] = c
+	end
+	return c
+end
+
+-- Pick a clip, avoiding the one we used last time for this event. With a single
+-- clip configured there is nothing to avoid and it just returns that one.
+--
+-- The roll is over the (n - 1) eligible slots and then steps over the excluded
+-- one, which leaves every eligible clip equally likely. Rolling across all n and
+-- nudging collisions onto the next slot would be simpler and wrong: it hands the
+-- successor its own share plus the collision's, making it twice as likely as any
+-- other clip -- and with exactly two clips it degenerates into strict alternation.
+local function pickSound(channel: Channel, event: string, sounds: { any }): any
+	if #sounds == 1 then
+		return sounds[1]
+	end
+
+	local last = channel.lastIndex[event]
+	local index
+
+	if last and last <= #sounds then
+		index = math.random(1, #sounds - 1)
+		if index >= last then
+			index += 1
+		end
+	else
+		index = math.random(1, #sounds)
+	end
+
+	channel.lastIndex[event] = index
+	return sounds[index]
+end
+
+-- Where the sound comes from. Living characters emit from the head so the line
+-- tracks them. A death line cannot: TREK gibs the character, and a Sound whose
+-- parent is destroyed stops instantly. So death gets a detached anchored part
+-- parked where the head was.
+local function emitterFor(character: Model, event: string): BasePart?
+	local head = character:FindFirstChild("Head") :: BasePart?
+
+	if event ~= "Death" then
+		return head
+	end
+
+	local origin = head or (character:FindFirstChild("HumanoidRootPart") :: BasePart?)
+	if not origin then
+		return nil
+	end
+
+	local marker = Instance.new("Part")
+	marker.Name = "VoicelineEmitter"
+	marker.Anchored = true
+	marker.CanCollide = false
+	marker.CanQuery = false
+	marker.CanTouch = false
+	marker.Transparency = 1
+	marker.Size = Vector3.new(1, 1, 1)
+	marker.CFrame = origin.CFrame
+	marker.Parent = workspace
+
+	game:GetService("Debris"):AddItem(marker, Config.MaxLineLength + 1)
+	return marker
+end
+
+local function release(channel: Channel, sound: Sound)
+	-- Only the line that is actually current may free the channel. A clip that
+	-- got preempted finishing late must not clear its replacement.
+	if channel.playing ~= sound then
+		return
+	end
+
+	channel.playing = nil
+	channel.priority = 0
+	channel.busyUntil = os.clock() + Config.GlobalCooldown
+end
+
+--[[
+	Ask for a line. Returns true if it actually played.
+
+	Refused when: the event is unknown or has no clips, its own cooldown has not
+	elapsed, the chance roll fails, or something of equal or higher priority is
+	already speaking.
+]]
+function Service.request(character: Model, event: string): boolean
+	if typeof(character) ~= "Instance" or not character:IsDescendantOf(workspace) then
+		return false
+	end
+
+	local cfg = Config.Events[event]
+	if not cfg then
+		return false
+	end
+
+	-- Placeholders and malformed entries are stripped here, so a partly-filled
+	-- list never spends a turn on a clip that cannot play.
+	local sounds = Config.soundsFor(event)
+	if #sounds == 0 then
+		return false
+	end
+
+	-- Events sharing a voice share their cooldown and no-repeat memory too, so
+	-- LowAmmo followed by Reload cannot repeat a line or talk over itself.
+	local voice = Config.voiceKey(event)
+
+	-- A concurrent event sits outside the one-voice-at-a-time rule: it layers
+	-- over whatever is already speaking instead of waiting for or interrupting
+	-- it. Priority is meaningless for these -- they neither block nor are
+	-- blocked -- but Cooldown and Chance still apply.
+	local concurrent = cfg.Concurrent == true
+
+	local channel = channelFor(character)
+	local now = os.clock()
+
+	local lastFired = channel.lastFired[voice]
+	if lastFired and now - lastFired < cfg.Cooldown then
+		return false
+	end
+
+	if not concurrent then
+		if channel.playing then
+			-- Strictly greater, so two equal-priority events cannot trade the
+			-- channel back and forth mid-line.
+			if cfg.Priority <= channel.priority then
+				return false
+			end
+			channel.playing:Stop()
+			channel.playing:Destroy()
+			channel.playing = nil
+		elseif now < channel.busyUntil then
+			-- Inside the post-line quiet window. Death is the one thing urgent
+			-- enough to ignore it.
+			if event ~= "Death" then
+				return false
+			end
+		end
+	end
+
+	if cfg.Chance < 1 and math.random() > cfg.Chance then
+		-- A failed roll still counts as fired, otherwise the next tick of a
+		-- continuous event (taking fire) just rolls again immediately.
+		channel.lastFired[voice] = now
+		return false
+	end
+
+	local emitter = emitterFor(character, event)
+	if not emitter then
+		return false
+	end
+
+	local sound = Instance.new("Sound")
+	sound.Name = "Voiceline_" .. event
+	sound.SoundId = pickSound(channel, voice, sounds)
+	sound.Volume = Config.Volume
+	sound.RollOffMinDistance = Config.RollOffMinDistance
+	sound.RollOffMaxDistance = Config.RollOffMaxDistance
+	sound.Parent = emitter
+
+	channel.lastFired[voice] = now
+
+	if concurrent then
+		-- Deliberately never touches channel.playing or busyUntil: it must not
+		-- occupy the voice, or it would block the very lines it is meant to
+		-- layer over. Cleans up after itself instead of going through release.
+		sound.Ended:Once(function()
+			sound:Destroy()
+		end)
+
+		task.delay(Config.MaxLineLength, function()
+			if sound.Parent then
+				sound:Destroy()
+			end
+		end)
+	else
+		channel.playing = sound
+		channel.priority = cfg.Priority
+		channel.busyUntil = now + Config.MaxLineLength
+
+		sound.Ended:Once(function()
+			release(channel, sound)
+			sound:Destroy()
+		end)
+
+		-- Backstop. Ended never fires for an id that fails to load, and without
+		-- this the channel would stay wedged for the rest of the round.
+		task.delay(Config.MaxLineLength, function()
+			if sound.Parent then
+				release(channel, sound)
+				sound:Destroy()
+			end
+		end)
+	end
+
+	sound:Play()
+	return true
+end
+
+-- Drop a character's channel. Called on respawn so a new life starts clean.
+function Service.reset(character: Model)
+	local channel = channels[character]
+	if channel and channel.playing then
+		channel.playing:Destroy()
+	end
+	channels[character] = nil
+end
+
+return Service

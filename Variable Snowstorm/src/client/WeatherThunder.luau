@@ -62,6 +62,13 @@ local baseMoonSize = 0
 local baseGlare = 0
 local baseSunRays = 0
 
+-- While idle (the vast majority of runtime -- thunder is only a Peak-phase
+-- event) the base snapshot only needs to track day/night drift, not chase it
+-- every RenderStepped frame. Throttled so idle frames don't read 5 Instances'
+-- worth of properties 60 times a second for nothing.
+local BASE_REFRESH_INTERVAL = 1 -- seconds
+local baseRefreshAccumulator = 0
+
 local function log(...)
 	if Config.ThunderDebugLog then
 		print("[Thunder/client]", ...)
@@ -196,24 +203,32 @@ local function applyEdgeFlash()
 	gradient.Rotation = math.deg(math.atan2(offset.Y, -offset.X))
 end
 
-local function applyLighting()
+local function snapshotBase()
+	baseBrightness = Lighting.Brightness
+	baseExposure = Lighting.ExposureCompensation
+	baseAmbient = Lighting.Ambient
+	if atmosphere then
+		baseSkyColor = (atmosphere :: Atmosphere).Color
+		baseGlare = (atmosphere :: Atmosphere).Glare
+	end
+	if sky then
+		baseSunSize = (sky :: Sky).SunAngularSize
+		baseMoonSize = (sky :: Sky).MoonAngularSize
+	end
+	if sunRays then
+		baseSunRays = (sunRays :: SunRaysEffect).Intensity
+	end
+end
+
+local function applyLighting(dt: number)
 	local flash = flashStrength * exposure()
 
 	if darkness <= 0 and flash <= 0 and sunHide <= 0 then
 		if lastDarkness <= 0 and lastFlash <= 0 and lastSunHide <= 0 then
-			baseBrightness = Lighting.Brightness
-			baseExposure = Lighting.ExposureCompensation
-			baseAmbient = Lighting.Ambient
-			if atmosphere then
-				baseSkyColor = (atmosphere :: Atmosphere).Color
-				baseGlare = (atmosphere :: Atmosphere).Glare
-			end
-			if sky then
-				baseSunSize = (sky :: Sky).SunAngularSize
-				baseMoonSize = (sky :: Sky).MoonAngularSize
-			end
-			if sunRays then
-				baseSunRays = (sunRays :: SunRaysEffect).Intensity
+			baseRefreshAccumulator += dt
+			if baseRefreshAccumulator >= BASE_REFRESH_INTERVAL then
+				baseRefreshAccumulator = 0
+				snapshotBase()
 			end
 			return
 		end
@@ -276,7 +291,7 @@ local function step(dt: number)
 	local idle = flashStrength <= 0 and edgeStrength <= 0 and darkness <= 0 and sunHide <= 0
 
 	if idle and darknessTarget <= 0 and sunHideTarget <= 0 then
-		applyLighting()
+		applyLighting(dt)
 		return
 	end
 
@@ -301,7 +316,7 @@ local function step(dt: number)
 		end
 	end
 
-	applyLighting()
+	applyLighting(dt)
 	applyEdgeFlash()
 end
 
@@ -369,20 +384,7 @@ function WeatherThunder.init()
 		end
 	end
 
-	baseBrightness = Lighting.Brightness
-	baseExposure = Lighting.ExposureCompensation
-	baseAmbient = Lighting.Ambient
-	if atmosphere then
-		baseSkyColor = (atmosphere :: Atmosphere).Color
-		baseGlare = (atmosphere :: Atmosphere).Glare
-	end
-	if sky then
-		baseSunSize = (sky :: Sky).SunAngularSize
-		baseMoonSize = (sky :: Sky).MoonAngularSize
-	end
-	if sunRays then
-		baseSunRays = (sunRays :: SunRaysEffect).Intensity
-	end
+	snapshotBase()
 
 	if Config.ThunderCrackSoundId ~= "" then
 		for index = 1, Config.ThunderMaxConcurrentSounds do

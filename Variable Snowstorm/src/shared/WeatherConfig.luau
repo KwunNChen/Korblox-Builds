@@ -107,6 +107,14 @@ WeatherConfig.FlakeColor = ColorSequence.new(Color3.fromRGB(255, 255, 255), Colo
 WeatherConfig.RigSize = Vector3.new(100, 50, 100) -- this makes snow more compact
 WeatherConfig.RigHeightOffset = 14 -- studs above the camera
 
+-- ParticleEmitter has no real collision, so a roof overhead is faked by
+-- shrinking the emission box so its top never reaches above a detected
+-- ceiling. Margin keeps flakes from spawning flush against the surface;
+-- MinHeight keeps a sliver of box alive under a very low ceiling instead of
+-- collapsing to nothing.
+WeatherConfig.SnowCeilingMargin = 2
+WeatherConfig.SnowCeilingMinHeight = 4
+
 -- Push the volume ahead of the camera so you cannot outrun your own snow.
 WeatherConfig.LookaheadTime = 0.45
 WeatherConfig.LookaheadMaxDistance = 45

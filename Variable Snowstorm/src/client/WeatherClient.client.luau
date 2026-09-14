@@ -99,6 +99,11 @@ end)
 local shelterParams = Shared.newShelterParams({ rig })
 local character: Model? = nil
 
+-- Straight up, same length as the shelter check -- used to find how much
+-- headroom is left before a roof, so the emission box can be shrunk to fit
+-- under it instead of spawning flakes above solid geometry.
+local CEILING_RAY = Vector3.new(0, Config.ShelterRayLength, 0)
+
 local function bindCharacter(newCharacter: Model)
 	character = newCharacter
 	shelterParams.FilterDescendantsInstances = { newCharacter, rig }
@@ -113,6 +118,15 @@ local function measureShelter(): number
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local origin = if root then (root :: BasePart).Position else camera.CFrame.Position
 	return Shared.sampleShelter(origin, shelterParams)
+end
+
+-- Studs of headroom above the player before the nearest solid ceiling, or
+-- math.huge if the ray finds nothing.
+local function measureCeiling(): number
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local origin = if root then (root :: BasePart).Position else camera.CFrame.Position
+	local result = workspace:Raycast(origin, CEILING_RAY, shelterParams)
+	return if result then result.Position.Y - origin.Y else math.huge
 end
 
 local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -166,6 +180,7 @@ end
 
 local shelter = 0
 local shelterTarget = 0
+local ceilingClearance = math.huge
 local lightingAlpha = 0
 local checkAccumulator = 0
 local lastBucket = -1
@@ -196,8 +211,23 @@ local function positionRig(wind: Vector3)
 		windBias = windBias.Unit * 40
 	end
 
+	-- Shrink the box's top down to just under a detected ceiling so flakes
+	-- never spawn above solid geometry and fall through it into view.
+	local bottomOffset = Config.RigHeightOffset - Config.RigSize.Y / 2
+	local topOffset = Config.RigHeightOffset + Config.RigSize.Y / 2
+	local clampedTop = math.max(
+		math.min(topOffset, ceilingClearance - Config.SnowCeilingMargin),
+		bottomOffset + Config.SnowCeilingMinHeight
+	)
+
+	local height = clampedTop - bottomOffset
+	if math.abs(height - rig.Size.Y) > 0.5 then
+		rig.Size = Vector3.new(Config.RigSize.X, height, Config.RigSize.Z)
+	end
+
+	local centerOffset = (clampedTop + bottomOffset) / 2
 	rig.CFrame = CFrame.new(
-		camera.CFrame.Position + Vector3.new(0, Config.RigHeightOffset, 0) + lookahead + windBias
+		camera.CFrame.Position + Vector3.new(0, centerOffset, 0) + lookahead + windBias
 	)
 end
 
@@ -231,17 +261,20 @@ RunService:BindToRenderStep("SnowRig", Enum.RenderPriority.Camera.Value + 1, fun
 			wasActive = true
 			checkAccumulator = 0
 			shelterTarget = measureShelter()
+			ceilingClearance = measureCeiling()
 			shelter = shelterTarget
 		else
 			checkAccumulator += dt
 			if checkAccumulator >= Config.ShelterCheckInterval then
 				checkAccumulator = 0
 				shelterTarget = measureShelter()
+				ceilingClearance = measureCeiling()
 			end
 		end
 	else
 		wasActive = false
 		shelterTarget = 0
+		ceilingClearance = math.huge
 	end
 
 	shelter = Shared.damp(shelter, shelterTarget, Config.ShelterSmoothing, dt)
@@ -301,6 +334,7 @@ stateHolder:GetAttributeChangedSignal(Attr.InstantCue):Connect(function()
 		end
 
 		shelterTarget = measureShelter()
+		ceilingClearance = measureCeiling()
 		shelter = shelterTarget
 		wasActive = true
 

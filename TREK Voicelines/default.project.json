@@ -1,0 +1,34 @@
+{
+  "name": "TREKVoicelines",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "TREKVoicelines": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "TREKVoicelines": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "TREKVoicelines": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}

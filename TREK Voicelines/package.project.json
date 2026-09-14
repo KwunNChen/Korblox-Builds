@@ -1,0 +1,34 @@
+{
+  "name": "TREKVoicelines",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "ReplicatedStorage": {
+      "$className": "Folder",
+
+      "TREKVoicelines": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "Folder",
+
+      "TREKVoicelines": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+
+      "TREKVoicelines": {
+        "$path": "src/client"
+      }
+    }
+  }
+}
