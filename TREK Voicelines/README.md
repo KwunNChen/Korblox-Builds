@@ -1,7 +1,8 @@
 # TREK Voicelines
 
-Voice barks for TREK. A clip plays out of a character's head when they start
-reloading, run low, take a hit, get a kill, or die.
+Voice barks for TREK. A clip plays out of a character's head when something
+happens to them — they reload, run low, take a hit, get a kill, die, catch an
+explosion nearby, land or whiff a bayonet thrust, or take an objective.
 
 Lines are spatial and server-played, so the people around you hear your callouts
 — which is the entire reason to have them. TREK's own `LocalSound` remote plays
@@ -15,13 +16,13 @@ outside:
 | Event | Hooked from | How |
 |---|---|---|
 | `Reload` | `TREK_Remotes.GFX` (`'Reload'`) | fired at reload **start**, before the ReloadSpeed wait |
-| `ReloadDone` | `TREK_Remotes.Reload` | the end-of-reload signal — "back up" |
-| `LowAmmo` | `tool.TAmmo.*.Ammo` | value watcher, fires on the shot that crosses the threshold |
-| `OutOfAmmo` | `tool.TAmmo.*.Ammo` | the same watcher, at exactly zero — the dry click |
+| `LowAmmo` | `tool.TAmmo.*.Ammo` | value watcher, fires on the shot that crosses the threshold — empty included |
 | `Incoming` | `TREK_Remotes.Explosion` | fires on everyone near the blast, not on whoever fired |
 | `Hurt` | `Humanoid.HealthChanged` | plain Roblox, so explosions and vehicles count too |
 | `Death` | `Humanoid.Died` | plain Roblox |
 | `Kill` | `Humanoid.WeaponTag` | the killer tag TREK writes in `LeaderBoardModule.tagPlr` |
+| `BayonetHit` | `TREKBayonet.BayonetOutcome` | optional; the thrust connected — inert without the bayonet package |
+| `BayonetMiss` | `TREKBayonet.BayonetOutcome` | optional; the thrust found nothing |
 | `PointTaken` | `TObjectiveSystem.Points.*.Owner` | optional; inert in places without the objective system |
 
 Delete the folder and your TREK install is byte-for-byte what it was.
@@ -32,8 +33,9 @@ Two of those choices are deliberate and worth keeping:
 the top of `reloadTypeOne`, before the `ReloadSpeed` wait; it only sends the
 `Reload` remote *after* it. On a six-second reload the latter arrives when you
 are already loaded, which is the wrong moment for a "reloading" callout. The
-`Reload` remote is still used as a fallback for ReloadType 2 recharge weapons,
-which never send a start signal.
+`Reload` remote is still listened to, but only as a fallback for ReloadType 2
+recharge weapons, which never send a start signal. For a normal reload it now
+speaks at the start and says nothing at the end.
 
 **Damage comes from `HealthChanged`, not `TREK_Remotes.Damage`.** That remote
 fires on the *attacker's* claim, before TREK's team check, ammo check and
@@ -41,18 +43,47 @@ anti-HBE have run — listening there barks on damage TREK then rejects.
 
 ## Install
 
-Download `TREKVoicelines.rbxm`, drag it into ServerStorage, and move the three
-inner folders into the services they are named after:
+**1. Drag `TREKVoicelines.rbxm` into ServerStorage.** Always ServerStorage —
+scripts do not execute there.
+
+**2. The folders inside are signposts, not things to move.** Each is a label
+saying where its *contents* belong. All three inner folders are called
+`TREKVoicelines`:
 
 ```
-ReplicatedStorage    -> game.ReplicatedStorage
-ServerScriptService  -> game.ServerScriptService
-StarterPlayerScripts -> game.StarterPlayer.StarterPlayerScripts
+TREKVoicelines              <- staging folder, delete when done
+|-- README                     read me, not installed
+|-- ReplicatedStorage          <- SIGNPOST, do not move this
+|   `-- TREKVoicelines         <- move THIS into game.ReplicatedStorage
+|-- ServerScriptService        <- SIGNPOST
+|   `-- TREKVoicelines         <- move THIS into game.ServerScriptService
+`-- StarterPlayerScripts       <- SIGNPOST
+    `-- TREKVoicelines         <- move THIS into StarterPlayer.StarterPlayerScripts
 ```
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `TREKVoicelines` | ReplicatedStorage |
+| `ServerScriptService/` | `TREKVoicelines` | ServerScriptService |
+| `StarterPlayerScripts/` | `TREKVoicelines` | StarterPlayer > StarterPlayerScripts |
+
+Moving a signpost itself gives you
+`ReplicatedStorage.ReplicatedStorage.TREKVoicelines`, and nothing finds anything.
+
+**3. Delete the empty staging folder.**
 
 It waits on `TREK_INSTALLED` itself, so load order does not matter. The
 StarterPlayerScripts half is only the preloader — skip it and everything still
 works, the first use of each clip is just late or silent.
+
+### What it hooks into, if present
+
+Neither is required, and neither errors when absent:
+
+- **TREK Bayonet** — adds the `BayonetHit` and `BayonetMiss` barks. Without it
+  those two events simply never fire.
+- **Objective System** — adds the `PointTaken` bark. Without it the objective
+  watcher binds nothing and costs nothing.
 
 ## Your clips, not these ones
 
@@ -95,11 +126,11 @@ placeholders is simply silent. Anything unusable is named once at startup:
 | `Incoming` | 7 | 6s | 0.8 | everyone within `IncomingRadius` of a blast |
 | `Hurt` | 6 | 5s | 1.0 | above Kill on purpose — taking fire beats a kill quip |
 | `Kill` | 5 | 0.25s | 1.0 | **concurrent**: layers over whatever is playing; **ignores the crowd limiter** |
-| `OutOfAmmo` | 4 | 3s | 1.0 | the dry click, at exactly zero |
+| `BayonetHit` | 5 | 0s | 1.0 | **concurrent**, **ignores the crowd limiter** — every thrust speaks |
+| `BayonetMiss` | 5 | 0s | 1.0 | **concurrent**, **ignores the crowd limiter** |
 | `PointTaken` | 4 | 10s | 0.7 | capturing side only, near the point |
 | `LowAmmo` | 3 | 0.25s | 0.85 | shares Reload's voice |
 | `Reload` | 2 | 0.25s | 1.0 | |
-| `ReloadDone` | 2 | 0.25s | 0.5 | |
 
 **Priority** decides who wins. A line already playing is cut off only by
 something *strictly* higher, so two equal-priority events cannot trade the
@@ -188,6 +219,70 @@ as soon as the noise dies down.
   `CrowdWindow` to die after their last `Hurt` line. `Concurrent` does not help
   here: it exempts `Kill` from priority and the one-voice rule, but the crowd gate
   is a separate gate and applied regardless.
+
+## The bayonet
+
+Two lines, split by outcome: `BayonetHit` when the thrust connects, `BayonetMiss`
+when it finds nothing.
+
+Both are the **swing**, not the kill. A bayonet *kill* already speaks, and always
+did: the bayonet damages through TREK's own `DamagePlayer`, which calls
+`lbmodule.tagPlr`, which writes the `WeaponTag` the `Kill` hook reads. A fatal
+stab therefore says its contact line and then its kill line — the right pair,
+since `Kill` is concurrent and layers over it rather than cutting it off.
+
+### It hooks the outcome, not the thrust
+
+The obvious hook is `BayonetStab`, and it is the wrong one. That remote is the
+thrust *request*: it arrives before the rate limit, the equipment checks and the
+sweep have run, so a listener on it cannot tell a hit from a miss — or either from
+a thrust the service refuses outright, or one a client simply invented.
+
+So the bayonet package emits `BayonetOutcome`, a `BindableEvent` fired with
+`(attacker, contact)` once a thrust has been accepted and swept. That is the only
+place in the game where the answer exists.
+
+Consequences worth knowing:
+
+- **Only accepted thrusts speak.** Rate-limited, no blade fitted, seated in a
+  vehicle — no outcome is reported, so neither line can fire for a swing that
+  never happened. Spamming the stab remote gains nothing.
+- **Contact is reported before armour.** A hit reduced to zero damage still
+  connected, and still looked like a hit to both players.
+- **It needs a bayonet build that emits the signal.** An older one warns once at
+  startup rather than leaving two configured events mysteriously silent.
+
+`Config.BayonetBarks = false` turns both off. In a place with no bayonet package
+installed they bind nothing and cost nothing.
+
+### Every thrust speaks
+
+That takes all four settings together, not just the obvious one:
+
+| | | |
+|---|---|---|
+| `Cooldown` | `0` | no gap to fall inside — the weapon's own 1.2s is the real rate limit |
+| `Chance` | `1.0` | never rolls itself out |
+| `Concurrent` | `true` | layers instead of queueing; without it a thrust during a `Hurt` line loses the channel |
+| `IgnoresCrowd` | `true` | a melee is crowded by definition — exactly what the limiter would silence |
+
+`Priority` is decorative for these, as it is for `Kill`: a concurrent event
+neither blocks nor is blocked.
+
+### When each line fires
+
+The hit line fires **the moment the blade connects**, not when the key goes down.
+The sweep returns on the sample that finds contact, so the line lands with the
+impact — usually partway through the thrust animation.
+
+The miss line is inherently later, because a miss is only knowable once the sweep
+has run without finding anything. The bayonet package cuts that short with
+`Config.MissAnnounceAfter` (0.015s, against a 0.35s `HitWindow`): an unresolved
+thrust is *announced* as a miss at that point while the sweep keeps running for
+real. Hit detection and damage are untouched — only the announcement moves.
+
+If a stab lands but sounds like a miss, that setting is too low for your thrust
+animation; the bayonet logs `LATE HIT` when it happens.
 
 ## Sharing a voice
 

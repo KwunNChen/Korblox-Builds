@@ -171,8 +171,35 @@
 	==========================================================================
 
 	THealth props and TVehicle are not valid targets: stabbing a tank does
-	nothing. There is no bayonet-specific voice bark, though a bayonet KILL
-	fires the existing Kill bark from TREK Voicelines with no changes.
+	nothing.
+
+	==========================================================================
+	TELLING OTHER SYSTEMS WHAT HAPPENED
+	==========================================================================
+
+	Two things are published into ReplicatedStorage.TREKBayonet at runtime:
+
+	    BayonetStab     RemoteEvent    the client REQUESTS a thrust
+	    BayonetOutcome  BindableEvent  (attacker, contact) once one is swept
+
+	Listen to BayonetOutcome, not BayonetStab. The remote is a request: it
+	arrives before the rate limit, the equipment checks and the sweep have run,
+	so a listener on it cannot tell a hit from a miss -- or either from a thrust
+	refused outright, or one a client simply invented.
+
+	`contact` is true when the sweep found a humanoid, reported before setDamage
+	so a hit that armour reduces to zero still counts. Exactly one outcome is
+	reported per thrust.
+
+	TIMING. A hit is reported the instant the blade connects. A miss is only
+	provable once the whole HitWindow has run, which is far too late to sound
+	like part of the swing -- so an unresolved thrust is announced as a miss at
+	Config.MissAnnounceAfter. Hit detection is untouched: the sweep still runs
+	the full window and late contact still deals its damage.
+
+	TREK Voicelines uses this for its BayonetHit and BayonetMiss barks. A bayonet
+	KILL also fires the existing Kill bark, through TREK's own WeaponTag, with no
+	changes needed.
 
 	==========================================================================
 	MADE BY

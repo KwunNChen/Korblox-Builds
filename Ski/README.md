@@ -9,11 +9,62 @@ proper ragdoll when you do.
 
 ## Install
 
-Download `Ski.rbxm`, drag it into ServerStorage, and follow the README inside
-it. Three folders, each named after the service it goes into.
+**1. Drag `Ski.rbxm` into ServerStorage.** Always ServerStorage — scripts do not
+execute there. Drop it into ServerScriptService or Workspace and the server
+scripts start running before the shared modules exist.
 
-Updating an existing install only needs the script folders. The server rebuilds
-any missing remotes when it starts.
+**2. The folders inside are signposts, not things to move.** Open each one and
+move the folders *inside* it into the real service:
+
+```
+KorbloxSki                  <- staging folder, delete when done
+|-- README                     read me, not installed
+|-- ReplicatedStorage          <- SIGNPOST, do not move this
+|   |-- Ski                    <- move THIS into game.ReplicatedStorage
+|   `-- SkiRemotes             <- and THIS
+|-- ServerScriptService        <- SIGNPOST
+|   |-- Ski                    <- move THIS into game.ServerScriptService
+|   `-- Common                 <- and THIS
+|-- StarterPlayerScripts       <- SIGNPOST
+|   `-- Ski                    <- move THIS into StarterPlayer.StarterPlayerScripts
+`-- Tools
+    `-- AnimationRig           optional, leave in ServerStorage
+```
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `Ski`, `SkiRemotes` | ReplicatedStorage |
+| `ServerScriptService/` | `Ski`, `Common` | ServerScriptService |
+| `StarterPlayerScripts/` | `Ski` | StarterPlayer > StarterPlayerScripts |
+
+Moving a signpost itself gives you `ReplicatedStorage.ReplicatedStorage.Ski` and
+nothing finds anything.
+
+`SkiRemotes` is a convenience rather than a requirement — the server rebuilds any
+remote that is missing when it starts. Dragging it in just saves it the job.
+
+**3. Delete the empty staging folder.** `Tools/AnimationRig` is a command-bar
+helper for the animations; keep it in ServerStorage if you want it.
+
+Press Play. After that, the only file you edit is
+`ReplicatedStorage.Ski.SkiConfig`.
+
+### Already have a `Common` folder?
+
+Random Arty and Variable Snowstorm ship one too. **Do not replace it** — open
+Ski's `Common` and drag `CharacterCache` and `SpeedService` into your existing
+folder, skipping any already there. The code is identical across all three
+packages; only the header comments differ.
+
+`SpeedService` is what lets them coexist: it is the single owner of
+`Humanoid.WalkSpeed`, and each system registers a named modifier instead of
+assigning the property. A skier caught in a snowstorm is exactly the case that
+would otherwise have two systems fighting over one property.
+
+### Updating an existing install
+
+Only the script folders need replacing. The server rebuilds any missing remotes
+when it starts.
 
 ## Controls
 

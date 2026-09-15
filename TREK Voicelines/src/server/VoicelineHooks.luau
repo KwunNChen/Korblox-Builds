@@ -74,28 +74,23 @@ local function watchTool(tool: Instance)
 				return
 			end
 
-			local event: string?
-
-			if current <= 0 then
-				event = "OutOfAmmo"
-			else
-				-- MaxValue is MagCapacity straight from the weapon config. Falls
-				-- back to the largest value seen if some other system made this
-				-- counter -- which is why it needs the value from BEFORE this
-				-- shot: comparing against the post-shot value made the fallback
-				-- max(current, current, 1), so it could never exceed the current
-				-- reading and the ratio below was always 1.
-				local capacity = tonumber(value.MaxValue) or 0
-				if capacity <= 0 then
-					capacity = math.max(previous, current, 1)
-				end
-
-				if current / capacity <= Config.LowAmmoFraction then
-					event = "LowAmmo"
-				end
+			-- MaxValue is MagCapacity straight from the weapon config. Falls back
+			-- to the largest value seen if some other system made this counter --
+			-- which is why it needs the value from BEFORE this shot: comparing
+			-- against the post-shot value made the fallback max(current, current,
+			-- 1), so it could never exceed the current reading and the ratio below
+			-- was always 1.
+			local capacity = tonumber(value.MaxValue) or 0
+			if capacity <= 0 then
+				capacity = math.max(previous, current, 1)
 			end
 
-			if not event then
+			-- Zero is not special-cased. It used to branch off to OutOfAmmo for a
+			-- dry-click line of its own; with that event gone, an empty magazine
+			-- is simply the bottom of the low-ammo threshold and speaks the same
+			-- line the rest of it does. Going silent at exactly zero would be the
+			-- odd result -- one round left speaks, none left says nothing.
+			if current / capacity > Config.LowAmmoFraction then
 				return
 			end
 
@@ -104,7 +99,7 @@ local function watchTool(tool: Instance)
 			-- in the Backpack, so a captured reference never becomes collectable.
 			local character = tool:FindFirstAncestorOfClass("Model")
 			if character then
-				Service.request(character, event)
+				Service.request(character, "LowAmmo")
 			end
 		end)
 	end
@@ -355,6 +350,59 @@ local function watchObjectivePoints()
 	end
 end
 
+--[[
+	Bayonet thrusts, from the TREK Bayonet package.
+
+	Hooked on BayonetOutcome, a BindableEvent that package fires with
+	(attacker, contact) once a thrust has been accepted and swept.
+
+	NOT on BayonetStab, which is the obvious choice and the wrong one. That remote
+	is the thrust REQUEST: it arrives before the rate limit, the equipment checks
+	and the sweep have run, so a listener on it cannot tell a hit from a miss, or
+	either from a thrust refused outright -- and it would bark for a swing that
+	never happened, including one a client invented. The outcome signal is the
+	only place the answer exists, which is why the bayonet package emits it.
+
+	Two things make this unlike the TREK hooks. The signal is created at RUNTIME
+	by BayonetService -- it is not in the shipped model -- so it can appear well
+	after this runs; and in a place without the bayonet installed it never appears
+	at all. Hence the wait, and hence doing it on its own thread: a package that
+	may not exist must not hold up the hooks behind it.
+]]
+local BAYONET_WAIT = 20
+
+local function watchBayonet()
+	if not Config.BayonetBarks then
+		return
+	end
+
+	task.spawn(function()
+		local package = game:GetService("ReplicatedStorage"):WaitForChild("TREKBayonet", BAYONET_WAIT)
+		if not package then
+			return
+		end
+
+		local outcome = package:WaitForChild("BayonetOutcome", BAYONET_WAIT)
+		if not outcome or not outcome:IsA("BindableEvent") then
+			-- The package is installed but too old to report outcomes. Say so
+			-- once: the alternative is two configured events that silently never
+			-- fire, which is a much worse thing to debug.
+			warn("[TREKVoicelines] TREKBayonet is installed but has no BayonetOutcome signal -- "
+				.. "bayonet barks need a bayonet build that reports hit/miss. Skipping them.")
+			return
+		end
+
+		outcome.Event:Connect(function(player: Player, contact: boolean)
+			local character = player and player.Character
+			if not character then
+				return
+			end
+
+			Service.request(character, if contact then "BayonetHit" else "BayonetMiss")
+		end)
+	end)
+end
+
 -- Characters whose reload was announced at the start, so the matching end-of-
 -- reload signal can be ignored. Weak keys: a character that goes away takes its
 -- entry with it.
@@ -389,8 +437,12 @@ function Hooks.start()
 		Service.request(character, "Reload")
 	end)
 
-	-- Reload END. TREK sends this after the ReloadSpeed wait, so it is the
-	-- "weapon is up again" moment.
+	-- Reload END. TREK sends this after the ReloadSpeed wait.
+	--
+	-- This no longer speaks for a normal reload -- there is no end-of-reload line
+	-- any more. The stamp bookkeeping stays because it is what separates the two
+	-- reload types: a ReloadType 1 weapon already spoke at the START, via GFX
+	-- above, and must not speak again here.
 	remotes:WaitForChild("Reload").OnServerEvent:Connect(function(player: Player)
 		local character = player.Character
 		if not character then
@@ -401,9 +453,7 @@ function Hooks.start()
 		reloadAnnounced[character] = nil
 
 		if announced and os.clock() - announced < RELOAD_STAMP_TTL then
-			-- A start was announced, so this is the completion of a ReloadType 1
-			-- reload: "back up", not "reloading".
-			Service.request(character, "ReloadDone")
+			-- Already announced at the start of this reload. Nothing to add.
 			return
 		end
 
@@ -433,6 +483,7 @@ function Hooks.start()
 	end
 
 	watchObjectivePoints()
+	watchBayonet()
 
 	-- NPCs, dummies and admin-spawned clones. Guarded by `bound`, so a player
 	-- character picked up here is not connected a second time.

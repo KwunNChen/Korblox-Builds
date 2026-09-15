@@ -60,6 +60,26 @@ local stabRemote = Instance.new("RemoteEvent")
 stabRemote.Name = "BayonetStab"
 stabRemote.Parent = package
 
+--[[
+	Outcome of an ACCEPTED thrust, as (attacker: Player, contact: boolean).
+
+	A BindableEvent, not a RemoteEvent: this is for other server code, and there
+	is nothing here a client needs or should be told. Firing it costs nothing when
+	nobody is listening.
+
+	It exists because the outcome is knowable only in here. BayonetStab is a
+	request -- it arrives before the rate limit, the equipment checks and the
+	sweep have run, so a listener on it cannot tell a hit from a miss, or either
+	from a thrust that was refused outright. TREK Voicelines uses this to pick
+	between its hit and miss barks.
+
+	Fired only for thrusts that got as far as the sweep. A refused thrust reports
+	nothing: no swing happened, so there is no outcome to report.
+]]
+local outcomeEvent = Instance.new("BindableEvent")
+outcomeEvent.Name = "BayonetOutcome"
+outcomeEvent.Parent = package
+
 -- Last accepted thrust per player, cleared on PlayerRemoving.
 local lastStab: { [Player]: number } = {}
 
@@ -594,7 +614,60 @@ local function onStab(attacker: Player)
 	-- miss still costs the attacker their cooldown.
 	lastStab[attacker] = now
 
+	--[[
+		Report the outcome exactly once per thrust.
+
+		A hit is knowable the instant the blade connects, and is reported then. A
+		miss is only PROVABLE once the whole sweep has run -- but waiting that long
+		to say so puts the miss well after the swing it belongs to, so an
+		unresolved thrust is called a miss at MissAnnounceAfter instead.
+
+		Once, and only once. If a contact turns up after that early call, the
+		announcement stands: saying "miss" and then "hit" for one thrust is worse
+		than being wrong quietly. Damage is entirely unaffected either way -- this
+		governs what listeners are told, never what the sweep does.
+	]]
+	local announced = false
+
+	local function announce(contact: boolean)
+		if announced then
+			return
+		end
+		announced = true
+		outcomeEvent:Fire(attacker, contact)
+	end
+
+	-- No-op when MissAnnounceAfter is at or above HitWindow: the sweep will have
+	-- announced already by the time this runs.
+	task.delay(Config.MissAnnounceAfter, function()
+		if not announced then
+			debugPrint(string.format(
+				"%s: no contact after %.2fs -- calling it a miss now, sweep still running",
+				attacker.Name, Config.MissAnnounceAfter
+			))
+		end
+		announce(false)
+	end)
+
 	local targetChar, _targetHum, targetPart, hitCentre = sweepForTarget(attacker, character, root, blade, cfg)
+
+	-- Contact is "the sweep found a humanoid". Deliberately reported before
+	-- setDamage: a hit that armour reduces to zero still made contact, and the
+	-- swing still looked like a hit to both players.
+	local contact = targetChar ~= nil and targetPart ~= nil
+
+	if contact and announced then
+		-- The one case worth seeing in a log. It means MissAnnounceAfter is set
+		-- too low for this animation: the stab landed, and was called a miss.
+		debugPrint(string.format(
+			"%s: LATE HIT -- contact arrived after MissAnnounceAfter (%.2fs), so it was "
+				.. "announced as a miss. Raise Config.MissAnnounceAfter.",
+			attacker.Name, Config.MissAnnounceAfter
+		))
+	end
+
+	announce(contact)
+
 	if not targetChar or not targetPart then
 		return
 	end
@@ -655,6 +728,33 @@ stabRemote.OnServerEvent:Connect(onStab)
 Players.PlayerRemoving:Connect(function(player)
 	lastStab[player] = nil
 end)
+
+--[[
+	Below one sample interval, the announcement can only ever beat the blade.
+
+	Not quite as total as it sounds, and the reason is worth stating because it is
+	what makes very low values usable at all: the sweep's FIRST sample runs
+	synchronously, before the loop's first task.wait, so a contact found on sample
+	one is reported as a hit no matter how small this is. task.delay cannot fire
+	until the thread yields, and by then sample one has already returned.
+
+	So the real effect is: point-blank stabs -- the ones already overlapping before
+	the blade moves -- still say hit. Anything the blade has to TRAVEL to reach is
+	resolved on a later sample and will say miss. Damage is unaffected either way.
+
+	That is a legitimate setting if your stabs are point-blank by nature. It is
+	worth saying out loud once, because "stabs at reach sound like misses" is
+	otherwise indistinguishable from a broken hitbox.
+]]
+if Config.MissAnnounceAfter < Config.HitSampleInterval then
+	warn(string.format(
+		"[TREKBayonet] MissAnnounceAfter is %.3fs, below one sample interval (%.3fs). "
+			.. "Only contacts found on the first sample -- point-blank stabs -- will be "
+			.. "announced as hits; anything the blade travels to reach will announce as a "
+			.. "miss. Damage is unaffected; the voice line is not.",
+		Config.MissAnnounceAfter, Config.HitSampleInterval
+	))
+end
 
 -- Announced unconditionally, not under Config.Debug. If this line is absent from
 -- the log then this script did not finish, and that is the first thing worth

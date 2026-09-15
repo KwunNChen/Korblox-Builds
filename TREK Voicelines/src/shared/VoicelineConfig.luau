@@ -277,12 +277,17 @@ Config.Debug = false
 -- Raise it if you want only solid hits to register.
 Config.HurtDamageThreshold = 1
 
--- At or below this fraction of a magazine, LowAmmo fires. Hitting exactly zero
--- fires OutOfAmmo instead -- that is the dry click, and it wants its own line.
+-- At or below this fraction of a magazine, LowAmmo fires. Reaching exactly zero
+-- is included rather than special-cased: an empty magazine is as low as ammo
+-- gets, and it speaks the same line the rest of the threshold does.
 Config.LowAmmoFraction = 0.2
 
 -- How close to an explosion you must be to react to it.
 Config.IncomingRadius = 70
+
+-- Bayonet barks, from the TREK Bayonet package. Automatically inert in places
+-- without it; this switch is for turning them off in places that have it.
+Config.BayonetBarks = true
 
 -- Objective barks. Automatically inert in places with no TObjectiveSystem; this
 -- switch is for turning them off in places that have one.
@@ -346,26 +351,6 @@ Config.Events = {
 		SharesWith = "Reload",
 	},
 
-	-- Deliberately NOT near-zero. Time-to-kill is slow here, so you take a great
-	-- many hits per life; without a real gap this becomes a constant whimper.
-	-- The weapon is up again. Fires at the END of a ReloadType 1 reload -- the
-	-- signal Reload deliberately does not use.
-	ReloadDone = {
-		Priority = 2,
-		Cooldown = 0.25,
-		Chance = 0.5,
-		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
-	},
-
-	-- The dry click. Previously unreachable: the ammo watcher required value > 0,
-	-- which excluded the one moment worth shouting about.
-	OutOfAmmo = {
-		Priority = 4,
-		Cooldown = 3,
-		Chance = 1.0,
-		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
-	},
-
 	-- Something exploded near you. Fires on everyone within IncomingRadius, not
 	-- on whoever fired it.
 	Incoming = {
@@ -382,6 +367,56 @@ Config.Events = {
 		Cooldown = 10,
 		Chance = 0.7,
 		Sounds = { "PLACEHOLDER", "PLACEHOLDER" },
+	},
+
+	--[[
+		Bayonet thrusts, split by outcome.
+
+		Both are the swing, not the kill. A bayonet KILL already speaks through
+		Kill below: the bayonet damages through TREK's own DamagePlayer, which
+		calls lbmodule.tagPlr, which writes the WeaponTag the Kill hook reads. So
+		a fatal stab says its contact line and then its kill line, which is the
+		right pair -- the kill bark is Concurrent and layers over it.
+
+		"Contact" means the sweep found a humanoid, which is reported before
+		armour is applied: a hit reduced to zero damage still connected, and still
+		looked like a hit to both players.
+
+		Only ACCEPTED thrusts speak. A thrust the bayonet refuses -- rate limited,
+		no blade fitted, seated in a vehicle -- reports no outcome at all, so
+		neither of these can fire for a swing that never happened. That also means
+		a client spamming the stab remote gets nothing extra out of it.
+
+		EVERY thrust speaks, and it takes all four of these to guarantee that:
+
+		  Cooldown 0     no gap to fall inside. The weapon's own 1.2s cooldown is
+		                 the real rate limit, and only accepted thrusts report an
+		                 outcome at all, so nothing here needs a second one.
+		  Chance 1.0     never rolls itself out.
+		  Concurrent     layers instead of queueing. Without it a thrust during a
+		                 Hurt line (priority 6) loses the channel and says nothing.
+		  IgnoresCrowd   a melee is crowded by definition -- your own fight is
+		                 exactly the situation the limiter would silence.
+
+		Priority is therefore decorative here, as it is for Kill: a concurrent
+		event neither blocks nor is blocked.
+	]]
+	BayonetHit = {
+		Priority = 5,
+		Cooldown = 0,
+		Chance = 1.0,
+		Concurrent = true,
+		IgnoresCrowd = true,
+		Sounds = { "rbxassetid://17545135500" },
+	},
+
+	BayonetMiss = {
+		Priority = 5,
+		Cooldown = 0,
+		Chance = 1.0,
+		Concurrent = true,
+		IgnoresCrowd = true,
+		Sounds = { "rbxassetid://137951817204948" },
 	},
 
 	Hurt = {

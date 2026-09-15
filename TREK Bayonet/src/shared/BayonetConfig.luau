@@ -94,6 +94,51 @@ Config.HitPadForward = 1.5
 ]]
 Config.HitWindow = 0.35
 
+--[[
+	How long to wait before calling an unresolved thrust a MISS, for the purposes
+	of BayonetOutcome only.
+
+	Nothing about hit detection changes: the sweep still runs the full HitWindow,
+	and a contact found after this point still deals its damage normally. This
+	only decides when listeners are TOLD, and it exists because a miss is
+	otherwise announced at the end of the whole window -- which is correct, and
+	far too late to sound like part of the swing.
+
+	A hit needs no such setting. It is reported the instant the blade connects,
+	because that is the moment it becomes knowable.
+
+	The tradeoff, stated plainly: a contact found AFTER this point has already
+	been announced as a miss, and the outcome is only reported once, so it stays
+	reported as a miss. Damage is unaffected. Set it too low and a slow blade
+	sounds like a miss while killing someone.
+
+	Tune it from your own logs rather than by feel. With Debug on, a hit prints
+
+		hit <who> in the <limb> on sample N
+
+	and sample N happened at roughly N * HitSampleInterval seconds. Set this
+	comfortably above the largest N you see in normal play. Setting it at or above
+	HitWindow restores the old behaviour exactly.
+
+	0.09 is three samples. Point-blank stabs resolve on sample 1 -- the hitbox
+	already reaches ahead of you before the blade has moved -- so those are still
+	announced as hits. What this can catch out is a stab at the edge of your reach,
+	where the blade has to travel before it arrives; that is what the LATE HIT log
+	line is for.
+
+	Below one sample interval it can only ever beat the blade -- with one important
+	exception. The sweep's FIRST sample runs synchronously, before the loop's first
+	task.wait, and task.delay cannot fire until the thread yields. So a contact
+	found on sample one is announced as a hit no matter how small this is set.
+
+	That makes even 0.015 usable, with a clear meaning: point-blank stabs, already
+	overlapping before the blade moves, say hit; anything the blade has to TRAVEL
+	to reach resolves on a later sample and says miss. Damage is unaffected either
+	way. The service warns once at startup when this is set below one interval, so
+	that "stabs at reach sound like misses" is not mistaken for a broken hitbox.
+]]
+Config.MissAnnounceAfter = 0.015
+
 -- Seconds between samples inside that window. Small enough that a fast blade
 -- cannot pass through a torso between two tests, which is the tunnelling that
 -- makes Touched unreliable for melee.

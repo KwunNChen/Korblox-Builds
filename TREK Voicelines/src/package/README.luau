@@ -4,7 +4,9 @@ TREK VOICELINES
 
 WHAT THIS IS:
 	Plays a voice clip out of a character's head when something happens to them:
-	they reload, they get hit, they get low, they get a kill, they die.
+	they reload, they get low, they get hit, they get a kill, they die, an
+	explosion goes off near them, they land or whiff a bayonet thrust, or their
+	side takes an objective.
 
 	It does NOT modify TREK. Nothing in your TREK install is edited, replaced or
 	patched. If you uninstall this folder, TREK is exactly as it was.
@@ -49,9 +51,10 @@ ADDING YOUR CLIPS:
 
 THE EVENTS:
 	Reload      the player started reloading
-	ReloadDone  the reload finished -- "back up"
-	LowAmmo     a magazine dropped to LowAmmoFraction or less while firing
-	OutOfAmmo   the magazine hit exactly zero -- the dry click
+	LowAmmo     a magazine dropped to LowAmmoFraction or less while firing,
+	            empty included
+	BayonetHit  a bayonet thrust connected (needs the TREK Bayonet package)
+	BayonetMiss a bayonet thrust found nothing
 	Incoming    an explosion went off nearby (everyone near it, not the firer)
 	Hurt        took a hit
 	Kill        killed someone

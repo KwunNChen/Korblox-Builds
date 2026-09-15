@@ -324,10 +324,63 @@ which is most of what anyone tests against.
 
 ---
 
+## Telling other systems what happened
+
+The service publishes two things into `ReplicatedStorage.TREKBayonet`, both
+created at runtime:
+
+| | Type | Fired with | When |
+|---|---|---|---|
+| `BayonetStab` | `RemoteEvent` | — | the client *requests* a thrust |
+| `BayonetOutcome` | `BindableEvent` | `(attacker, contact)` | an accepted thrust has been swept |
+
+**Listen to `BayonetOutcome`, not `BayonetStab`.** The remote is a request: it
+arrives before the rate limit, the equipment checks and the sweep have run, so a
+listener on it cannot tell a hit from a miss, or either from a thrust that was
+refused outright — or one a client simply invented. The outcome signal fires only
+for thrusts that actually got as far as the sweep.
+
+`contact` is true when the sweep found a humanoid. It is reported *before*
+`setDamage`, so a hit that armour reduces to zero still counts as contact — it
+connected, and it looked like a hit to both players.
+
+**Timing.** A hit is reported the instant the blade connects — the moment it
+becomes knowable. A miss is only *provable* once the whole `HitWindow` has run,
+which puts it well after the swing it belongs to, so an unresolved thrust is
+announced as a miss at `Config.MissAnnounceAfter` (0.015s) instead.
+
+Hit detection is untouched by that: the sweep still runs the full window, and a
+contact found afterwards still deals its damage normally. The setting governs
+only what listeners are told, and the outcome is reported exactly **once** per
+thrust — a late contact does not retract an announced miss, because saying
+"miss" and then "hit" for one swing is worse than being quietly wrong.
+
+Tune it from logs, not by feel. With `Debug` on a hit prints `on sample N`, which
+happened at about `N * HitSampleInterval` seconds; set `MissAnnounceAfter`
+comfortably above the largest N you see. A contact that arrives too late logs
+`LATE HIT` naming the setting. Setting it at or above `HitWindow` restores the
+original behaviour exactly.
+
+**Below one `HitSampleInterval` it still works, with a caveat worth knowing.** The
+sweep's *first* sample runs synchronously, before the loop's first `task.wait`,
+and `task.delay` cannot fire until the thread yields — so a contact found on
+sample one is announced as a hit however small this is set. The shipped `0.015`
+relies on exactly that: point-blank stabs, already overlapping before the blade
+moves, say hit; anything the blade has to *travel* to reach resolves on a later
+sample and says miss. Damage is unaffected either way. The service warns once at
+startup when it is set this low, so that "stabs at reach sound like misses" is
+not mistaken for a broken hitbox.
+
+A `BindableEvent` rather than a `RemoteEvent` because this is for other server
+code; there is nothing in it a client needs. Firing it costs nothing when nobody
+is listening.
+
+TREK Voicelines uses it to pick between its `BayonetHit` and `BayonetMiss` barks.
+
 ## Limits
 
 `THealth` props and `TVehicle` are not valid targets — stabbing a tank does
-nothing. There is no bayonet-specific voice bark.
+nothing.
 
 ---
 

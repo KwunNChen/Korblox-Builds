@@ -9,9 +9,47 @@ StarterPlayer.
 
 ## Install
 
-Download `BlastDoor.rbxm`, drag it into ServerStorage, and follow the README
-inside it. Two folders, each named after the service it goes into, plus a
-Tools folder for testing.
+**1. Drag `BlastDoor.rbxm` into ServerStorage.** Always ServerStorage — scripts
+do not execute there. Drop it into ServerScriptService or Workspace and the
+server scripts start running before the modules they need exist.
+
+**2. The folders inside are signposts, not things to move.** Open each one and
+move the folder *inside* it into the real service:
+
+```
+KorbloxBlastDoor            <- staging folder, delete when done
+|-- README                     read me, not installed
+|-- ReplicatedStorage          <- SIGNPOST, do not move this
+|   `-- BlastDoor              <- move THIS into game.ReplicatedStorage
+|-- ServerScriptService        <- SIGNPOST
+|   `-- BlastDoor              <- move THIS into game.ServerScriptService
+`-- Tools
+    `-- BuildExampleDoor       optional, see below
+```
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `BlastDoor` | ReplicatedStorage |
+| `ServerScriptService/` | `BlastDoor` | ServerScriptService |
+
+Moving a signpost itself gives you `ReplicatedStorage.ReplicatedStorage.BlastDoor`
+and nothing finds anything.
+
+**3. Delete the staging folder** — or keep it, since `Tools` is a command-bar
+helper that never runs on its own and does no harm sitting in ServerStorage.
+
+**4. Make a door.** Two parts or models named `Left` and `Right`, built touching
+in the middle (that is the closed position), grouped in a Model. Tag that Model
+`BlastDoor` in the Properties panel's Tags box. The server picks up anything
+tagged this way, including doors added after the game has started.
+
+No art yet? Once installed, run this in the **command bar** for a test door:
+
+```lua
+require(game.ServerStorage.KorbloxBlastDoor.Tools.BuildExampleDoor).build(workspace)
+```
+
+After install, the only file you edit is `ReplicatedStorage.BlastDoor.DoorConfig`.
 
 ## Building a door
 
