@@ -1,0 +1,39 @@
+{
+  "name": "TREKBayonet",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "TREKBayonet": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "TREKBayonet": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "TREKBayonet": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "TREKBayonetPoses": {
+        "$className": "Folder",
+        "BayonetCharge": {
+          "$path": "assets/BayonetCharge.rbxm"
+        },
+        "BayonetThrust": {
+          "$path": "assets/BayonetThrust.rbxm"
+        }
+      }
+    }
+  }
+}

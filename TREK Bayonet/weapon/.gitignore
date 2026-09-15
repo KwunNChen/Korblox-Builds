@@ -1,0 +1,6 @@
+# TREK weapon configs are third-party content with TREK's own documentation in
+# them. They live here so they are easy to find next to the package, but they
+# must not be published -- same reason TREK Voicelines gitignores reference/.
+*
+!.gitignore
+!README.md

@@ -1,0 +1,42 @@
+{
+  "name": "TREKBayonet",
+  "tree": {
+    "$className": "Folder",
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+    "BayonetWeaponMode": {
+      "$path": "src/package/BayonetWeaponMode.luau"
+    },
+    "ReplicatedStorage": {
+      "$className": "Folder",
+      "TREKBayonet": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "Folder",
+      "TREKBayonet": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+      "TREKBayonet": {
+        "$path": "src/client"
+      }
+    },
+    "ServerStorage": {
+      "$className": "Folder",
+      "TREKBayonetPoses": {
+        "$className": "Folder",
+        "BayonetCharge": {
+          "$path": "assets/BayonetCharge.rbxm"
+        },
+        "BayonetThrust": {
+          "$path": "assets/BayonetThrust.rbxm"
+        }
+      }
+    }
+  }
+}

@@ -119,26 +119,68 @@ end
 	and then reloading cannot say the same line twice in four seconds -- which is
 	exactly what two separate lists holding the same ids would do.
 ]]
+--[[
+	Resolved answers, memoised on first use.
+
+	Both of these are pure functions of Config.Events, which does not change while
+	the server runs -- yet soundsFor was being called on every single bark request,
+	re-running the whole string-matching normaliser over every id in the list. It
+	cost ~24us per request on a five-clip event and, because it sat above the
+	cooldown check, it was paid in full by requests that were then refused. At a
+	firefight's request rate that is milliseconds per second of pure re-parsing for
+	an answer that is identical every time.
+
+	Cached lazily rather than built at load, so editing the tables above before the
+	first bark still takes effect -- which is how live tuning in Studio works.
+]]
+local voiceKeyCache: { [string]: string } = {}
+local soundsCache: { [string]: { string } } = {}
+
+-- Drop the caches. Only needed if you edit Config.Events at runtime, e.g. from
+-- the command bar while tuning.
+function Config.refresh()
+	voiceKeyCache = {}
+	soundsCache = {}
+end
+
 function Config.voiceKey(event: string): string
+	local cached = voiceKeyCache[event]
+	if cached then
+		return cached
+	end
+
 	local seen = {}
+	local current = event
 
 	while true do
-		local cfg = Config.Events[event]
-		if not cfg or not cfg.SharesWith or seen[event] then
-			return event
+		local cfg = Config.Events[current]
+		if not cfg or not cfg.SharesWith or seen[current] then
+			break
 		end
-		seen[event] = true
-		event = cfg.SharesWith
+		seen[current] = true
+		current = cfg.SharesWith
 	end
+
+	voiceKeyCache[event] = current
+	return current
 end
 
 -- The playable clips for an event, following SharesWith.
+--
+-- The returned table is SHARED and must be treated as read-only -- every caller
+-- gets the same one. Nothing mutates it today (the picker indexes it, the
+-- preloader and the startup check only read), and nothing should start.
 function Config.soundsFor(event: string): { string }
-	local cfg = Config.Events[Config.voiceKey(event)]
-	if not cfg then
-		return {}
+	local cached = soundsCache[event]
+	if cached then
+		return cached
 	end
-	return Config.playableSounds(cfg.Sounds or {})
+
+	local cfg = Config.Events[Config.voiceKey(event)]
+	local sounds = cfg and Config.playableSounds(cfg.Sounds) or {}
+
+	soundsCache[event] = sounds
+	return sounds
 end
 
 --[[

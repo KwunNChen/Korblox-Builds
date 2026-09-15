@@ -55,12 +55,47 @@ local function watchTool(tool: Instance)
 		local value = counter :: any
 		local last = value.Value
 
+		--[[
+			This fires on every round leaving every weapon, which makes it the
+			highest-frequency hook in the system -- so it decides whether there is
+			anything to say using nothing but arithmetic, and only then goes
+			looking for the character.
+
+			The ancestor walk used to run first, on every single shot, including
+			the overwhelming majority that are nowhere near the low-ammo threshold
+			and produce no bark at all.
+		]]
 		counter:GetPropertyChangedSignal("Value"):Connect(function()
 			local current = value.Value
-			local dropped = current < last
+			local previous = last
 			last = current
 
-			if not dropped then
+			if current >= previous then
+				return
+			end
+
+			local event: string?
+
+			if current <= 0 then
+				event = "OutOfAmmo"
+			else
+				-- MaxValue is MagCapacity straight from the weapon config. Falls
+				-- back to the largest value seen if some other system made this
+				-- counter -- which is why it needs the value from BEFORE this
+				-- shot: comparing against the post-shot value made the fallback
+				-- max(current, current, 1), so it could never exceed the current
+				-- reading and the ratio below was always 1.
+				local capacity = tonumber(value.MaxValue) or 0
+				if capacity <= 0 then
+					capacity = math.max(previous, current, 1)
+				end
+
+				if current / capacity <= Config.LowAmmoFraction then
+					event = "LowAmmo"
+				end
+			end
+
+			if not event then
 				return
 			end
 
@@ -68,24 +103,8 @@ local function watchTool(tool: Instance)
 			-- would pin every corpse in memory: the tool outlives the character
 			-- in the Backpack, so a captured reference never becomes collectable.
 			local character = tool:FindFirstAncestorOfClass("Model")
-			if not character then
-				return
-			end
-
-			if current <= 0 then
-				Service.request(character, "OutOfAmmo")
-				return
-			end
-
-			-- MaxValue is MagCapacity straight from the weapon config. Falls back
-			-- to the largest value seen if some other system made this counter.
-			local capacity = tonumber(value.MaxValue) or 0
-			if capacity <= 0 then
-				capacity = math.max(current, last, 1)
-			end
-
-			if current / capacity <= Config.LowAmmoFraction then
-				Service.request(character, "LowAmmo")
+			if character then
+				Service.request(character, event)
 			end
 		end)
 	end
@@ -200,15 +219,24 @@ local function tryBindModel(instance: Instance)
 		return
 	end
 
+	-- Fast path, hoisted out of the coroutine below. A model that already has its
+	-- Humanoid -- a clone, a prefab NPC, a character whose parts arrived before it
+	-- was parented -- binds immediately. Spawning a thread for it meant every such
+	-- model paid for a coroutine that was going to resolve on its first line.
+	local humanoid = instance:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		-- A player's own character arrives here too; resolve the owner so it is
+		-- treated as a player, not an NPC.
+		onCharacter(Players:GetPlayerFromCharacter(instance), instance)
+		return
+	end
+
 	task.spawn(function()
-		local humanoid = instance:FindFirstChildOfClass("Humanoid")
-			or instance:WaitForChild("Humanoid", 5)
-		if not humanoid or not humanoid:IsA("Humanoid") then
+		local waited = instance:WaitForChild("Humanoid", 5)
+		if not waited or not waited:IsA("Humanoid") then
 			return
 		end
 
-		-- A player's own character arrives here too; resolve the owner so it is
-		-- treated as a player, not an NPC.
 		onCharacter(Players:GetPlayerFromCharacter(instance), instance)
 	end)
 end
@@ -229,31 +257,32 @@ local function onPlayer(player: Player)
 	end)
 end
 
--- Every humanoid currently bound, as a plain array. Used by area events that
--- have a world position but no particular speaker -- an explosion, a captured
--- point -- and need to ask who is near enough to react.
-local function boundHumanoids(): { Humanoid }
-	local out = {}
-	for humanoid in pairs(bound) do
-		if humanoid.Parent then
-			table.insert(out, humanoid)
-		end
-	end
-	return out
-end
+--[[
+	Characters within `radius` of a world point, optionally filtered to one team.
+	`team` nil means anyone.
 
--- Characters within `radius` of a world point, optionally filtered to one team.
--- `team` nil means anyone.
+	Used by area events that have a world position but no particular speaker -- an
+	explosion, a captured point.
+
+	This used to build an intermediate array of every bound humanoid on the server
+	and then filter it, so a single grenade allocated a table sized to the entire
+	player and NPC count before rejecting almost all of it. It now filters while
+	walking `bound` directly, and compares squared distances rather than taking a
+	square root per candidate.
+]]
 local function charactersNear(position: Vector3, radius: number, team: string?): { Model }
 	local out = {}
+	local radiusSq = radius * radius
 
-	for _, humanoid in ipairs(boundHumanoids()) do
-		if humanoid.Health <= 0 then
+	for humanoid in pairs(bound) do
+		-- Cheapest first: both are plain property reads, and between them they
+		-- reject every corpse and every humanoid whose model has been destroyed.
+		if humanoid.Health <= 0 or not humanoid.Parent then
 			continue
 		end
 
 		local character = humanoid.Parent
-		if not character or not character:IsA("Model") then
+		if not character:IsA("Model") then
 			continue
 		end
 
@@ -262,10 +291,13 @@ local function charactersNear(position: Vector3, radius: number, team: string?):
 			continue
 		end
 
-		if (root.Position - position).Magnitude > radius then
+		local delta = root.Position - position
+		if delta:Dot(delta) > radiusSq then
 			continue
 		end
 
+		-- Last, because it is the only lookup here that leaves the instance and
+		-- it only matters for the few candidates that are actually in range.
 		if team then
 			local player = Players:GetPlayerFromCharacter(character)
 			if not player or not player.Team or player.Team.Name ~= team then

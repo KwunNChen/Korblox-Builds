@@ -9,8 +9,8 @@ local SUPPRESS_ATTRIBUTE = "SuppressRagdoll"
 
 local RAGDOLL_JOINTS = { "Neck", "Right Shoulder", "Left Shoulder", "Right Hip", "Left Hip" }
 
-local FALL_PUSH_SPEED = 10
-local FALL_TOPPLE_SPEED = 2.5
+local FALL_PUSH_SPEED = 22
+local FALL_TOPPLE_SPEED = 9
 
 -- Takes the Torso directly rather than re-finding it per joint. ragdoll()
 -- looks it up ONCE and hands it to every call instead of doing the same

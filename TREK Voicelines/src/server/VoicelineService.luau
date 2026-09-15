@@ -62,15 +62,36 @@ local channels: { [Model]: Channel } = setmetatable({}, { __mode = "k" }) :: any
 ]]
 local recentBarks: { { at: number, position: Vector3, speaker: Model } } = {}
 
+-- Prune expired entries in place and append the new one.
+--
+-- Entries are appended in time order, so everything expired is a prefix of the
+-- list: find where the survivors start and shift them down. The previous version
+-- built a whole replacement array (plus a fresh entry table) on every bark, and
+-- discarded the old one -- garbage generated at exactly the moment the server is
+-- busiest. The only allocation left is the entry itself.
 local function noteBark(now: number, position: Vector3, speaker: Model)
-	local keep = {}
-	for _, bark in ipairs(recentBarks) do
-		if now - bark.at < Config.CrowdWindow then
-			table.insert(keep, bark)
-		end
+	local cutoff = now - Config.CrowdWindow
+	local count = #recentBarks
+
+	local first = 1
+	while first <= count and recentBarks[first].at <= cutoff do
+		first += 1
 	end
-	table.insert(keep, { at = now, position = position, speaker = speaker })
-	recentBarks = keep
+
+	local kept = 0
+	if first > 1 then
+		for i = first, count do
+			kept += 1
+			recentBarks[kept] = recentBarks[i]
+		end
+		for i = count, kept + 1, -1 do
+			recentBarks[i] = nil
+		end
+	else
+		kept = count
+	end
+
+	recentBarks[kept + 1] = { at = now, position = position, speaker = speaker }
 end
 
 --[[
@@ -83,16 +104,25 @@ end
 	against you was double jeopardy -- and it is what made Kill unreliable, since a
 	kill always follows barks from the fight that produced it.
 ]]
-local function nearbyBarkCount(now: number, position: Vector3, speaker: Model): number
+-- Compares squared distances so the loop never takes a square root, and stops as
+-- soon as the limit is reached rather than counting the whole list -- the caller
+-- only ever asks whether the count has hit CrowdLimit.
+local function nearbyBarkCount(now: number, position: Vector3, speaker: Model, limit: number): number
 	local count = 0
 	local radius = Config.CrowdRadius
+	local radiusSq = radius * radius
+	local cutoff = now - Config.CrowdWindow
 
-	for _, bark in ipairs(recentBarks) do
-		if bark.speaker ~= speaker
-			and now - bark.at < Config.CrowdWindow
-			and (bark.position - position).Magnitude <= radius
-		then
-			count += 1
+	for i = 1, #recentBarks do
+		local bark = recentBarks[i]
+		if bark.speaker ~= speaker and bark.at > cutoff then
+			local delta = bark.position - position
+			if delta:Dot(delta) <= radiusSq then
+				count += 1
+				if count >= limit then
+					return count
+				end
+			end
 		end
 	end
 
@@ -188,17 +218,27 @@ end
 	already speaking.
 ]]
 function Service.request(character: Model, event: string): boolean
-	if typeof(character) ~= "Instance" or not character:IsDescendantOf(workspace) then
-		return false
-	end
+	--[[
+		Ordered cheapest-reject-first, and the order is load-bearing.
 
+		Everything down to the cooldown check is now plain table lookups and
+		arithmetic: no Roblox API call, no allocation. That matters because most
+		requests in a firefight are REFUSED -- Hurt fires on every damaging hit but
+		speaks once per cooldown -- so the refusal path is the hot one, and it
+		should cost as close to nothing as possible.
+
+		The workspace descendancy test used to run first. It is a C-side ancestor
+		walk, and it was being paid by requests that a one-line table lookup was
+		about to reject anyway.
+	]]
 	local cfg = Config.Events[event]
 	if not cfg then
 		return false
 	end
 
 	-- Placeholders and malformed entries are stripped here, so a partly-filled
-	-- list never spends a turn on a clip that cannot play.
+	-- list never spends a turn on a clip that cannot play. Memoised in Config, so
+	-- this is a table lookup rather than a re-parse of every id.
 	local sounds = Config.soundsFor(event)
 	if #sounds == 0 then
 		return false
@@ -208,19 +248,34 @@ function Service.request(character: Model, event: string): boolean
 	-- LowAmmo followed by Reload cannot repeat a line or talk over itself.
 	local voice = Config.voiceKey(event)
 
+	if typeof(character) ~= "Instance" then
+		return false
+	end
+
+	local existing = channels[character]
+	local now = os.clock()
+
+	-- Cooldown before the descendancy walk. This refusal is the single most
+	-- common outcome of the whole function, and checking it needs nothing but the
+	-- channel this character already has.
+	if existing then
+		local lastFired = existing.lastFired[voice]
+		if lastFired and now - lastFired < cfg.Cooldown then
+			return false
+		end
+	end
+
+	if not character:IsDescendantOf(workspace) then
+		return false
+	end
+
+	local channel = existing or channelFor(character)
+
 	-- A concurrent event sits outside the one-voice-at-a-time rule: it layers
 	-- over whatever is already speaking instead of waiting for or interrupting
 	-- it. Priority is meaningless for these -- they neither block nor are
 	-- blocked -- but Cooldown and Chance still apply.
 	local concurrent = cfg.Concurrent == true
-
-	local channel = channelFor(character)
-	local now = os.clock()
-
-	local lastFired = channel.lastFired[voice]
-	if lastFired and now - lastFired < cfg.Cooldown then
-		return false
-	end
 
 	if not concurrent then
 		if channel.playing then
@@ -247,7 +302,8 @@ function Service.request(character: Model, event: string): boolean
 	-- around them dies down.
 	local speakerRoot = character:FindFirstChild("HumanoidRootPart")
 	if not cfg.IgnoresCrowd and speakerRoot and speakerRoot:IsA("BasePart") then
-		if nearbyBarkCount(now, speakerRoot.Position, character) >= Config.CrowdLimit then
+		local limit = Config.CrowdLimit
+		if nearbyBarkCount(now, speakerRoot.Position, character, limit) >= limit then
 			return false
 		end
 	end

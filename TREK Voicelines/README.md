@@ -71,6 +71,12 @@ Sounds = {
 }
 ```
 
+Resolved clip lists are memoised on first use, because they sit on the per-bark
+hot path and nothing behind them changes while the server runs. If you edit
+`Config.Events` live — from the command bar while tuning — call
+`Config.refresh()` afterwards to drop the caches. Editing the file and
+restarting needs nothing.
+
 A slot you have not filled yet is written `"PLACEHOLDER"`. Placeholders and
 malformed entries are stripped before the picker sees the list, so a half-filled
 event never spends a turn on a clip that cannot play, and one holding nothing but
