@@ -177,18 +177,28 @@ end
 	TREK parks bullets, casings and gibs -- a ledge probe that does not exclude
 	it will happily latch onto a round in flight.
 ]]
-function ParkourShared.newCastParams(character: Model): RaycastParams
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.IgnoreWater = true
-
+local function ignoreFor(character: Model): { Instance }
 	local ignore: { Instance } = { character }
 	local list = workspace:FindFirstChild("IgnoreList")
 	if list then
 		table.insert(ignore, list)
 	end
-	params.FilterDescendantsInstances = ignore
+	return ignore
+end
 
+function ParkourShared.newCastParams(character: Model): RaycastParams
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.IgnoreWater = true
+	params.FilterDescendantsInstances = ignoreFor(character)
+	return params
+end
+
+-- The same exclusions, for the "is there room to stand up there" check.
+function ParkourShared.newOverlapParams(character: Model): OverlapParams
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignoreFor(character)
 	return params
 end
 

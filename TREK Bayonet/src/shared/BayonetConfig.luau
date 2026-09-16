@@ -1,37 +1,27 @@
 --!strict
 -- Every tunable for the bayonet.
 --
--- Animation ids ship empty. Roblox assets are private to the place that owns
--- them, so an id lifted from another game silently does nothing -- upload your
--- own and paste the ids in below.
-
-export type AssetId = number | string
+-- Damage, fire rate and animations are NOT here. They live in the weapon's own
+-- config module, because the bayonet is a fire mode now rather than a separate
+-- system bolted on beside one. This file only holds what belongs to hit
+-- detection.
 
 local Config = {}
 
 --[[
-	The key that stabs.
-
-	F is the obvious melee key and it is NOT available: TREK binds it to sprint
-	in GlobalConfigs, alongside C (crouch), R (reload), Q (zoom), T (patrol),
-	N (cursor), V (fire mode), LeftShift and LeftControl (zoom steps). G, X and
-	B are the free ones.
-]]
-Config.Key = "G"
-
---[[
 	Where the bayonet's stats live inside the weapon module.
 
-	9, not 2, and the number is load-bearing. TREK's switchModes walks fire
-	modes by INCREMENT:
+	2, and the number means the opposite of what it used to. TREK's switchModes
+	walks fire modes by INCREMENT:
 
 		if (currentMode == 1 and not config[currentMode + 1]) then return end
 
-	so a block at [2] would drop the bayonet straight into the V cycle. With
-	nothing at [2] that walk stops dead and the player can never switch into it,
-	while this system can still look the block up directly by index.
+	The old build put the bayonet at [9] precisely so that walk would stop dead
+	and V could never reach it -- it was a key-triggered attack that only
+	borrowed the config block for its numbers. Now the bayonet IS a fire mode,
+	so it has to sit where V lands: immediately after [1].
 ]]
-Config.ConfigIndex = 9
+Config.ConfigIndex = 2
 
 --[[
 	A weapon has a bayonet if its Tool contains something with this name.
@@ -78,109 +68,76 @@ Config.HitPadSide = 1.25
 Config.HitPadVertical = 2.5
 Config.HitPadForward = 1.5
 
--- No separate range setting. The three numbers above ARE the range: the box is
--- built around the blade and reaches exactly as far as they say. A second
--- distance check would only be another number to keep in sync with them.
-
 --[[
-	How long after the keypress the blade keeps being tested, in seconds.
+	How long after the swing the blade keeps being tested, in seconds.
 
 	NOT a delay -- a sweep. The blade is sampled repeatedly across this window as
 	the thrust animation drives it forward, and the first valid overlap wins. It
 	is what makes the hit land when the blade actually arrives rather than at the
-	instant the key went down.
+	instant the mouse went down.
 
 	Should comfortably cover the extend portion of your thrust animation.
 ]]
 Config.HitWindow = 0.35
-
---[[
-	How long to wait before calling an unresolved thrust a MISS, for the purposes
-	of BayonetOutcome only.
-
-	Nothing about hit detection changes: the sweep still runs the full HitWindow,
-	and a contact found after this point still deals its damage normally. This
-	only decides when listeners are TOLD, and it exists because a miss is
-	otherwise announced at the end of the whole window -- which is correct, and
-	far too late to sound like part of the swing.
-
-	A hit needs no such setting. It is reported the instant the blade connects,
-	because that is the moment it becomes knowable.
-
-	The tradeoff, stated plainly: a contact found AFTER this point has already
-	been announced as a miss, and the outcome is only reported once, so it stays
-	reported as a miss. Damage is unaffected. Set it too low and a slow blade
-	sounds like a miss while killing someone.
-
-	Tune it from your own logs rather than by feel. With Debug on, a hit prints
-
-		hit <who> in the <limb> on sample N
-
-	and sample N happened at roughly N * HitSampleInterval seconds. Set this
-	comfortably above the largest N you see in normal play. Setting it at or above
-	HitWindow restores the old behaviour exactly.
-
-	0.09 is three samples. Point-blank stabs resolve on sample 1 -- the hitbox
-	already reaches ahead of you before the blade has moved -- so those are still
-	announced as hits. What this can catch out is a stab at the edge of your reach,
-	where the blade has to travel before it arrives; that is what the LATE HIT log
-	line is for.
-
-	Below one sample interval it can only ever beat the blade -- with one important
-	exception. The sweep's FIRST sample runs synchronously, before the loop's first
-	task.wait, and task.delay cannot fire until the thread yields. So a contact
-	found on sample one is announced as a hit no matter how small this is set.
-
-	That makes even 0.015 usable, with a clear meaning: point-blank stabs, already
-	overlapping before the blade moves, say hit; anything the blade has to TRAVEL
-	to reach resolves on a later sample and says miss. Damage is unaffected either
-	way. The service warns once at startup when this is set below one interval, so
-	that "stabs at reach sound like misses" is not mistaken for a broken hitbox.
-]]
-Config.MissAnnounceAfter = 0.015
 
 -- Seconds between samples inside that window. Small enough that a fast blade
 -- cannot pass through a torso between two tests, which is the tunnelling that
 -- makes Touched unreliable for melee.
 Config.HitSampleInterval = 0.03
 
--- Seconds between thrusts.
-Config.Cooldown = 1.2
-
 --[[
-	The server allows a thrust slightly sooner than the client asks for one.
+	No Cooldown here.
 
-	Both sides measure the same Cooldown from their own clock, so without a
-	little slack, network jitter alone would have the server reject presses the
-	player made in good time. The client is the one that paces the attack; this
-	is only here so honest presses are not thrown away.
+	The swing rate is RoundsPerMinute in the weapon's [2] block, because the gun
+	handler is what paces the attack -- handleFireRate waits 60/RoundsPerMinute
+	after every swing. The server derives its own rate limit from that same
+	number, so there is one figure to change and no second one to keep in sync
+	with it.
+
+	This is the slack on that derived limit. Both sides measure the same interval
+	from their own clock, so without a little give, network jitter alone would
+	have the server reject swings the player made in good time.
 ]]
 Config.ServerCooldownTolerance = 0.9
 
--- Require the player to already be sprinting. Off by default: the bayonet is
--- usable standing still, and sprinting is what changes the pose rather than
--- what unlocks the attack.
-Config.RequireSprint = false
+--[[
+	How long to wait before calling an unresolved swing a miss, in seconds.
 
--- The pose held while sprinting with a bayonet fitted. Plays at Action
--- priority, so it outranks the gun's own SprintHold without this system
--- touching TREK's animation code.
-Config.ChargeAnimation = "PLACEHOLDER"
+	A hit is knowable the instant the blade connects and is announced then. A
+	miss is only PROVABLE once the whole sweep has run -- but waiting the full
+	HitWindow to say so puts the announcement well after the swing it belongs
+	to, so anything still unresolved at this point is called a miss.
 
--- The stab itself.
-Config.ThrustAnimation = 130508149089530
-
--- How long the thrust animation is allowed to run before it is stopped, as a
--- backstop for a clip that never reports Stopped.
-Config.ThrustLength = 1
+	At or above HitWindow this is a no-op: the sweep always finishes first.
+	Below one HitSampleInterval only point-blank contacts can beat it, and the
+	service warns about that at startup rather than letting it look like a
+	broken hitbox.
+]]
+Config.MissAnnounceAfter = 0.2
 
 --[[
-	Print what the server decided on every stab. Off unless you are debugging.
+	Keep sprinting through the swing.
 
-	Turn it on when a thrust is not landing. Every stab then reports itself, and
+	shoot() cancels sprint before it reaches any bullet type:
+
+		if controls.sprinting.Value then plrconfig.SprintEnabled.Value = false end
+
+	That is right for a rifle and wrong for a bayonet charge, so our bullet type
+	sets the flag back immediately afterwards. It runs inside shoot(), after that
+	line, which is why this needs no edit to the gun handler.
+
+	Set false to make the bayonet behave like every other fire mode and plant you
+	when you attack.
+]]
+Config.RestoreSprint = true
+
+--[[
+	Print what the server decided on every swing. Off unless you are debugging.
+
+	Turn it on when a swing is not landing. Every swing then reports itself, and
 	the three outcomes are told apart on purpose:
 
-		REFUSED   the stab never got as far as detection, and why
+		REFUSED   the swing never got as far as detection, and why
 		MISS      it swept, and how many studs outside the box the nearest
 		          person was -- so the padding above becomes arithmetic
 		hit       what was hit, in which limb, on which sample
@@ -190,105 +147,5 @@ Config.ThrustLength = 1
 	zero means the server never saw the animation, which padding cannot fix.
 ]]
 Config.Debug = false
-
---[[
-	Turn whatever went into an animation field into a usable asset url.
-
-	All of these are accepted, because all of them are things you get from
-	copying an id out of Studio or off the website:
-
-		18237274
-		"18237274"
-		"rbxassetid://18237274"
-		"http://www.roblox.com/asset/?id=18237274"
-
-	Blindly prefixing instead would turn an already-prefixed entry into
-	"rbxassetid://rbxassetid://18237274", which fails to load and reports only
-	"asset was not found".
-]]
-function Config.toAssetUrl(id: AssetId): string
-	if type(id) == "number" then
-		return "rbxassetid://" .. id
-	end
-
-	local text = tostring(id):match("^%s*(.-)%s*$") or ""
-
-	if text:match("^%d+$") then
-		return "rbxassetid://" .. text
-	end
-
-	-- Peel any number of rbxassetid:// prefixes. The loop rather than a single
-	-- strip is what recovers the doubled form.
-	local stripped = text
-	while true do
-		local rest = stripped:match("^rbxassetid://(.*)$")
-		if not rest then
-			break
-		end
-		stripped = rest
-	end
-	if stripped:match("^%d+$") then
-		return "rbxassetid://" .. stripped
-	end
-
-	local fromQuery = text:match("[?&]id=(%d+)")
-	if fromQuery then
-		return "rbxassetid://" .. fromQuery
-	end
-
-	local fromLibrary = text:match("roblox%.com/[%w]+/(%d+)")
-	if fromLibrary then
-		return "rbxassetid://" .. fromLibrary
-	end
-
-	-- Anything else is passed through untouched. Matching a trailing digit run
-	-- here would mangle a path like "sounds/x.mp3" into asset id 3.
-	return text
-end
-
--- A slot deliberately left empty and waiting for a real id.
-Config.Placeholder = "PLACEHOLDER"
-
-function Config.isPlaceholder(id: AssetId): boolean
-	return type(id) == "string" and id:upper():match("^%s*PLACEHOLDER") ~= nil
-end
-
--- The url for an animation field, or nil if it is unset or unusable. Callers
--- treat nil as "this animation is not configured" and carry on without it -- a
--- missing pose must not stop the bayonet from doing damage.
-function Config.animationUrl(id: AssetId): string?
-	if Config.isPlaceholder(id) then
-		return nil
-	end
-
-	local url = Config.toAssetUrl(id)
-	if not url:match("^rbxassetid://%d+$") then
-		return nil
-	end
-
-	return url
-end
-
---[[
-	The configured key, resolved once.
-
-	Walks GetEnumItems rather than indexing Enum.KeyCode directly: an
-	unrecognised name throws ("The enum item 'X' does not exist for enum
-	'KeyCode'"), so the obvious `Enum.KeyCode[name] or default` guard protects
-	nothing and the error lands at require time, taking the controller with it.
-]]
-function Config.resolveKey(): Enum.KeyCode
-	for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
-		if item.Name == Config.Key then
-			return item
-		end
-	end
-
-	warn(string.format(
-		"[TREKBayonet] Config.Key %q is not a real KeyCode -- falling back to G",
-		tostring(Config.Key)
-	))
-	return Enum.KeyCode.G
-end
 
 return Config
