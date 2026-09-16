@@ -345,6 +345,40 @@ every other fire mode.
 | Hitmarker | `BayonetService` | `EffectsModule.Hitmark.DrawEffect` |
 | Kill credit | `TREKDamageModule` | `lbmodule.tagPlr` |
 | Animations | weapon module | `2Recoil` / `2Idle` / `2SprintHold`, by mode prefix |
+| Pose layering | `WeaponPosePriority` | raises weapon poses above the global `Run` |
+
+---
+
+## Why sprinting needs `WeaponPosePriority`
+
+Sprinting layers two animations: TREK’s global body/legs `Run`, and the weapon’s own
+upper-body `SprintHold`. Measured on a live character:
+
+```
+WalkAnim    Core       1.00
+SprintHold  Movement   1.00
+Run         Movement   1.00
+```
+
+Same priority, same weight. Roblox blends equal-priority tracks by weight, so the arms
+and torso average halfway between the two poses and the weapon reads as dropped, or as
+having no animation at all. `Idle` is authored at `Action`, which is why standing still
+never showed it and only sprinting did.
+
+The two fire modes behaved differently for an accidental reason: `2SprintHold` points at
+the same asset as `2Idle`, so it inherited `Action` and won, while `SprintHold` points at
+the Patrol asset, authored at `Movement`, and tied. Bayonet mode was never correct by
+design — it was correct by luck.
+
+`AnimationTrack.Priority` is writable at runtime, so `WeaponPosePriority` raises any
+weapon pose below `Action` up to `Action` as it starts. No republished asset, no TREK
+edit. `Run` keeps the legs, because `SprintHold` does not keyframe them.
+
+The symptom to recognise: **the pose is correct if you equip while already sprinting, or
+if you press V mid-sprint, but not if you start sprinting while equipped.** Those two
+paths play the weapon pose *after* `Run`, and for equal priorities the most recent track
+wins. Re-playing the track would also “fix” it, but only until something plays `Run`
+again — which is why the priority is raised instead.
 
 ---
 
@@ -436,6 +470,7 @@ all of them:
 | the weapon's `[2]` block | pasted into the config module in `Installer > GunConfigs` |
 | `2Recoil` / `2Idle` / `2SprintHold` | Animation instances in that module's `Animations` folder — `tools/WeaponAnimations.luau` writes them |
 | `2Barrel` | a part in the Tool, no ParticleEmitters — `CheckInstall` with `FIX = true` creates it |
+| `WeaponPosePriority` | Rojo places it, but a hand install needs it in `StarterPlayerScripts` — without it every weapon looks dropped while sprinting |
 | `2Fire` | optional sound in the config module, silences the gunshot on a swing |
 
 ### Repo layout
@@ -446,6 +481,7 @@ all of them:
 | `src/BayonetService.server.luau` | the server half → `ServerScriptService.TREKBayonet` |
 | `src/Bayonet.luau` | the bullet type → the `BulletTypes` folder |
 | `src/HolsterService.server.luau` | slung weapons, unrelated to the bayonet → `ServerScriptService.TREKHolster` |
+| `src/WeaponPosePriority.client.luau` | raises weapon poses above TREK’s `Run` → `StarterPlayerScripts.TREKBayonet` |
 | `src/package/` | read-me and paste-in snippet, staging only |
 | `vendor/` | TREK Custom Bullets, verbatim, so Rojo can place it |
 | `weapon/` | working copies of merged weapon modules (gitignored) |

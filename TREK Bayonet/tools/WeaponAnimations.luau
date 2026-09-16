@@ -24,10 +24,20 @@
 	AFTER RUNNING IT
 	--------------------------------------------------------------------------
 
-	Save the place and RESTART the playtest. Two caches make a mid-session
-	change invisible: SetUpGuns caches every weapon module at server start, and
-	the Gun handler's loadAnimations is guarded by `if animsLoaded then return
-	end`, so it reads the Animations folder once per tool script and never again.
+	Save the place and RESTART the playtest. SetUpGuns caches every weapon
+	module at server start, so an edit to Workspace."Installer " never reaches a
+	session that is already running.
+
+	TO ITERATE WITHOUT RESTARTING, edit the RUNTIME copy instead:
+
+		ReplicatedStorage.TREK_SERVICES.GunConfigs.<weapon>.Animations
+
+	then unequip and re-equip. loadAnimations re-reads that folder on EVERY
+	equip: its `if animsLoaded then return end` guard is dead, because nothing in
+	the handler ever assigns animsLoaded, and onUnEquip calls clearAnimations.
+
+	Copy whatever works back into ANIMATIONS above -- the runtime copy is thrown
+	away when the session ends.
 ]]
 
 local ANIMATIONS = {
@@ -54,6 +64,17 @@ local ANIMATIONS = {
 
 		Had it carried leg poses they would freeze mid-stride, and the fix would
 		be tools/StripLegTracks.luau followed by a republish.
+
+		Sharing the asset ALSO shares its AnimationPriority, and that turned out to
+		matter more than the leg tracks did. 2Idle is Action; TREK's global Run is
+		Movement, as is the Patrol asset that vanilla SprintHold points at. Equal
+		priorities blend by weight, so rifle mode averaged its pose with Run and
+		looked dropped while sprinting, and bayonet mode only escaped that by
+		inheriting Action from the idle.
+
+		src/WeaponPosePriority.client.luau now raises weapon poses to Action at
+		runtime, so a replacement asset published at Movement will still behave. Do
+		not rely on that to be careless -- publish poses at Action anyway.
 	]]
 	["2SprintHold"] = 84114589119244,
 }

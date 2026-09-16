@@ -38,6 +38,21 @@
       },
       "$ignoreUnknownInstances": true
     },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "TREKBayonet": {
+          "$className": "Folder",
+          "WeaponPosePriority": {
+            "$path": "src/WeaponPosePriority.client.luau"
+          },
+          "$ignoreUnknownInstances": false
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
+    },
     "Workspace": {
       "$className": "Workspace",
       "Installer ": {

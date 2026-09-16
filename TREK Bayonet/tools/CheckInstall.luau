@@ -199,10 +199,25 @@ else
 	fail("BayonetService", "the server half is not installed; nothing will take damage")
 end
 
-local stale = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
-stale = stale and stale:FindFirstChild("TREKBayonet")
-if stale then
-	fail("stale StarterPlayerScripts.TREKBayonet", "left over from the old G-key build. "
+--[[
+	That folder used to be pure legacy. It is not any more: WeaponPosePriority
+	lives there, and without it every weapon sprint pose blends 50/50 with
+	TREK's global Run -- both sit at Movement priority -- and the weapon reads
+	as dropped while sprinting. So check the CONTENTS, not the folder.
+]]
+local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+local clientFolder = starter and starter:FindFirstChild("TREKBayonet")
+
+if clientFolder and clientFolder:FindFirstChild("WeaponPosePriority") then
+	pass("StarterPlayerScripts.TREKBayonet.WeaponPosePriority")
+else
+	fail("WeaponPosePriority", "weapon sprint poses are authored at Movement, the same "
+		.. "priority as TREK's Run, so the two average together and the weapon looks "
+		.. "dropped while sprinting")
+end
+
+if clientFolder and clientFolder:FindFirstChild("BayonetController") then
+	fail("stale BayonetController", "left over from the old G-key build. "
 		.. "It errors every spawn. Delete it -- the client half is a bullet type now")
 end
 
