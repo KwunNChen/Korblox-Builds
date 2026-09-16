@@ -535,17 +535,19 @@ end
 local function onStab(attacker: Player)
 	local now = os.clock()
 
-	-- Rate limit first: it is the cheapest check and the only one an attacker
-	-- controls the frequency of.
-	local last = lastStab[attacker]
-	if last and now - last < Config.Cooldown * Config.ServerCooldownTolerance then
-		debugPrint(string.format(
-			"%s: REFUSED -- %.2fs since the last thrust, needs %.2fs",
-			attacker.Name, now - last, Config.Cooldown * Config.ServerCooldownTolerance
-		))
-		return
-	end
+	--[[
+		The rate limit is NOT first any more, and that is deliberate.
 
+		It is derived from the weapon's own RoundsPerMinute -- the same number
+		the gun handler paces swings with -- so there is one figure to tune and
+		no second one here to drift from it. That number lives in the [2] block,
+		which means the tool and its config have to be resolved before the limit
+		can be known.
+
+		Everything between here and there is a FindFirstChild or a table read.
+		The expensive part of a swing is the sweep, and that still happens only
+		after the limit has been applied.
+	]]
 	local character = attacker.Character
 	if not character or not character:IsDescendantOf(workspace) then
 		debugPrint(attacker.Name .. ": REFUSED -- no character in the workspace")
@@ -606,6 +608,38 @@ local function onStab(attacker: Player)
 		debugPrint(string.format(
 			"%s: REFUSED -- %s has no [%d] block in its weapon module",
 			attacker.Name, tool.Name, Config.ConfigIndex
+		))
+		return
+	end
+
+	--[[
+		Now the rate limit, from the weapon's own cadence.
+
+		handleFireRate in the gun handler waits 60/RoundsPerMinute after every
+		swing, so that is the interval the client is pacing to and the one the
+		server measures against. ServerCooldownTolerance is the slack: both
+		sides time it from their own clock, and without a little give, jitter
+		alone would reject swings the player made in good time.
+	]]
+	local rpm = tonumber(cfg.RoundsPerMinute) or 0
+	if rpm <= 0 then
+		-- A melee mode with no usable RoundsPerMinute would otherwise divide by
+		-- zero or allow a swing every frame. Refuse rather than guess a number
+		-- that the client is not pacing to.
+		debugPrint(string.format(
+			"%s: REFUSED -- %s [%d] has no usable RoundsPerMinute (%s)",
+			attacker.Name, tool.Name, Config.ConfigIndex, tostring(cfg.RoundsPerMinute)
+		))
+		return
+	end
+
+	local interval = (60 / rpm) * Config.ServerCooldownTolerance
+	local last = lastStab[attacker]
+
+	if last and now - last < interval then
+		debugPrint(string.format(
+			"%s: REFUSED -- %.2fs since the last swing, needs %.2fs",
+			attacker.Name, now - last, interval
 		))
 		return
 	end
@@ -760,9 +794,11 @@ end
 -- the log then this script did not finish, and that is the first thing worth
 -- knowing when the bayonet does nothing.
 print(string.format(
-	"[TREKBayonet] service ready -- blade hitbox padded %.2f side / %.2f up / %.2f forward, "
-		.. "swept over %.2fs, %.1fs cooldown, weapon config [%d]%s",
+	"[TREKBayonet] service ready -- fire mode [%d], blade hitbox padded "
+		.. "%.2f side / %.2f up / %.2f forward, swept over %.2fs, "
+		.. "cadence from the weapon's RoundsPerMinute%s",
+	Config.ConfigIndex,
 	Config.HitPadSide, Config.HitPadVertical, Config.HitPadForward,
-	Config.HitWindow, Config.Cooldown, Config.ConfigIndex,
-	Config.Debug and " -- DEBUG ON, every stab will report itself" or ""
+	Config.HitWindow,
+	Config.Debug and " -- DEBUG ON, every swing will report itself" or ""
 ))

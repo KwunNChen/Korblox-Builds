@@ -17,25 +17,16 @@
     "ServerScriptService": {
       "$className": "Folder",
       "TREKBayonet": {
-        "$path": "src/server"
-      }
-    },
-    "StarterPlayerScripts": {
-      "$className": "Folder",
-      "TREKBayonet": {
-        "$path": "src/client"
-      }
-    },
-    "ServerStorage": {
-      "$className": "Folder",
-      "TREKBayonetPoses": {
         "$className": "Folder",
-        "BayonetCharge": {
-          "$path": "assets/BayonetCharge.rbxm"
-        },
-        "BayonetThrust": {
-          "$path": "assets/BayonetThrust.rbxm"
+        "BayonetService": {
+          "$path": "src/BayonetService.server.luau"
         }
+      }
+    },
+    "BulletTypes": {
+      "$className": "Folder",
+      "Bayonet": {
+        "$path": "src/Bayonet.luau"
       }
     }
   }

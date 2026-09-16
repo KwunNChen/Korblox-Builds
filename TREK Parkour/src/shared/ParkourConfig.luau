@@ -76,9 +76,40 @@ ParkourConfig.ProbeDistance = 3.0
 ]]
 ParkourConfig.MaxFaceTilt = 0.3
 
+-- And the top has to be something you could stand on. Below this it is a slope,
+-- and landing a pull-up on a slope slides you straight back off it.
+ParkourConfig.MinTopFlatness = 0.7
+
 -- How far back from the lip to start the downward cast that finds the top
 -- surface. Too small and a rounded or bevelled lip is missed entirely.
 ParkourConfig.TopProbeInset = 0.5
+
+--[[
+	Where the forward probe is fired from.
+
+	The vault probe is measured up from the SOLES, because a crate is the same
+	height whether you are crouched or standing. 1.6 is shin-to-knee on R6 --
+	below the top of anything worth vaulting, above anything the Humanoid would
+	have stepped over on its own.
+
+	The mantle probe is measured from the ROOT, because a mantle is a reach: it
+	is defined by where your hands are, and when you press jump in mid-air the
+	root could be at any height. -0.3 is roughly chest.
+]]
+ParkourConfig.VaultProbeHeight = 1.6
+ParkourConfig.MantleProbeHeight = -0.3
+
+--[[
+	How square-on you have to be hitting the surface, as a dot product against
+	your direction of travel. At 0 you could vault a wall you were running
+	parallel to; at 1 you would need to be perfectly perpendicular. 0.5 is about
+	60 degrees off, which is forgiving without being silly.
+]]
+ParkourConfig.MinApproachDot = 0.5
+
+-- How far past the lip you end up standing, measured horizontally from the wall
+-- face. Under about a stud you finish balanced on the very edge.
+ParkourConfig.LandInset = 1.2
 
 --[[
 	The space the player has to fit into once they are up there, as a box

@@ -1,212 +1,191 @@
 --[[
 	TREK BAYONET
 
-	A melee thrust for TREK rifles. Press G with a bayonet-equipped weapon and
-	you stab whatever is in front of you -- at any ammo count, in any fire mode,
-	mid-reload. While sprinting, the character holds the rifle in a charge pose.
+	A melee FIRE MODE for TREK rifles. Press V to switch from the rifle to the
+	blade, click to thrust -- at any ammo count, mid-reload, while sprinting.
 
-	No TREK script is edited. Delete this folder and your install is exactly
-	what it was.
+	REQUIRES TREK CUSTOM BULLETS as your gun handler. Vanilla TREK has no
+	BulletType field and will ignore this entirely.
+
+	No TREK script is edited. The bayonet plugs into Custom Bullets' own
+	extension point, the BulletTypes folder.
 
 	==========================================================================
 	INSTALL
 	==========================================================================
 
-	1. THIS FOLDER IS STAGING, NOT THE INSTALLED SHAPE.
+	0. FIRST, RENAME EVERY BulletType IN EVERY WEAPON CONFIG.
 
-	   The four folders named after services are signposts saying where their
-	   contents belong. Move the INNER folder out of each one:
+	   Custom Bullets resolves BulletType by module NAME, not by number:
+
+	       BulletType = 1;          ->  BulletType = 'Hitscan';
+	       BulletType = 2;          ->  BulletType = 'Projectile';
+
+	   This is not optional. The handler does
+
+	       local bulletType = bulletTypes[config[i].BulletType]
+	       if not(bulletType) then return end
+
+	   and that `return` is at SCRIPT scope, above the line that connects the
+	   mouse. One weapon with a leftover number exits the handler and EVERY GUN
+	   IN THE PLACE silently stops responding. The loop walks pairs(), so which
+	   weapon triggers it changes between runs.
+
+	1. THIS FOLDER IS STAGING, NOT THE INSTALLED SHAPE.
 
 	       ReplicatedStorage/TREKBayonet    -> game.ReplicatedStorage
 	       ServerScriptService/TREKBayonet  -> game.ServerScriptService
-	       StarterPlayerScripts/TREKBayonet -> game.StarterPlayer.StarterPlayerScripts
-	       ServerStorage/TREKBayonetPoses   -> game.ServerStorage
+	       BulletTypes/Bayonet              -> see below
 
 	   Then delete this staging folder.
 
-	   TREKBayonetPoses is the only optional one -- it holds the two R6
-	   animation sequences and is needed only if you want to edit and publish
-	   them. Nothing breaks without it, but deleting the staging folder with it
-	   still inside means re-importing the model to get them back.
+	   BAYONET IS THE ONE THAT NEEDS JUDGEMENT. Where BulletTypes lives depends
+	   on how TREK is installed in your place:
 
-	   Or select the staging folder and run this in the COMMAND BAR, which does
-	   the same thing and replaces any previous install:
+	     * TREK built at runtime by Workspace.Installer -> inside the Installer's
+	       tree, in the same BulletTypes folder Custom Bullets put Hitscan in.
 
-	       local staging = game:GetService("Selection"):Get()[1]
-	       assert(staging and staging.Name == "TREKBayonet", "Select the staging folder first")
-	       for _, move in ipairs({
-	           { "ReplicatedStorage",    "TREKBayonet",      game:GetService("ReplicatedStorage") },
-	           { "ServerScriptService",  "TREKBayonet",      game:GetService("ServerScriptService") },
-	           { "StarterPlayerScripts", "TREKBayonet",      game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts") },
-	           { "ServerStorage",        "TREKBayonetPoses", game:GetService("ServerStorage") },
-	       }) do
-	           local signpost, innerName, dest = staging:FindFirstChild(move[1]), move[2], move[3]
-	           local inner = signpost and signpost:FindFirstChild(innerName)
-	           assert(inner, "staging folder has no " .. move[1] .. "/" .. innerName)
-	           local old = dest:FindFirstChild(innerName)
-	           if old then old:Destroy() end
-	           inner.Parent = dest
-	       end
-	       staging:Destroy()
-	       print("TREKBayonet installed")
+	     * ReplicatedStorage.TREK_SERVICES exists in edit mode ->
+	       TREK_SERVICES > TREK_Modules > BulletTypes.
 
-	   Left sitting in ServerStorage the package installs nothing and logs
-	   nothing, because Scripts do not run there -- so there is no error to go
-	   looking for.
+	   The rule that covers both: PUT IT NEXT TO Hitscan, Projectile AND Melee.
+	   If it is not beside them it will not be found, and BulletType = 'Bayonet'
+	   takes the whole handler down as described in step 0.
 
-	2. ADD A PART NAMED "Bayonet" TO YOUR WEAPON'S TOOL.
+	2. PASTE THE BayonetWeaponMode BLOCK into the weapon's config module, inside
+	   the same `local configs = { ... }` table that holds [1]. Read the comments
+	   at the top of it -- the index 2, the infinite MagCapacity and
+	   CanReload = false are each load-bearing for a different reason.
 
-	   The knife already modelled on the KR-61 is the obvious one, and on the
-	   stock KR-61 this is already done. A weapon with no such part cannot stab,
-	   which is how the system knows which rifles have one -- so fitting a
-	   bayonet to another rifle is a modelling job, not a config edit.
+	3. ADD A PART NAMED "Bayonet" INSIDE THE WEAPON'S TOOL.
 
-	   Only the NAME is checked and the search is recursive: a loose Part or a
-	   Model of several parts, nested or not, all work. Its position and size
-	   ARE the hitbox.
+	   Already true on the stock KR-61: Tool > Weapon > Bayonet. Only the NAME is
+	   checked and the search is recursive. Its position and size ARE the hitbox.
 
 	   A new one built as a loose Part needs three properties, or it misbehaves
-	   visibly:
+	   visibly: welded to the gun (TREK only Motor6Ds AnimPart, so an unwelded
+	   part drops to the floor on equip), CanCollide = false, Massless = true.
 
-	       welded to the gun    TREK only Motor6Ds AnimPart; an unwelded part
-	                            drops to the floor on equip
-	       CanCollide = false   or the blade snags on walls and shoves you
-	       Massless = true      or it drags on the character's physics
+	4. ADD A PART NAMED "2Barrel" TO THE TOOL, at the blade, WITH NO
+	   PARTICLE EMITTERS.
 
-	3. PASTE THE BayonetWeaponMode BLOCK INTO THAT WEAPON'S CONFIG MODULE,
-	   inside the same `local configs = { ... }` table that holds [1]. Read the
-	   comments at the top of it: the index 9 and the missing MagCapacity are
-	   both deliberate and both load-bearing.
+	   Without it currentBarrel falls back to the rifle muzzle, and every swing
+	   fires a muzzle flash and a gunshot on everyone else's screen. Adding a
+	   "2Fire" sound to the weapon module replaces the gunshot with a stab.
 
-	4. RESTART THE PLAYTEST. SetUpGuns caches every weapon module at server
-	   start, so config edits need a fresh run.
+	5. NAME THE THRUST ANIMATION "2Recoil" in the weapon module's Animations
+	   folder. determineAnim prefixes the mode number and falls back to the
+	   unprefixed name, so 2Recoil plays on a swing while Recoil still plays when
+	   you fire the rifle. "2Idle" and "2SprintHold" do the same for the held and
+	   charging poses.
 
-	5. OPTIONAL: put your own animation ids into BayonetConfig. Until you do,
-	   the bayonet still damages -- it just does it without a pose.
+	   An animation with no AnimPart track parks the whole weapon at the torso
+	   origin, because TREK's toolAnim joint is built with identity C0/C1 and the
+	   pose is the only thing that places the gun. Author against a rig with the
+	   weapon attached.
 
-	CHECK IT WORKED. Two lines on a playtest:
+	6. RESTART THE PLAYTEST. TAmmo is built once, lazily, so a tool that already
+	   has one never gains a "2" entry -- and SetUpGuns caches weapon modules at
+	   server start anyway.
 
-	    [TREKBayonet] service ready -- blade hitbox padded ...
-	    [TREKBayonet] controller ready -- press G to stab
+	CHECK IT WORKED. One line on a playtest:
 
-	Only the first means the StarterPlayerScripts half is missing. Neither
-	means nothing was installed. It waits on TREK_INSTALLED itself, so load
-	order does not matter.
+	    [TREKBayonet] service ready -- fire mode [2], blade hitbox padded ...
+
+	There is no second line; the client half is a bullet type now, not a script.
 
 	==========================================================================
 	TUNING -- ReplicatedStorage > TREKBayonet > BayonetConfig
 	==========================================================================
 
-	    Key               "G"    F is NOT free: TREK binds it to sprint
-	    HitPadSide        1.25   how far off-centre your aim can be
-	    HitPadVertical    2.5    how much height difference is forgiven
-	    HitPadForward     1.5    reach past the tip
-	    HitWindow         0.35   how long the blade keeps being tested
-	    Cooldown          1.2    seconds between thrusts
-	    RequireSprint     false  true = only stab while sprinting
-	    Debug             false  true = every stab reports itself
+	    ConfigIndex        2      which mode block the bayonet is
+	    HitPadSide         1.25   how far off-centre your aim can be
+	    HitPadVertical     2.5    how much height difference is forgiven
+	    HitPadForward      1.5    reach past the tip
+	    HitWindow          0.35   how long the blade keeps being tested
+	    RestoreSprint      true   keep sprinting through the swing
+	    Debug              false  true = every swing reports itself
 
-	DAMAGE IS NOT HERE. It lives in the [9] block of the weapon module.
-
-	Keys taken by TREK: F, C, R, Q, T, N, V, LeftShift, LeftControl. G, X and B
-	are free.
+	DAMAGE, FIRE RATE AND ANIMATIONS ARE NOT HERE. They live in the weapon's [2]
+	block and its Animations folder, because the bayonet is a fire mode rather
+	than a system bolted on beside one. There is no Cooldown either: the server
+	derives its rate limit from the same RoundsPerMinute the handler paces swings
+	with, so there is one number to change.
 
 	==========================================================================
-	WHEN A STAB DOES NOT LAND
+	WHEN A SWING DOES NOT LAND
 	==========================================================================
 
-	Set Debug = true and press G. Every stab then prints one line naming the
-	cause, and the three outcomes are told apart on purpose:
+	Set Debug = true and swing. Every swing prints one line naming the cause.
 
-	    REFUSED   never got as far as detection -- cooldown, no tool, no
-	              Bayonet part, no [9] block. The line says which.
-	    MISS      it swept and came up short, and reports how many studs
-	              outside the box the nearest person was. Add that number to
-	              the padding it was short on.
+	    REFUSED   never got as far as detection -- rate limit, no tool, no
+	              Bayonet part, no [2] block. The line says which.
+	    MISS      it swept and came up short, and reports how many studs outside
+	              the box the nearest person was. Add that to the padding.
 	    hit       what was hit, in which limb, on which sample.
 
 	A miss also reports how far the blade travelled during the sweep. A stud or
-	more means the server watched a real thrust and the box was short. Near
-	zero means the server never saw the animation, which padding cannot fix.
+	more means the server watched a real thrust and the box was short. Near zero
+	means the server never saw the animation, which padding cannot fix.
+
+	IF NO GUN IN THE PLACE RESPONDS AT ALL, it is step 0 or the placement of the
+	Bayonet module -- not the bayonet itself.
 
 	==========================================================================
 	WHY IT WORKS AT 0 AMMO
 	==========================================================================
 
-	Not because the magazine is large. Because there is no magazine.
+	The mode has a magazine that cannot be emptied.
 
-	Both of TREK's ammo-store builders skip any mode block with no MagCapacity,
-	so the [9] block creates no ammo counter at all. There is nothing to
-	deplete and no check to fail. The stab also never enters the gun handler's
-	shoot(), which is what gates on ammo in the first place -- and, usefully,
-	is also what cancels your sprint when you attack. That is why the charge
-	survives the thrust with no workaround.
+	A fire mode goes through shoot(), which decrements ammo unconditionally, so
+	a block with no MagCapacity has no LocalTAmmo entry and errors on every
+	swing. MagCapacity = math.huge instead: inf - 1 is still inf, the magazine
+	never empties, and you are never diverted into a reload. useSharedClip is
+	false so swinging cannot drain the rifle's clip.
+
+	(An earlier build of this package did the opposite -- it OMITTED MagCapacity
+	to stay out of the ammo system entirely. That worked because the bayonet had
+	its own key and never entered shoot(). As a fire mode it must.)
 
 	==========================================================================
 	THE CLIENT DECIDES NOTHING
 	==========================================================================
 
-	The stab request carries nothing at all, and needs nothing.
+	The swing sends one empty message. The hitbox IS the bayonet part, welded to
+	the character, so the server knows where it is and sweeps it as the thrust
+	drives it forward. Target selection, team checks and damage all stay
+	server-side, and there is no position for a client to misreport.
 
-	The hitbox IS the bayonet part. It is welded to the character, so the
-	server knows where it is and sweeps it as the thrust animation drives it
-	forward, asking what it overlapped. Target selection, team checks and
-	damage all stay server-side, and there is no position for a client to
-	misreport.
+	This is why it does not use the Melee bullet type that ships with Custom
+	Bullets: that one detects on the client and reports through
+	TREK_Remotes.Damage, which takes its origin from the client and does not
+	check it, because ServerRays is false. Fine for a rifle; not for a melee
+	attack whose whole balance is its reach.
 
-	This is why it does not reuse TREK_Remotes.Damage: ServerRays is false in
-	GlobalConfigs, so TREK's own distance check never runs and handleDamage
-	takes its origin position straight from the client. Fine for a rifle you
-	can see down; not fine for a melee attack whose whole balance is its reach.
-
-	Kill credit still goes through TREK: damage is applied with
-	TREKDamageModule.DamagePlayer, which tags the victim with the same
-	WeaponTag the kill feed reads.
+	Kill credit still goes through TREK: TREKDamageModule.DamagePlayer tags the
+	victim with the same WeaponTag the kill feed reads.
 
 	NPCs are valid targets, deliberately -- dummies and clones are most of what
 	anyone tests against.
+
+	One thing the server CANNOT check is which fire mode you are in; TREK keeps
+	no server-side mode state. A modified client could swing without switching to
+	mode 2. Rate limit, team checks, the blade and the geometry all still apply.
 
 	==========================================================================
 	LIMITS
 	==========================================================================
 
 	THealth props and TVehicle are not valid targets: stabbing a tank does
-	nothing.
-
-	==========================================================================
-	TELLING OTHER SYSTEMS WHAT HAPPENED
-	==========================================================================
-
-	Two things are published into ReplicatedStorage.TREKBayonet at runtime:
-
-	    BayonetStab     RemoteEvent    the client REQUESTS a thrust
-	    BayonetOutcome  BindableEvent  (attacker, contact) once one is swept
-
-	Listen to BayonetOutcome, not BayonetStab. The remote is a request: it
-	arrives before the rate limit, the equipment checks and the sweep have run,
-	so a listener on it cannot tell a hit from a miss -- or either from a thrust
-	refused outright, or one a client simply invented.
-
-	`contact` is true when the sweep found a humanoid, reported before setDamage
-	so a hit that armour reduces to zero still counts. Exactly one outcome is
-	reported per thrust.
-
-	TIMING. A hit is reported the instant the blade connects. A miss is only
-	provable once the whole HitWindow has run, which is far too late to sound
-	like part of the swing -- so an unresolved thrust is announced as a miss at
-	Config.MissAnnounceAfter. Hit detection is untouched: the sweep still runs
-	the full window and late contact still deals its damage.
-
-	TREK Voicelines uses this for its BayonetHit and BayonetMiss barks. A bayonet
-	KILL also fires the existing Kill bark, through TREK's own WeaponTag, with no
-	changes needed.
+	nothing. There is no bayonet-specific voice bark, though a bayonet KILL fires
+	the existing Kill bark from TREK Voicelines with no changes.
 
 	==========================================================================
 	MADE BY
 	==========================================================================
 
-	PlagueByte (pb6008 on Discord). TREK itself is not mine and is not included
-	here -- this hooks into whatever TREK install you already have.
+	PlagueByte (pb6008 on Discord). TREK and TREK Custom Bullets are not mine and
+	are not included here -- this hooks into whatever install you already have.
 ]]
 
 return nil

@@ -1,6 +1,8 @@
 # Weapon configs
 
-Working copies of TREK weapon modules with the bayonet `[9]` block merged in.
+Working copies of TREK weapon modules with the bayonet `[2]` fire mode merged in,
+and their `BulletType` fields converted from numbers to names for TREK Custom
+Bullets.
 
 **Gitignored on purpose.** These are TREK's files with TREK's documentation in
 them; they sit here so they are easy to find next to the package, not so they can
