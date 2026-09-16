@@ -23,6 +23,15 @@
         }
       }
     },
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+      "TREKBayonet": {
+        "$className": "Folder",
+        "WeaponPosePriority": {
+          "$path": "src/WeaponPosePriority.client.luau"
+        }
+      }
+    },
     "BulletTypes": {
       "$className": "Folder",
       "Bayonet": {

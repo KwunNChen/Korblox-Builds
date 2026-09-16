@@ -121,10 +121,12 @@ Its README has a command-bar script that does all four moves for you.
 | `ReplicatedStorage/` | `TREKParkour` | ReplicatedStorage |
 | `ServerScriptService/` | `TREKParkour` | ServerScriptService |
 | `StarterPlayerScripts/` | `TREKParkour` | SPS |
+| `Tools/` | `ParkourRig` | *optional* — leave in ServerStorage, it is the animator's helper |
 
-The only TREK package with no `Common` folder. It never writes `Humanoid.WalkSpeed`
-— it holds a climbing player with `PlatformStand` instead — so it has nothing to
-share with Ski or Variable Snowstorm and nothing to fight them over.
+The only TREK package with no `Common` folder. It holds a climbing player with
+`PlatformStand` rather than a WalkSpeed modifier, and its one WalkSpeed write —
+the brief boost for landing a vault — multiplies whatever value is already there
+and restores it, so a Ski or Variable Snowstorm modifier still gets its say.
 
 Install TREK Bayonet alongside it if you can: its `HolsterService` slings the
 weapon on the player's back during a mantle instead of it vanishing. Nothing

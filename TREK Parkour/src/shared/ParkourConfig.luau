@@ -26,10 +26,10 @@ ParkourConfig.EnableMantle = true
 -- Prints every refusal with its reason, and every completed move with its
 -- measured distance. Leave it on while you are tuning the heights below; the
 -- refusal reasons are the whole diagnostic.
-ParkourConfig.DebugLog = false
+ParkourConfig.DebugLog = true
 
 -- ============================================================
--- THE RIG
+-- THE RIGs
 -- ============================================================
 
 --[[
@@ -64,6 +64,28 @@ ParkourConfig.RootToSoles = 3.0
 ParkourConfig.StepHeight = 1.0
 ParkourConfig.VaultMaxHeight = 3.5
 ParkourConfig.MantleMaxHeight = 7.0
+
+--[[
+	THE MANTLE IS NOT MEASURED THE SAME WAY, and this is the part that is easy
+	to get wrong -- I got it wrong first time round.
+
+	Everything above is measured from the soles, which is right for a vault: you
+	are standing on the ground, and a crate is a fixed height in front of you.
+
+	A mantle is a REACH. You are in mid-air when you ask for it, so your feet
+	are wherever the jump has taken them -- measure from the soles near the top
+	of a jump and a five-stud wall reads as a one-stud step. What actually
+	matters is where the lip is relative to your HANDS, so these are measured
+	from the root.
+
+	  negative   the lip is below your chest -- you are hauling down onto it
+	  positive   the lip is above your chest -- you are reaching up for it
+
+	MantleMaxHeight above still applies as an absolute ceiling on how tall a
+	thing may be before it is simply unclimbable.
+]]
+ParkourConfig.MantleGrabLow = -1.5
+ParkourConfig.MantleGrabHigh = 2.5
 
 -- How far in front of the root we look for a face to grab. Much beyond 3 and
 -- you start catching walls you were only running past.
@@ -110,6 +132,12 @@ ParkourConfig.MinApproachDot = 0.5
 -- How far past the lip you end up standing, measured horizontally from the wall
 -- face. Under about a stud you finish balanced on the very edge.
 ParkourConfig.LandInset = 1.2
+
+-- How far back off the wall face the root sits at the hang, mid-mantle. Without
+-- it the body is inside the wall for the first half of the climb. This is a
+-- config key rather than a constant because ParkourRig draws a marker at this
+-- exact point for the animator, and a number typed in two places drifts.
+ParkourConfig.GrabPullback = 0.5
 
 --[[
 	The space the player has to fit into once they are up there, as a box
@@ -178,6 +206,33 @@ ParkourConfig.MantleBlocksSprint = true
 -- here so the asymmetry with the mantle is visible rather than buried in code.
 ParkourConfig.VaultHolstersWeapon = false
 
+-- And it does not cost you your sprint either -- a vault you have to recover
+-- from is not a vault. Spelled out for the same reason as the line above: the
+-- asymmetry between the two moves should be visible here rather than inferred
+-- from a branch in the service.
+ParkourConfig.VaultBlocksSprint = false
+
+--[[
+	Landing a vault gives you a short burst of speed.
+
+	This is the one place the package writes Humanoid.WalkSpeed, and it is worth
+	knowing what that costs. TREK rewrites WalkSpeed on a 100ms poll and on every
+	crouch toggle, so the boost has to re-assert every frame to survive -- and it
+	stands down the moment you crouch, start sprinting or stop sprinting, because
+	those writes are TREK's and holding a boost through them would be wrong.
+
+	The multiplier applies to whatever your speed was when you landed, not to a
+	fixed number, so another package slowing you (a Variable Snowstorm storm, for
+	instance) still gets its say -- you get 1.3x of the slowed value, and the
+	slowed value back when the boost ends.
+
+	Set the multiplier to 1, or EnableVaultBoost to false, and nothing in this
+	package touches WalkSpeed at all.
+]]
+ParkourConfig.EnableVaultBoost = true
+ParkourConfig.VaultBoostMultiplier = 1.3
+ParkourConfig.VaultBoostDuration = 1.2
+
 -- ============================================================
 -- INPUT
 -- ============================================================
@@ -197,12 +252,32 @@ ParkourConfig.JumpDebounce = 0.15
 
 --[[
 	How long you must have been off the ground for a jump press to count as a
-	mantle rather than as the jump itself. The lower bound skips the press that
-	started the jump; the upper bound stops a long fall from ending in a mantle,
-	which would read as catching a ledge you were nowhere near.
+	mantle rather than as the jump itself.
+
+	The lower bound is 0 deliberately. It used to be 0.08 to "skip the press
+	that started the jump", which was reasoning about a problem that does not
+	exist: airborneSince is nil while you are on the ground, so that press
+	returns early regardless. All the bound actually did was eat real attempts
+	-- playtesting showed every single try landing at 0.02-0.06s and being
+	thrown away, because FloorMaterial does not flip to Air until a few frames
+	after the jump begins.
+
+	The upper bound still earns its place. It stops a long fall ending in a
+	mantle, which reads as catching a ledge you were never near.
 ]]
-ParkourConfig.MantleWindowMin = 0.08
+ParkourConfig.MantleWindowMin = 0
 ParkourConfig.MantleWindowMax = 1.2
+
+--[[
+	How often the vault probe runs, in casts per second, while you are actually
+	moving fast enough to vault. The mantle does not poll at all -- it casts once
+	when you press jump, and nowhere else.
+
+	Raising this does not make vaulting more responsive so much as more eager:
+	the probe already reaches ahead of you, so 10 is a fifth of a stud of travel
+	between casts at sprint speed.
+]]
+ParkourConfig.ProbeRate = 10
 
 -- Vault will not fire below this horizontal speed. TREK walks at 16 and sprints
 -- at 24, but approach speed into a wall is well under either, so this is not
@@ -223,7 +298,7 @@ ParkourConfig.MinApproachSpeed = 12
 	only kick in TREK is its anti-hitbox-expansion check, and booting a player
 	over a laggy vault would be a worse outcome than the vault.
 ]]
-ParkourConfig.MaxReach = 9.0 -- studs, horizontal, start to finish
+ParkourConfig.MaxReach = 11.0 -- studs, horizontal, start to finish
 
 --[[
 	THE CHECK THAT ACTUALLY CLOSES THE HOLE.
@@ -240,6 +315,19 @@ ParkourConfig.MaxReach = 9.0 -- studs, horizontal, start to finish
 ]]
 ParkourConfig.StartTolerance = 6.0
 
+--[[
+	How far a move may take you DOWNWARD before it is refused.
+
+	No legal move descends at all -- the landing is always derived from a top
+	surface above your feet. This is not symmetry for its own sake: without it,
+	a claim was a bounded step out and an UNBOUNDED drop, which is a far more
+	useful thing to an exploiter than the upward bound was guarding against.
+
+	The small allowance is for a vault onto something fractionally below where
+	you started, and for the crouch HipHeight term moving the reference.
+]]
+ParkourConfig.MaxDescent = 3.0
+
 -- How far from the declared destination a finished move may end up before it is
 -- logged. Explosions, moving platforms and server hitches all land here, which
 -- is why it logs and refuses rather than teleporting anyone back.
@@ -254,9 +342,12 @@ ParkourConfig.WatchdogGrace = 0.75 -- extra seconds before the server force-ends
 --[[
 	PUT YOUR ANIMATION IDS HERE.
 
-	Empty means "use the procedural pose", which is a rough stand-in built out of
-	joint angles in code. It is playable and it is ugly. Fill these in one at a
-	time as your animator delivers them -- each slot falls back independently.
+	An empty slot plays NOTHING. The move still happens and the body still
+	travels the arc -- you simply do not get a pose for it. That is the shipping
+	state, and it is deliberately playable so the heights and timings can be
+	tuned before an animator is involved at all.
+
+	Fill them in one at a time as they are delivered; each slot is independent.
 
 	Bare numbers and full rbxassetid:// URLs both work.
 
@@ -264,17 +355,18 @@ ParkourConfig.WatchdogGrace = 0.75 -- extra seconds before the server force-ends
 
 	  - Animations must be authored R6. An R6 sequence loaded onto an R15 rig
 	    gives you zero tracks and an empty timeline, with no error.
-	  - Procedural poses are client-local and do NOT replicate. Real animation
-	    tracks go through the Animator and DO. Until these are filled in, other
-	    players see you move but not pose.
+	  - An animation this place cannot READ behaves exactly like an empty slot.
+	    LoadAnimation still hands back a track and Play() on it does nothing
+	    visible. The only symptom is "Failed to load animation with sanitized
+	    ID" in Output. Publish under the account that owns the game.
 
 	ServerStorage.TREKParkour.Tools.ParkourRig sets up a dummy with a test ledge
 	at the right height to animate against.
 ]]
 ParkourConfig.Animations = {
-	Vault = "",
-	MantleCatch = "", -- the grab, played as you reach the lip
-	MantlePull = "", -- the haul up, played for the rest of the move
+	Vault = "71876103670056",
+	MantleCatch = "121815965338931",
+	MantlePull = "",
 }
 
 --[[
@@ -286,5 +378,64 @@ ParkourConfig.AnimationPriority = Enum.AnimationPriority.Action2
 
 -- Crossfade in and out, seconds.
 ParkourConfig.AnimationFade = 0.1
+
+--[[
+	Hold the head at its rest pose for the whole move, ignoring whatever the
+	animation does to the neck.
+
+	Borrowed animations are usually the problem here. A ladder climb has the head
+	craning up at the rungs, which on a mantle reads as the character staring at
+	the sky while hauling themselves over a wall -- and the head is the first
+	thing anyone looks at, so a bad neck track spoils an otherwise fine pose.
+
+	This works by writing the Neck's Transform back to identity every frame,
+	after the animator has had its turn. It cancels the neck track only; the
+	torso, arms and legs are left exactly as animated.
+
+	"Straight" here means neutral RELATIVE TO THE TORSO, so the head still leans
+	with the body -- which is what you want. It is not world-locked.
+
+	If you would rather fix it in the asset than at runtime, TREK Bayonet ships
+	tools/StripLegTracks.luau, which downloads an animation, deletes named joint
+	tracks from it and hands you a copy to republish. Put "Head" in its STRIP
+	list and point SOURCE_ID at the animation.
+]]
+ParkourConfig.KeepHeadLevel = true
+
+--[[
+	Stretch or squash each track to exactly fill the move it belongs to.
+
+	An animation is almost never the same length as the move that plays it, and
+	the mismatch is ugly in both directions: a track shorter than its move ends
+	early and drops you back to idle while the game is still hauling you up the
+	wall, and one that is longer gets cut off mid-pose.
+
+	With this on, the durations above are the truth and the animator's timing
+	bends to fit. Turn it off if you would rather their timing won -- then
+	VaultDuration and MantleDuration have to be set by hand to match the tracks,
+	and they must be re-matched every time an animation is re-exported.
+
+	The mantle splits its two tracks at HangFraction, so MantleCatch fills the
+	rise and MantlePull fills the swing-over.
+]]
+ParkourConfig.MatchAnimationSpeed = true
+
+--[[
+	How far speed-matching is allowed to go before it gives up.
+
+	Matching is a CORRECTION, not a conversion. Stretching a 0.9s track to fill
+	a 1.1s move is invisible. Crushing a 12.5s ladder-climb loop into a 0.5s
+	catch is 25x speed, which is not an animation any more, it is a strobe --
+	and that is a real number this hit in playtesting.
+
+	Beyond this ratio the track plays at its own pace and simply gets cut off
+	when the move ends. A partial pose at a sane speed always reads better than
+	a complete one at twenty-five.
+
+	2.0 means "up to twice as fast or twice as slow". Raise it if your
+	animations are close to the right length and you want exact fills; there is
+	no good reason to go much past 3.
+]]
+ParkourConfig.MaxAnimationStretch = 2.0
 
 return table.freeze(ParkourConfig)

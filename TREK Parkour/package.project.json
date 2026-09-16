@@ -22,6 +22,9 @@
       "TREKParkour": {
         "$path": "src/client"
       }
+    },
+    "Tools": {
+      "$path": "src/tools"
     }
   }
 }

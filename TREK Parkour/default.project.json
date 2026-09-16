@@ -26,6 +26,16 @@
         "$ignoreUnknownInstances": true
       },
       "$ignoreUnknownInstances": true
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "TREKParkour": {
+        "$className": "Folder",
+        "Tools": {
+          "$path": "src/tools"
+        }
+      },
+      "$ignoreUnknownInstances": true
     }
   }
 }

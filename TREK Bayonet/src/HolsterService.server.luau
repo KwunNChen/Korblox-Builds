@@ -301,7 +301,7 @@ local function showHolster(character: Model, tool: Tool)
 		local _, size = holster:GetBoundingBox()
 		print(string.format(
 			"[TREKHolster] slung %s on %s (%s) -- %d parts, bounding box %.1f x %.1f x %.1f",
-			tool.Name, character.Name, STYLE, parts, size.X, size.Y, size.Z
+			tool.Name, character.Name, STYLE or "custom tuning", parts, size.X, size.Y, size.Z
 		))
 
 		--[[

@@ -29,7 +29,9 @@
 	2. ServerScriptService/ -> move  TREKParkour  into  game.ServerScriptService
 	3. StarterPlayerScripts/ -> move TREKParkour  into
 	                            game.StarterPlayer.StarterPlayerScripts
-	4. Delete the empty TREKParkour wrapper folder.
+	4. Tools/               -> OPTIONAL. Only needed by whoever is animating.
+	                            Leave it in ServerStorage; it never runs in game.
+	5. Delete the empty TREKParkour wrapper folder.
 
 	Then press Play.
 
@@ -46,9 +48,13 @@
 	      `-- TREKParkour          the one LocalScript
 
 	There is no Common folder. Ski, Random Arty and Variable Snowstorm all ship
-	one because they all change WalkSpeed and would otherwise fight each other.
-	This package never touches WalkSpeed at all, so it has nothing to share and
-	nothing to collide with.
+	one because they all hold a SUSTAINED WalkSpeed modifier and would otherwise
+	fight each other.
+
+	This package writes WalkSpeed in one place only -- the short boost you get
+	for landing a vault -- and it multiplies whatever your speed already is
+	rather than replacing it, then puts it back. So a storm slowing you still
+	gets its say. Turn EnableVaultBoost off and it touches WalkSpeed nowhere.
 
 	==========================================================================
 	CONTROLS
@@ -104,9 +110,18 @@
 	ANIMATIONS
 	==========================================================================
 
-	The animation slots in the config ship EMPTY, and empty means the package
-	falls back to a rough pose built out of joint angles in code. It works. It is
-	not pretty.
+	The animation slots in the config ship EMPTY, and an empty slot plays
+	nothing. The move still happens -- you travel the arc, you get pulled onto
+	the ledge, it just is not posed. That is deliberate: the heights and timings
+	can be tuned before anyone animates anything.
+
+	There is a rig tool for this. Build an R6 Block Rig, then:
+
+	    require(game.ServerStorage.TREKParkour.Tools.ParkourRig).attach(workspace.Dummy)
+
+	It puts the real obstacles next to the dummy, built from the live config, so
+	you are posing against the heights the game actually uses -- plus markers on
+	the two points the game drives the root through.
 
 	FOR WHOEVER IS ANIMATING:
 
@@ -124,10 +139,11 @@
 	There are three slots: Vault, MantleCatch and MantlePull. Fill them in one at
 	a time; each one falls back independently, so a half-finished set is fine.
 
-	One thing worth knowing before someone reports it as a bug: the fallback
-	poses are drawn on your own screen only and do NOT replicate. Until the slots
-	are filled in, other players see you move but not pose. Real animation tracks
-	go through the Animator and are seen by everyone.
+	One thing worth knowing before someone reports it as a bug: an animation
+	this place cannot READ behaves exactly like an empty slot. LoadAnimation
+	still returns a track and playing it does nothing visible, with no error.
+	The only symptom is "Failed to load animation with sanitized ID" in Output.
+	Publish under the account that owns the game, or a group it belongs to.
 
 	==========================================================================
 	MADE BY

@@ -17,11 +17,14 @@
 	numbers, so the band boundaries can be tested without a running game.
 ]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local package = ReplicatedStorage:WaitForChild("TREKParkour")
-local Config = require(package:WaitForChild("ParkourConfig"))
-local Shared = require(package:WaitForChild("ParkourShared"))
+--[[
+	This lives in shared rather than client because the Studio probe tool needs
+	exactly the same answers the game uses. A tool that re-implemented the casts
+	would drift from the real ones, and the whole point of the tool is to show
+	you what the game is actually seeing.
+]]
+local Config = require(script.Parent:WaitForChild("ParkourConfig"))
+local Shared = require(script.Parent:WaitForChild("ParkourShared"))
 
 local ParkourDetect = {}
 
@@ -39,9 +42,9 @@ export type Reading = {
 	origin: Vector3, -- where the forward probe started, for the probe tool to draw
 	direction: Vector3, -- travel direction used
 	facePoint: Vector3?,
-	faceNormal: Vector3?,
 	topY: number?,
-	height: number?, -- top surface above the soles
+	height: number?, -- top surface above the soles -- the vault's measure
+	reach: number?, -- top surface relative to the root -- the mantle's measure
 	land: Vector3?, -- where the root ends up if the move is allowed
 }
 
@@ -69,6 +72,35 @@ function ParkourDetect.classify(height: number): string
 		return ParkourDetect.Result.Mantle
 	end
 	return ParkourDetect.Result.TooHigh
+end
+
+--[[
+	Pure. The mantle's own test, and it asks a different question.
+
+	`reach` is the lip relative to the ROOT, not the soles -- see the config. A
+	player at the top of a jump has their feet somewhere useless, but their
+	hands are always a known distance from their root.
+
+	`height` is still passed in, only to reject things that are too tall to be
+	worth climbing at all no matter how well-placed the lip happens to be.
+]]
+function ParkourDetect.classifyReach(reach: number, height: number): (string, string?)
+	if height > Config.MantleMaxHeight then
+		return ParkourDetect.Result.TooHigh,
+			string.format("%.1f studs tall -- above MantleMaxHeight", height)
+	end
+
+	if reach > Config.MantleGrabHigh then
+		return ParkourDetect.Result.TooHigh,
+			string.format("the lip is %.1f studs above you -- jump higher or earlier", reach)
+	end
+
+	if reach < Config.MantleGrabLow then
+		return ParkourDetect.Result.None,
+			string.format("you are already %.1f studs above the lip", -reach)
+	end
+
+	return ParkourDetect.Result.Mantle, nil
 end
 
 --[[
@@ -114,7 +146,7 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 
 	local origin = Vector3.new(root.Position.X, originY, root.Position.Z)
 
-	local castParams = Shared.newCastParams(character)
+	local castParams = Shared.castParams(character)
 
 	-- 1. FORWARD --------------------------------------------------------------
 
@@ -158,33 +190,58 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 	end
 
 	local height = top.Position.Y - soles
-	local result = ParkourDetect.classify(height)
+	local reach = top.Position.Y - root.Position.Y
+
+	local result: string
+	local reason: string?
+
+	--[[
+		The two moves ask different questions of the same geometry, so they get
+		different classifiers. The vault asks how tall it is; the mantle asks
+		whether the lip is within arm's reach. See MantleGrabLow in the config
+		for why measuring a mantle from the soles does not work.
+	]]
+	if mode == ParkourDetect.Result.Mantle then
+		result, reason = ParkourDetect.classifyReach(reach, height)
+	else
+		result = ParkourDetect.classify(height)
+		if result == ParkourDetect.Result.Step then
+			reason = string.format("only %.1f studs -- you can walk over that", height)
+		elseif result == ParkourDetect.Result.TooHigh then
+			reason = string.format("%.1f studs is above MantleMaxHeight", height)
+		end
+	end
 
 	local reading: Reading = {
 		result = result,
+		reason = reason,
 		origin = origin,
 		direction = flat,
 		facePoint = face.Position,
-		faceNormal = face.Normal,
 		topY = top.Position.Y,
 		height = height,
-		land = nil,
+		reach = reach,
 	}
 
-	if result == ParkourDetect.Result.Step then
-		reading.reason = string.format("only %.1f studs -- you can walk over that", height)
+	-- Refusals from here on carry the measured height and reach, which fail()
+	-- cannot -- so they amend the reading rather than building a new one. One
+	-- helper, so all of them still read the same way.
+	local function refuse(refusal: string, why: string): Reading
+		reading.result = refusal
+		reading.reason = why
 		return reading
 	end
 
-	if result == ParkourDetect.Result.TooHigh then
-		reading.reason = string.format("%.1f studs is above MantleMaxHeight", height)
+	-- Anything that is not an actionable move stops here, before the clearance
+	-- check -- there is no point asking whether you would fit somewhere you are
+	-- not going.
+	if result ~= ParkourDetect.Result.Vault and result ~= ParkourDetect.Result.Mantle then
 		return reading
 	end
 
 	-- 3. CLEAR ----------------------------------------------------------------
 
-	local land = Vector3.new(face.Position.X, top.Position.Y + Config.RootToSoles, face.Position.Z)
-		+ flat * Config.LandInset
+	local land = Shared.landPoint(face.Position, top.Position.Y, flat)
 
 	-- A body-sized box sitting on the top surface. Catches low ceilings, pipes
 	-- over the ledge, a second wall a stud back, and standing in a doorframe.
@@ -193,13 +250,11 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 	local blocking = workspace:GetPartBoundsInBox(
 		CFrame.new(clearCentre),
 		Config.ClearanceSize,
-		Shared.newOverlapParams(character)
+		Shared.overlapParams(character)
 	)
 
 	if #blocking > 0 then
-		reading.result = ParkourDetect.Result.None
-		reading.reason = "no room up there -- " .. blocking[1].Name .. " is in the way"
-		return reading
+		return refuse(ParkourDetect.Result.None, "no room up there -- " .. blocking[1].Name .. " is in the way")
 	end
 
 	reading.land = land
