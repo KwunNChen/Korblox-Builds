@@ -473,6 +473,25 @@ all of them:
 | `WeaponPosePriority` | Rojo places it, but a hand install needs it in `StarterPlayerScripts` — without it every weapon looks dropped while sprinting |
 | `2Fire` | optional sound in the config module, silences the gunshot on a swing |
 
+### Keeping a tool off the back
+
+`HolsterService` decides what to sling by looking for an `AnimPart`, because
+until recently that only ever meant "TREK weapon". It is also how TREK joins
+*any* tool to the hand, so a non-weapon tool — a throwable, a carried object —
+looks exactly like a rifle from here.
+
+A tool opts out by declaring it:
+
+```lua
+tool:SetAttribute("NoHolster", true)
+```
+
+Worth doing for anything that isn't a weapon. The spawn scan stops at the first
+holsterable tool it finds in the backpack, so a grenade that counted would take
+the rifle's place on the back and the rifle would never appear at all.
+
+[TREK Gas Grenade](../TREK%20Gas%20Grenade) sets this on itself.
+
 ### Repo layout
 
 | | |

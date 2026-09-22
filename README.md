@@ -16,6 +16,7 @@ own games can go ahead and utilize the assets I built!
 | [Random Arty](Random%20Arty) | `RandomArtillery.rbxm` | Randomised artillery barrages, with gore | R6 |
 | [Ski](Ski) | `Ski.rbxm` | Skiing: physics, poses, ragdoll wipeouts | — |
 | [TREK Bayonet](TREK%20Bayonet) | `TREKBayonet.rbxm` | Bayonet melee for TREK rifles | TREK 4 |
+| [TREK Gas Grenade](TREK%20Gas%20Grenade) | `TREKGasGrenade.rbxm` | Cookable gas grenades that deny ground | TREK 4 |
 | [TREK Parkour](TREK%20Parkour) | `TREKParkour.rbxm` | Vaulting and ledge mantling | TREK 4 |
 | [TREK Voicelines](TREK%20Voicelines) | `TREKVoicelines.rbxm` | Spatial voice barks for TREK | TREK 4 |
 | [Variable Snowstorm](Variable%20Snowstorm) | `VariableSnowstorm.rbxm` | Weather that builds and breaks, with lightning | — |
@@ -113,6 +114,29 @@ like a broken install.
 | — | `BayonetWeaponMode` | **not installed** — a snippet you paste into a weapon module |
 
 Its README has a command-bar script that does all four moves for you.
+
+### TREK Gas Grenade — `TREKGasGrenade.rbxm`
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `TREKGasGrenade` | ReplicatedStorage |
+| `ServerScriptService/` | `TREKGasGrenade` | ServerScriptService |
+| `ServerStorage/TREKToolHandlers/` | `Throwable` | your existing `ServerStorage.TREKToolHandlers`, alongside `Gun` |
+| `GunConfigs/` | `Gas Grenade` | your existing `GunConfigs`, alongside your weapons |
+
+The only package that installs into `TREKToolHandlers`. Vanilla TREK ships one
+tool handler, `Gun`, and this adds the second — which is why it is the one TREK
+package whose tool is not a weapon module.
+
+**The `Gas Grenade` config must keep that exact name**, matching the Tool. Several
+TREK paths resolve a tool's config by `tool.Name` and ignore the `TConfigToUse`
+attribute, so identical names are the only arrangement every lookup agrees on.
+
+The meshes ship separately in `GasGrenades.rbxm` — drop both models into
+`ServerStorage.TREKGasGrenade` and run `tools/PrepareGrenadeRig` from the command
+bar, which rigs them and leaves a finished tool in StarterPack. You never need to
+weld or unanchor anything by hand; the rig is rebuilt at runtime on every spawn,
+because the art exports anchored and unwelded every time.
 
 ### TREK Parkour — `TREKParkour.rbxm`
 

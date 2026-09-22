@@ -166,12 +166,46 @@ local HOLSTER_OFFSET = (STYLE and STYLES[STYLE])
 -- TREK weapon and is left alone.
 local WEAPON_ROOT = "AnimPart"
 
+--[[
+	Attribute a Tool sets on itself to stay off the back.
+
+		tool:SetAttribute("NoHolster", true)
+
+	AnimPart alone stopped being a reliable test for "this is a weapon" once
+	non-weapon TREK tools existed. AnimPart is how TREK joins ANY tool to the
+	hand -- the gas grenade needs one for exactly that reason -- so anything
+	throwable, carried or deployable now looks like a rifle from here and gets
+	slung across the player's back.
+
+	An attribute rather than a name list or a config lookup: the tool declares
+	its own intent, nothing here has to know what exists, and a tool that never
+	sets it behaves exactly as before.
+]]
+local NO_HOLSTER_ATTRIBUTE = "NoHolster"
+
 local HOLSTER_NAME = "HolsteredWeapon"
 
 -- Report every decision. Leave on until it looks right on someone's back --
 -- a holster that silently does nothing and a holster placed inside the torso
 -- look identical from the outside.
 local DEBUG = true
+
+--[[
+	Should this tool hang on the body at all?
+
+	Used by both the unequip path and the spawn scan. The spawn scan in
+	particular must not merely refuse to sling a grenade -- it stops at the first
+	match, so a grenade that counted as holsterable would take the rifle's place
+	on the back and the rifle would never be slung at all.
+]]
+local function isHolsterable(tool: Tool): boolean
+	if tool:GetAttribute(NO_HOLSTER_ATTRIBUTE) == true then
+		return false
+	end
+
+	local root = tool:FindFirstChild(WEAPON_ROOT)
+	return root ~= nil and root:IsA("BasePart")
+end
 
 -- R15 keeps the torso under a different name.
 local function torsoOf(character: Model): BasePart?
@@ -199,6 +233,16 @@ local function showHolster(character: Model, tool: Tool)
 	if not torso then
 		if DEBUG then
 			print("[TREKHolster] " .. character.Name .. " has no Torso or UpperTorso")
+		end
+		return
+	end
+
+	if tool:GetAttribute(NO_HOLSTER_ATTRIBUTE) == true then
+		if DEBUG then
+			print(string.format(
+				"[TREKHolster] %s sets %s, so it is not slung -- skipped",
+				tool.Name, NO_HOLSTER_ATTRIBUTE
+			))
 		end
 		return
 	end
@@ -379,7 +423,10 @@ local function watch(player: Player, character: Model)
 	task.defer(function()
 		if not character:FindFirstChildOfClass("Tool") then
 			for _, item in ipairs(player.Backpack:GetChildren()) do
-				if item:IsA("Tool") and item:FindFirstChild(WEAPON_ROOT) then
+				-- isHolsterable, not a bare AnimPart check: this loop stops at
+				-- the first match, so a grenade counting as a weapon here would
+				-- claim the rifle's spot and the rifle would never be slung.
+				if item:IsA("Tool") and isHolsterable(item) then
 					showHolster(character, item)
 					break
 				end
