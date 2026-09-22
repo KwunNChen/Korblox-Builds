@@ -5,8 +5,8 @@
 	TREK GAS GRENADE
 
 	A throwable for TREK. You hold to cook, release to throw, and it bounces to
-	a stop and vents a cloud of gas that damages anyone standing in it for as
-	long as it lasts.
+	a stop and vents a cloud of NERVE AGENT -- thin white smoke that kills
+	anyone who breathes it, whether or not they get out of it.
 
 	The first TREK tool that is not a gun. TREK dispatches tool behaviour on a
 	ToolType string, so this installs a new handler called "Throwable" and does
@@ -73,8 +73,12 @@
 
 	The grenade meshes ship separately, in GasGrenades.rbxm. Two models:
 
-	    InactiveGasGrenade      what the player holds
-	    ActiveGasGrenade        what flies, lands, and vents
+	    InactiveGasGrenade      used for BOTH the held and the thrown grenade
+	    ActiveGasGrenade        shipped but unused by default
+
+	GasConfig.Models decides which is which. Both point at the inactive model, so
+	the grenade looks the same in your hand as it does in the air. Point
+	Models.Thrown back at "ActiveGasGrenade" to split them again.
 
 	Put both in ServerStorage.TREKGasGrenade. Then build a Tool:
 
@@ -141,6 +145,60 @@
 	it if you want a coughing animation, a screen effect, or a mask mechanic.
 	The count is ref-counted across overlapping clouds, so two clouds will not
 	have the first to expire clear a condition the second is still applying.
+
+
+	========================================================
+	THE NERVE AGENT
+	========================================================
+
+	ONE LUNGFUL IS FATAL. The cloud does not damage you -- it reports that you
+	breathed it, and everything after that is already decided. Leaving the cloud
+	does not help. Neither does the cloud expiring, or a medic.
+
+	    dose    one tick inside the radius. Irreversible from here.
+	    seize   0.35s later the body goes limp and starts convulsing
+	    bleed   1.2s after that, blood from the mouth
+	    death   health drains to zero across 12 seconds
+
+	The WHOLE radius doses, at the same rate. There is no falloff here -- either
+	you are breathing it or you are not.
+
+	The THROWER gets 1.4 seconds of grace, and only the thrower. That is not
+	mercy, it is playability: a throw that bounced off a doorframe should be
+	survivable if you turn and run, or nobody carries one. Their team gets
+	nothing, and dies exactly as fast as the enemy does.
+
+	Health is DRAINED, not set. A player watching their own bar sees it fall; a
+	kill that set Health to 0 reads as a disconnect. Each tick takes a fraction
+	of MAX health, so a wounded player and a healthy one die on the same
+	schedule -- which is what "the dose is lethal" means.
+
+	From the dose they loop Nerve.Sound.Id from their Head, and their ordinary
+	hurt barks are suppressed -- the drain fires a health change every tick, so
+	without that a single death is roughly 48 "ow"s over the top of it. The
+	switch is a SuppressHurtVoice attribute on the character, read by TREK
+	Voicelines, which is a SEPARATE package: syncing this one does not carry it.
+
+	Going limp takes the body off the player completely. The Humanoid goes into
+	the Physics state (PlatformStand alone is a property its state machine walks
+	back out of -- jump on the dose frame and it stands you up mid-ragdoll),
+	GettingUp/Jumping/Climbing are disabled, network ownership moves to the
+	server because the CLIENT owns a player's own physics and can overrule all
+	of it, and they are disarmed: hands emptied and hotbar stashed out of reach.
+
+	Everything taken is recorded first, so GasRagdoll.stop() gives it all back.
+	Nothing calls it -- there is no recovery from the gas -- but start() should
+	not be a one-way trapdoor, and a gas mask would need it.
+
+	The ragdoll is R6 ONLY. TREK is an R6 framework and the joints are R6 names;
+	on an R15 rig it finds nothing and leaves the character upright, still dying.
+
+	While dying, the Humanoid carries a TNerveCondition attribute, following the
+	same convention as TBleedCondition and TParalCondition. That is the hook a
+	gas mask would read later.
+
+	Nerve.Enabled = false reverts to the old irritant gas: damage by distance,
+	and walking out saves you. The two are mutually exclusive.
 
 
 	========================================================

@@ -129,7 +129,7 @@ local REQUIRED = {
 	"FullDamageRadius", "BuildUpTime", "RequireLineOfSight",
 	"AffectsEveryone", "VehicleSeatProtects", "ConditionName",
 	"DestroyWhenEmpty", "DestroyDelay",
-	"GripOffset", "Animation", "Sound", "Disorient", "Visual",
+	"GripOffset", "Animation", "Sound", "Disorient", "Models", "Nerve", "Visual",
 }
 
 for _, key in ipairs(REQUIRED) do
@@ -290,6 +290,237 @@ check("hiss fade-out is not negative", Config.Sound.FadeOut >= 0)
 
 -- ============================================================
 -- DISORIENTATION
+-- ============================================================
+
+-- ============================================================
+-- MODELS
+-- ============================================================
+
+check("the nested Models table is frozen too", table.isfrozen(Config.Models))
+
+--[[
+	Both names must be non-empty strings. An empty one makes every
+	FindFirstChild in the service return nil, which surfaces as "model is
+	missing" against a folder that plainly contains it.
+
+	Pointing both at the same model is legitimate -- the grenade then looks
+	identical in the hand and in the air -- so that is not checked against.
+]]
+for _, slot in ipairs({ "Held", "Thrown" }) do
+	check(
+		string.format("Models.%s names a model", slot),
+		type(Config.Models[slot]) == "string" and Config.Models[slot] ~= "",
+		"an empty name makes every lookup return nil"
+	)
+end
+
+-- ============================================================
+
+-- ============================================================
+-- NERVE AGENT
+-- ============================================================
+
+check("the nested Nerve table is frozen too", table.isfrozen(Config.Nerve))
+
+local nerve = Config.Nerve
+
+check("time to death is positive", nerve.TimeToDeath > 0)
+check("nerve tick interval is positive", nerve.TickInterval > 0)
+
+check(
+	"the death drain ticks more than once",
+	nerve.TickInterval < nerve.TimeToDeath,
+	"one tick means health jumps straight to zero instead of draining"
+)
+
+--[[
+	The dose threshold is measured in cloud ticks, so anything at or below one
+	TickInterval means "one tick inside is enough". Above it, the victim gets a
+	grace nobody asked for -- silently, because the only symptom is people
+	surviving gas that was meant to be lethal.
+]]
+check(
+	"any contact doses",
+	nerve.DoseThreshold <= Config.TickInterval,
+	string.format(
+		"threshold %.2fs exceeds the cloud's %.2fs tick, so a brief pass through survives",
+		nerve.DoseThreshold, Config.TickInterval
+	)
+)
+
+check(
+	"the thrower's grace is longer than everyone else's",
+	nerve.ThrowerGrace >= nerve.DoseThreshold,
+	"a shorter grace punishes the thrower more than the target"
+)
+
+--[[
+	The grace has to fit inside the cloud's life, or it is not a grace: the gas
+	would expire before the thrower could ever be dosed, making them immune to
+	their own weapon rather than merely quick enough to escape it.
+]]
+check(
+	"the thrower can still be dosed by their own gas",
+	nerve.ThrowerGrace < Config.CloudDuration,
+	string.format(
+		"grace %.1fs vs a %.1fs cloud -- the thrower would be outright immune",
+		nerve.ThrowerGrace, Config.CloudDuration
+	)
+)
+
+check("seize delay is not negative", nerve.SeizeDelay >= 0)
+
+-- ---- can anyone run through it? --------------------------------
+
+--[[
+	The speed the sweep has to beat.
+
+	Deliberately generous against anything on foot in TREK -- if it holds for
+	something this fast it holds for a sprint.
+]]
+local FAST_PLAYER = 60
+
+check("the sweep margin is not negative", Config.SweepMargin >= 0)
+
+--[[
+	THE test for "people can just run through it".
+
+	The overlap query only returns who is inside the cloud at the instant of a
+	tick. Someone moving faster than the margin covers can be outside at two
+	consecutive samples having crossed the middle between them, and the swept
+	test never sees them because the query never handed them over.
+]]
+check(
+	"a sprinting player cannot cross between two samples unseen",
+	Config.SweepMargin >= FAST_PLAYER * Config.TickInterval,
+	string.format(
+		"margin %.0f studs vs %.0f a player covers in one %.2fs tick",
+		Config.SweepMargin, FAST_PLAYER * Config.TickInterval, Config.TickInterval
+	)
+)
+
+--[[
+	One tick in the cloud has to be a lethal dose, or the gas is an area you
+	push through rather than a wall. expose() accumulates TickInterval per tick,
+	so a threshold above one tick's worth means brief contact does nothing at
+	all -- and brief contact is all a moving player ever has.
+]]
+check(
+	"a single tick of contact is a dose",
+	nerve.DoseThreshold <= Config.TickInterval,
+	string.format(
+		"threshold %.2fs needs %.1f ticks of %.2fs -- anyone moving survives",
+		nerve.DoseThreshold, nerve.DoseThreshold / Config.TickInterval, Config.TickInterval
+	)
+)
+
+--[[
+	The thrower's grace is the deliberate exception, and it must stay an
+	exception: a grace shorter than a tick is no grace at all, and one longer
+	than the cloud makes them immune (checked separately below).
+]]
+check(
+	"the thrower's grace is longer than everyone else's",
+	nerve.ThrowerGrace > nerve.DoseThreshold,
+	"the grace would be no different from standing in it as anyone else"
+)
+check("twitch strength is not negative", nerve.TwitchStrength >= 0)
+check("collapse impulse is not negative", nerve.CollapseImpulse >= 0)
+check("collapse spin is not negative", nerve.CollapseSpin >= 0)
+
+--[[
+	Outside 0..1 the lift stops meaning "a fraction of the shove". Above 1 the
+	horizontal term goes negative, which does not error -- it just silently
+	inverts the heading, so the body reliably falls the opposite way from the
+	one the direction was drawn for.
+]]
+check(
+	"collapse lift is a fraction",
+	nerve.CollapseLift >= 0 and nerve.CollapseLift <= 1,
+	string.format("lift %.2f is outside 0..1", nerve.CollapseLift)
+)
+
+--[[
+	A ceiling on the root's spin, rather than a comparison against the twitch.
+
+	The two are not comparable: CollapseSpin drives one assembly and
+	TwitchStrength drives six, so an earlier check that the collapse "outweighed"
+	the twitch was comparing quantities with different meanings and passed
+	happily at a value that threw bodies through the floor.
+
+	The limit is drawn from what demonstrably works in this place -- SkiRagdoll
+	tumbles at 9, RagdollDeath topples at 9. Well above that and the ball sockets
+	start fighting the spin hard enough for the solver to answer with impulses
+	that clip geometry.
+]]
+check(
+	"the collapse spin stays inside what the constraints can absorb",
+	nerve.CollapseSpin <= 20,
+	string.format(
+		"spin %.0f rad/s -- Ski and RagdollDeath both use 9; past about 20 the "
+			.. "ball sockets fight it and bodies get pushed through the floor",
+		nerve.CollapseSpin
+	)
+)
+check("blood delay is not negative", nerve.BloodDelay >= 0)
+
+-- ---- the victim's sound ----------------------------------------
+
+local nerveSound = nerve.Sound
+
+check("the nerve sound table exists", type(nerveSound) == "table")
+check("the nerve sound table is frozen", table.isfrozen(nerveSound))
+
+--[[
+	A bare number here is the classic way to get silence with no error. Roblox
+	accepts the assignment, finds no asset, and plays nothing -- and the failure
+	looks identical to the sound simply not being wired up.
+]]
+check(
+	"the nerve sound id is an rbxassetid string",
+	type(nerveSound.Id) == "string" and nerveSound.Id:match("^rbxassetid://%d+$") ~= nil,
+	"got " .. tostring(nerveSound.Id)
+)
+
+check("the nerve sound is audible", nerveSound.Volume > 0)
+check("the nerve sound roll-off is ordered", nerveSound.RollOffMin < nerveSound.RollOffMax)
+check("the nerve sound fade is not negative", nerveSound.FadeOut >= 0)
+
+--[[
+	The fade is what plays after death, so a long one on a short death leaves a
+	corpse groaning well after everyone has stopped looking at it.
+]]
+check(
+	"the fade-out is short against the death it follows",
+	nerveSound.FadeOut < nerve.TimeToDeath,
+	string.format(
+		"a %.1fs fade on a %.1fs death",
+		nerveSound.FadeOut, nerve.TimeToDeath
+	)
+)
+
+--[[
+	The suppression attribute has to be a usable name. An empty string is a
+	legal attribute name to SET and silently unreadable, so the hurt barks would
+	come back with nothing anywhere saying why.
+]]
+check(
+	"the hurt-suppression attribute is named",
+	type(nerve.SuppressHurtAttribute) == "string" and #nerve.SuppressHurtAttribute > 0
+)
+
+check(
+	"the blood starts before they are dead",
+	nerve.BloodDelay < nerve.TimeToDeath,
+	"blood scheduled past the death is blood nobody ever sees"
+)
+
+check(
+	"the seizure lands before death",
+	nerve.SeizeDelay < nerve.TimeToDeath,
+	"they would die on their feet, having never gone limp"
+)
+
 -- ============================================================
 
 check("GasConfig defines Disorient", Config.Disorient ~= nil)

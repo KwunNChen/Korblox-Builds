@@ -31,6 +31,29 @@ end
 
 line("================================================")
 
+--[[
+	Refuse to run on the client.
+
+	ServerScriptService, ServerStorage and shared.S do not replicate. Run from
+	the client context and every check against them reports "NO" -- which reads
+	as a catastrophically broken install and sends you hunting for files that
+	are sitting exactly where they should be. Three of this script's loudest
+	failure lines are unreachable from the client and cannot be made honest
+	there, so the only safe thing is to stop.
+
+	The command bar's context is a dropdown next to the input, and it does not
+	always remember what you picked last time.
+]]
+if not game:GetService("RunService"):IsServer() then
+	line("")
+	line(">>> WRONG CONTEXT. This is running on the CLIENT.")
+	line(">>> ServerScriptService, ServerStorage and shared.S do not replicate,")
+	line(">>> so those checks would all report NO whether or not anything is wrong.")
+	line(">>> Switch the command bar's context dropdown to Server and run it again.")
+	line("================================================")
+	return
+end
+
 -- ---------------------------------------------------------------
 -- INSTALL
 -- ---------------------------------------------------------------
@@ -55,12 +78,85 @@ end
 	completed; everything downstream of it, including the grip that holds the
 	grenade, depends on start() having been reached.
 ]]
-local serverFolder = game:GetService("ServerScriptService"):FindFirstChild("TREKGasGrenade")
-line("ServerScriptService.TREKGasGrenade:", yn(serverFolder))
+--[[
+	Every folder with that name, not just the first.
+
+	FindFirstChild returns one of them and GetFullName() prints the same string
+	for all of them, so a stale hand-installed folder sitting beside a
+	Rojo-synced one is completely invisible from an error message -- and Roblox
+	runs BOTH. The stale one errors on a module it has never heard of while the
+	good one works perfectly, which reads as the package being broken.
+
+	This is the difference between "Rojo is not serving the new files" and
+	"Rojo is serving them fine, into a folder that is not the one erroring".
+]]
+local serverFolders = {}
+for _, child in ipairs(game:GetService("ServerScriptService"):GetChildren()) do
+	if child.Name == "TREKGasGrenade" then
+		table.insert(serverFolders, child)
+	end
+end
+
+local serverFolder = serverFolders[1]
+line("ServerScriptService.TREKGasGrenade:", yn(serverFolder), "count=" .. #serverFolders)
+
+if #serverFolders > 1 then
+	line("")
+	line("  >>> " .. #serverFolders .. " FOLDERS SHARE THAT NAME. Roblox runs all of them.")
+	line("  >>> One is almost certainly a stale hand install; the other is Rojo's.")
+	line("  >>> Contents of each, so you can tell which to delete:")
+
+	for index, folder in ipairs(serverFolders) do
+		local names = {}
+		for _, child in ipairs(folder:GetChildren()) do
+			table.insert(names, child.Name)
+		end
+		table.sort(names)
+		line(string.format("  >>>   [%d] %d children: %s", index, #names, table.concat(names, ", ")))
+	end
+
+	line("  >>> Delete the one MISSING modules. Keep the complete one.")
+	line("")
+end
+
+--[[
+	Every server module, and a loud verdict when one is absent.
+
+	This list has to be kept current with the project files, and it going stale
+	is not a cosmetic problem: the whole value of this section is naming the one
+	file that is missing. A module added to the package but not added here
+	produces a diagnostic that reports all-present while the chain is broken --
+	which is worse than no diagnostic, because it sends you looking elsewhere.
+]]
+local SERVER_MODULES = {
+	"GasRuntime",
+	"GasService",
+	"GasCloud",
+	"GasVisuals",
+	"GasExposure",
+	"GasNerve",
+	"GasRagdoll",
+}
 
 if serverFolder then
-	for _, name in ipairs({ "GasRuntime", "GasService", "GasCloud", "GasVisuals", "GasExposure" }) do
-		line("  " .. name .. ":", yn(serverFolder:FindFirstChild(name)))
+	local missing = {}
+
+	for _, name in ipairs(SERVER_MODULES) do
+		local found = serverFolder:FindFirstChild(name)
+		line("  " .. name .. ":", yn(found))
+		if not found then
+			table.insert(missing, name)
+		end
+	end
+
+	if #missing > 0 then
+		line("")
+		line("  >>> INCOMPLETE INSTALL. Missing: " .. table.concat(missing, ", "))
+		line("  >>> GasCloud requires GasNerve requires GasRagdoll, so one absent file")
+		line("  >>> stops GasService starting -- which is what leaves the grenade")
+		line("  >>> unrigged, unattached, and falling out of the world on equip.")
+		line("  >>> Delete ServerScriptService.TREKGasGrenade entirely and reinstall.")
+		line("")
 	end
 end
 

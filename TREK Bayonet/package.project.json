@@ -21,6 +21,12 @@
         "BayonetService": {
           "$path": "src/BayonetService.server.luau"
         }
+      },
+      "TREKHolster": {
+        "$className": "Folder",
+        "HolsterService": {
+          "$path": "src/HolsterService.server.luau"
+        }
       }
     },
     "StarterPlayerScripts": {

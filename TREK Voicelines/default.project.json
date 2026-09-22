@@ -5,6 +5,7 @@
 
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
 
       "TREKVoicelines": {
         "$path": "src/shared"
@@ -13,6 +14,7 @@
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
 
       "TREKVoicelines": {
         "$path": "src/server"
@@ -21,9 +23,11 @@
 
     "StarterPlayer": {
       "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
 
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
+      "$ignoreUnknownInstances": true,
 
         "TREKVoicelines": {
           "$path": "src/client"

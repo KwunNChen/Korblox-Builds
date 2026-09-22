@@ -37,6 +37,28 @@ GasConfig.ToolName = "Gas Grenade"
 ]]
 GasConfig.ToolType = "Throwable"
 
+--[[
+	Which model is used for which state.
+
+	GasGrenades.rbxm ships two, and they started out split by purpose: the
+	inactive one in your hand, the active one flying and venting. Both point at
+	the inactive model now, so the grenade looks the same in the hand as it does
+	in the air.
+
+	Named rather than hardcoded because this is a look decision, not a structural
+	one. Point Thrown back at "ActiveGasGrenade" and the split behaviour returns
+	with no code change.
+
+	Only the NAMES differ -- the rigs do not. The held copy is welded massless
+	and non-collidable so it does not shove you around; the thrown copy gets a
+	collidable root so it can bounce. Both are rebuilt at runtime from whatever
+	the model contains, so the same model works as either.
+]]
+GasConfig.Models = {
+	Held = "InactiveGasGrenade",
+	Thrown = "InactiveGasGrenade",
+}
+
 -- How many grenades you carry. Becomes the Ammo value in the TAmmo store TREK
 -- builds.
 GasConfig.MagCapacity = 1
@@ -291,6 +313,22 @@ GasConfig.FullDamageRadius = 8
 	instantly lethal the moment it pops. This is the window in which a fast
 	player can still get out of a well-placed throw.
 ]]
+--[[
+	How far past the cloud's edge to look for people, in studs.
+
+	The overlap query only returns who is inside at this instant, so anyone who
+	was outside at both samples but crossed the middle between them is never
+	handed to the swept test at all. This is the margin that catches them, and
+	it wants to be at least as far as a sprinting player travels in one
+	TickInterval.
+
+	At the current 0.4s tick, 24 studs covers 60 studs/second -- comfortably
+	above anything on foot, and enough for most vehicles. Raise it if people
+	start driving through clouds unharmed; the only cost is a wider overlap
+	query, which is cheap next to the raycast that follows it.
+]]
+GasConfig.SweepMargin = 24
+
 GasConfig.BuildUpTime = 1.2
 
 --[[
@@ -344,7 +382,7 @@ GasConfig.ConditionName = "TGasCondition"
 
 GasConfig.Visual = {
 	-- Core colour of the gas.
-	Colour = Color3.fromRGB(255, 94, 14),
+	Colour = Color3.fromRGB(238, 242, 240),
 
 	--[[
 		How much the gas lights itself, 0 to 1.
@@ -356,7 +394,7 @@ GasConfig.Visual = {
 
 		Past about 0.6 it stops looking like gas and starts looking like fire.
 	]]
-	Glow = 0.45,
+	Glow = 0.08,
 
 	--[[
 		The throw arc, which is client-side UI and deliberately NOT the gas
@@ -388,7 +426,7 @@ GasConfig.Visual = {
 	Rise = 0.6,
 
 	-- Peak opacity of a single puff. Kept low because dozens overlap.
-	Opacity = 0.72,
+	Opacity = 0.34,
 
 	-- How many emitters ring the centre. More gives a fuller, less pulsing
 	-- cloud at a linear cost.
@@ -433,6 +471,182 @@ GasConfig.Sound = {
 	-- Seconds to fade the hiss out once the gas stops damaging, so it thins with
 	-- the particles rather than cutting off.
 	FadeOut = 1.5,
+}
+
+-- =========================================================================
+-- NERVE AGENT
+-- =========================================================================
+
+--[[
+	What the gas actually is.
+
+	Not an irritant that hurts while you stand in it -- a nerve agent. One
+	lungful is fatal, and nothing after that first breath changes the outcome:
+	not leaving the cloud, not the cloud expiring, not a medic. The cloud is
+	where you were standing when you were killed, not the thing that killed you.
+
+	Enabled = false falls back to the old behaviour, where the cloud ticks damage
+	by distance and walking out saves you. The two are mutually exclusive: with
+	this on, the cloud stops dealing damage directly and only reports contact.
+]]
+GasConfig.Nerve = {
+	Enabled = true,
+
+	--[[
+		Seconds of contact before the dose lands.
+
+		Zero is not used -- the cloud only reports on its own tick, so anything
+		at or below TickInterval means "one tick inside is enough", which is the
+		intent. Written as a real number rather than 0 so it stays legible as a
+		threshold rather than a special case.
+	]]
+	DoseThreshold = 0.01,
+
+	--[[
+		The thrower's grace, in seconds of contact.
+
+		Not mercy so much as playability: a throw that bounced off a doorframe
+		should be survivable if you turn and run immediately, because otherwise
+		the weapon is exactly as dangerous to carry as it is to face and nobody
+		takes one. Long enough to get clear, nowhere near long enough to fight in
+		your own cloud.
+
+		Applies only to the player who threw it. Their team gets nothing.
+	]]
+	ThrowerGrace = 1.4,
+
+	-- Seconds from dose to death.
+	TimeToDeath = 12,
+
+	-- How often health is taken and the body convulses.
+	TickInterval = 0.25,
+
+	--[[
+		Seconds between the dose and the body going limp.
+
+		Short, because the seizure IS the tell. Long enough that the victim sees
+		it coming; too long and a dosed player keeps fighting as though nothing
+		happened, which undoes the whole weapon.
+	]]
+	SeizeDelay = 0.35,
+
+	--[[
+		How hard the body convulses, in angular velocity added per tick.
+
+		Applied as spin rather than force: a limp limb on a ball socket answers
+		to spin immediately and settles on its own, where a force fights the
+		constraint and either does nothing visible or throws the body across the
+		room.
+	]]
+	TwitchStrength = 14,
+
+	--[[
+		The shove the body takes at the instant it goes limp, in studs/second.
+
+		Separate from TwitchStrength because it does a different job. The twitch
+		is a repeating flutter on an already-fallen body; this is the single
+		convulsion that PUTS them down, and it wants to be violent enough to be
+		unmistakable from across the map. A body that simply sags could be
+		someone crouching. A body that is thrown off its feet could not.
+
+		Applied to the root assembly, which the constraints then drag the limbs
+		along with. Driving each limb separately looks like it would be more
+		violent and instead makes the solver push the body through the floor --
+		see the note on shove() in GasNerve.
+
+		For scale: the place's own RagdollDeath pushes a normal death fall at 22.
+		This should be comfortably above that, because a nerve agent taking
+		someone off their feet is not a normal death fall.
+
+		Direction is random in the horizontal and lifted by CollapseLift, so no
+		two deaths fall the same way.
+	]]
+	CollapseImpulse = 70,
+
+	--[[
+		How much of that shove goes upward, as a fraction of the whole.
+
+		At 0 the body skids along the floor; at 1 it goes straight up and lands
+		roughly where it stood. Around 0.4 gets a body off its feet and down
+		again a short distance away, which is the shape of a real collapse.
+	]]
+	CollapseLift = 0.4,
+
+	--[[
+		Angular kick on the root at the same instant, in radians/second.
+
+		Without it the body launches perfectly rigid, like a mannequin on a
+		wire, because linear velocity alone does not tumble anything.
+
+		Not comparable to TwitchStrength even though both are angular: this
+		drives one assembly and the twitch drives six. SkiRagdoll tumbles a
+		wipeout at 9 and RagdollDeath topples a corpse at 9, so this sits a
+		little above both rather than at the 30 it started at -- which was a
+		limb-by-limb figure that made no sense once the shove moved to the root.
+	]]
+	CollapseSpin = 12,
+
+	--[[
+		What the victim makes from the dose until they stop.
+
+		Looped, parented to the Head so it travels with the body and everyone
+		nearby hears it positionally. It starts the instant contact is
+		registered -- before the seizure, not with it -- because the sound is
+		the first warning anyone gets that the person beside them is already
+		dead and has not noticed yet.
+	]]
+	Sound = {
+		Id = "rbxassetid://82687386744947",
+		Volume = 1,
+
+		-- Audible across a room but not across the map. A dying man is a local
+		-- event; hearing one from 200 studs away would make every gas death
+		-- sound like it was happening next to you.
+		RollOffMin = 6,
+		RollOffMax = 90,
+
+		--[[
+			Seconds to fade out once they die.
+
+			Cut dead on the last frame it sounds like a bug -- the loop simply
+			stops mid-breath. A short fade reads as the body going quiet.
+		]]
+		FadeOut = 0.6,
+	},
+
+	--[[
+		The attribute that tells other systems to stop making this character's
+		ordinary pain noises.
+
+		Set on the CHARACTER, not the Humanoid, matching the SuppressRagdoll
+		convention the place already uses. A generic name rather than a nerve
+		one so anything else that needs the same silence -- drowning, burning --
+		can reuse it without depending on the gas.
+
+		This is needed because the drain takes health in TickInterval steps,
+		every one of which is a health change large enough to trigger a hurt
+		bark. Left alone, a twelve-second death is forty-eight "ow"s over the
+		top of the sound above.
+	]]
+	SuppressHurtAttribute = "SuppressHurtVoice",
+
+	-- Seconds after the seizure before the bleeding starts. A beat, so the two
+	-- read as separate stages rather than one mess.
+	BloodDelay = 1.2,
+
+	BloodColour = Color3.fromRGB(120, 8, 8),
+	BloodRate = 26,
+	BloodSize = 0.5,
+
+	--[[
+		Set on the Humanoid the moment someone is doomed, following TREK's own
+		TBleedCondition / TParalCondition convention.
+
+		This is the hook a gas mask would read later -- and the honest place for
+		anything else to find out that a player is already dead and simply has
+		not finished falling over.
+	]]
+	ConditionAttribute = "TNerveCondition",
 }
 
 -- =========================================================================
@@ -494,7 +708,7 @@ GasConfig.Disorient = {
 		the blur politely decays around it. Lerping from white is what makes it
 		decay rather than merely switch off at the end.
 	]]
-	TintColour = Color3.fromRGB(255, 120, 40),
+	TintColour = Color3.fromRGB(226, 232, 235),
 	MaxTint = 0.75,
 
 	-- Negative drains colour. Combined with the tint this gives the flat,
@@ -549,6 +763,9 @@ GasConfig.Disorient = {
 	it is preventing.
 ]]
 table.freeze(GasConfig.Visual)
+table.freeze(GasConfig.Models)
+table.freeze(GasConfig.Nerve.Sound)
+table.freeze(GasConfig.Nerve)
 table.freeze(GasConfig.Sound)
 table.freeze(GasConfig.Disorient)
 -- One level deeper than the rest: GripOffset now holds a table per rig type, and

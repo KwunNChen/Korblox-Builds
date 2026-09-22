@@ -5,7 +5,7 @@
 	Paste into the Studio command bar with the place open, or drop it in
 	ServerStorage and run it once from the Explorer context menu.
 
-		- Finds ActiveGasGrenade and InactiveGasGrenade wherever they are
+		- Finds the held and thrown models wherever they are
 		- Moves them into ServerStorage.TREKGasGrenade, which is where the
 		  service looks for them
 		- Rigs both: PrimaryPart, welds, unanchored, sane collision
@@ -30,6 +30,17 @@ local ServerStorage = game:GetService("ServerStorage")
 local StarterPack = game:GetService("StarterPack")
 
 local TOOL_NAME = "Gas Grenade"
+
+--[[
+	Must match GasConfig.Models. Restated rather than required because this runs
+	before Rojo has synced anything -- which is the whole point of the script.
+
+	Both naming the same model is normal: the grenade then looks identical in
+	the hand and in the air. The two rigs still differ, because held and thrown
+	need different collision and mass, and both are rebuilt at runtime anyway.
+]]
+local HELD_MODEL = "InactiveGasGrenade"
+local THROWN_MODEL = "InactiveGasGrenade"
 local WELD_TAG = "GasRigWeld"
 
 local function largestPart(model)
@@ -106,7 +117,7 @@ end
 	joins the grenade to the right hand at runtime instead.
 ]]
 local function prepareHeldRig(tool)
-	local model = tool:FindFirstChild("InactiveGasGrenade")
+	local model = tool:FindFirstChild(HELD_MODEL)
 	if not model or not model:IsA("Model") then
 		return nil
 	end
@@ -156,14 +167,25 @@ local function findModel(name)
 	return game:FindFirstChild(name, true)
 end
 
-local active = findModel("ActiveGasGrenade")
-local inactive = findModel("InactiveGasGrenade")
+local active = findModel(THROWN_MODEL)
+local inactive = findModel(HELD_MODEL)
 
 if not active or not inactive then
+	--[[
+		Deduplicated, because when both point at the same model a naive message
+		names it twice and reads like two different things are missing.
+	]]
+	local missing = {}
+	if not active then
+		table.insert(missing, THROWN_MODEL)
+	end
+	if not inactive and HELD_MODEL ~= THROWN_MODEL then
+		table.insert(missing, HELD_MODEL)
+	end
+
 	warn(string.format(
-		"[PrepareGrenadeRig] Missing model(s): %s%s. Import GasGrenades.rbxm first.",
-		active and "" or "ActiveGasGrenade ",
-		inactive and "" or "InactiveGasGrenade"
+		"[PrepareGrenadeRig] Missing model(s): %s. Import GasGrenades.rbxm first.",
+		table.concat(missing, ", ")
 	))
 	return
 end

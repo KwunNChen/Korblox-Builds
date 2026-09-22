@@ -117,8 +117,8 @@ end
 	touches the character -- the two steps are separate so a tool can be rigged
 	before it is ever equipped.
 ]]
-function GasShared.prepareHeldRig(tool: Tool): BasePart?
-	local model = tool:FindFirstChild("InactiveGasGrenade")
+function GasShared.prepareHeldRig(tool: Tool, modelName: string): BasePart?
+	local model = tool:FindFirstChild(modelName)
 	if not model or not model:IsA("Model") then
 		return nil
 	end

@@ -42,6 +42,7 @@ end
 
 local GasVisuals = require(expect(script.Parent, "GasVisuals"))
 local GasExposure = require(expect(script.Parent, "GasExposure"))
+local GasNerve = require(expect(script.Parent, "GasNerve"))
 
 local GasCloud = {}
 
@@ -218,6 +219,36 @@ local function isFriendly(thrower: Player?, character: Model): boolean
 end
 
 --[[
+	How close a character got to the cloud's centre BETWEEN two samples.
+
+	Testing where someone stands at the instant of a tick is the reason a fast
+	player can cross a cloud untouched: at eighteen studs of radius and a tick
+	every 0.4 seconds, a sprint covers eleven studs between samples, and a path
+	that clips the edge can begin and end outside the sphere having gone
+	straight through it.
+
+	So the test is against the SEGMENT they travelled, not the point they
+	finished at. Returns the closest the path came, which the caller uses both
+	as the hit test and as the distance for falloff -- someone caught on the way
+	through should take the damage for how deep they actually went, not for
+	where they happened to be standing when the clock ticked.
+]]
+local function closestApproach(from: Vector3, to: Vector3, centre: Vector3): number
+	local segment = to - from
+	local lengthSq = segment:Dot(segment)
+
+	-- Standing still. The segment has no direction to project onto, and the
+	-- answer is simply where they are.
+	if lengthSq < 1e-6 then
+		return (to - centre).Magnitude
+	end
+
+	local t = math.clamp((centre - from):Dot(segment) / lengthSq, 0, 1)
+
+	return ((from + segment * t) - centre).Magnitude
+end
+
+--[[
 	Spawn a cloud and run it to completion.
 
 	`thrower` may be nil -- a cloud with no owner still damages, it just credits
@@ -227,12 +258,20 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 	local visuals = GasVisuals.create(position, config)
 
 	task.spawn(function()
-		local radiusSq = config.CloudRadius * config.CloudRadius
 		local elapsed = 0
 
 		-- Humanoids currently marked by THIS cloud, so the condition can be
 		-- released the moment someone walks out rather than when the gas expires.
 		local marked: { [Humanoid]: boolean } = {}
+
+		--[[
+			Where each character was at the previous sample, so the next one has
+			a segment to test rather than a point.
+
+			Weak-keyed: a character destroyed on respawn drops out instead of
+			holding the model alive for the rest of the cloud's life.
+		]]
+		local previous: { [Model]: Vector3 } = setmetatable({}, { __mode = "k" }) :: any
 
 		local overlap = OverlapParams.new()
 		overlap.FilterType = Enum.RaycastFilterType.Exclude
@@ -252,8 +291,29 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 
 			local inside: { [Humanoid]: boolean } = {}
 
-			if density > 0 then
-				local parts = workspace:GetPartBoundsInRadius(position, config.CloudRadius, overlap)
+			--[[
+				Detection runs on every tick, including the first.
+
+				It used to be skipped while density was zero, which handed away
+				the cloud's opening moment -- the one tick where someone is most
+				likely to be standing on top of it. Irritant damage still scales
+				by density and so is still nothing at zero; the nerve agent does
+				not scale, and should not.
+			]]
+			do
+				--[[
+					Queried wider than the cloud on purpose.
+
+					GetPartBoundsInRadius only returns who is inside RIGHT NOW,
+					so a player who was outside at both samples but crossed the
+					middle between them would never be handed to the swept test
+					at all. The margin is how far someone can travel in a tick.
+				]]
+				local parts = workspace:GetPartBoundsInRadius(
+					position,
+					config.CloudRadius + config.SweepMargin,
+					overlap
+				)
 				local seen: { [Model]: boolean } = {}
 
 				for _, part in ipairs(parts) do
@@ -276,8 +336,12 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 						continue
 					end
 
-					local distance = (root.Position - position).Magnitude
-					if distance * distance > radiusSq then
+					local here = (root :: BasePart).Position
+					local before = previous[character] or here
+					previous[character] = here
+
+					local distance = closestApproach(before, here, position)
+					if distance > config.CloudRadius then
 						continue
 					end
 
@@ -301,9 +365,27 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 					]]
 					GasExposure.add(humanoid, config)
 
-					local amount = config.DamagePerTick * falloff(distance, config) * density
-					if amount > 0 then
-						damageModule.DamagePlayer(thrower, character, amount)
+					--[[
+						Two mutually exclusive ways for the gas to be harmful.
+
+						As a nerve agent the cloud deals no damage at all: it
+						only reports that this character breathed it, and
+						GasNerve owns everything from there. Distance is
+						deliberately not passed -- the whole radius doses at the
+						same rate, so the falloff that shapes irritant damage
+						has nothing to shape.
+
+						Falling through to the old behaviour rather than
+						branching around it keeps Nerve.Enabled = false a real
+						fallback rather than a half-disabled state.
+					]]
+					if config.Nerve.Enabled then
+						GasNerve.expose(character, humanoid, thrower, config)
+					else
+						local amount = config.DamagePerTick * falloff(distance, config) * density
+						if amount > 0 then
+							damageModule.DamagePlayer(thrower, character, amount)
+						end
 					end
 				end
 			end
@@ -314,6 +396,19 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 				if not inside[humanoid] then
 					marked[humanoid] = nil
 					clearCondition(humanoid, config)
+
+					--[[
+						Partial exposure does not follow you around.
+
+						Someone who caught a whisker of the cloud and got out
+						should not be topped over the line by a different cloud
+						an hour later. Does nothing to anyone already dosed --
+						there is no clearing that.
+					]]
+					local body = humanoid.Parent
+					if body then
+						GasNerve.clear(body :: Model)
+					end
 				end
 			end
 

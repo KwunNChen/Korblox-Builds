@@ -38,6 +38,12 @@
         "$ignoreUnknownInstances": false,
         "GasExposure": {
           "$path": "src/server/GasExposure.luau"
+        },
+        "GasNerve": {
+          "$path": "src/server/GasNerve.luau"
+        },
+        "GasRagdoll": {
+          "$path": "src/server/GasRagdoll.luau"
         }
       },
       "$ignoreUnknownInstances": true
