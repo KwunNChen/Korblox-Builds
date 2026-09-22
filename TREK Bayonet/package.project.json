@@ -17,25 +17,25 @@
     "ServerScriptService": {
       "$className": "Folder",
       "TREKBayonet": {
-        "$path": "src/server"
+        "$className": "Folder",
+        "BayonetService": {
+          "$path": "src/BayonetService.server.luau"
+        }
       }
     },
     "StarterPlayerScripts": {
       "$className": "Folder",
       "TREKBayonet": {
-        "$path": "src/client"
+        "$className": "Folder",
+        "WeaponPosePriority": {
+          "$path": "src/WeaponPosePriority.client.luau"
+        }
       }
     },
-    "ServerStorage": {
+    "BulletTypes": {
       "$className": "Folder",
-      "TREKBayonetPoses": {
-        "$className": "Folder",
-        "BayonetCharge": {
-          "$path": "assets/BayonetCharge.rbxm"
-        },
-        "BayonetThrust": {
-          "$path": "assets/BayonetThrust.rbxm"
-        }
+      "Bayonet": {
+        "$path": "src/Bayonet.luau"
       }
     }
   }

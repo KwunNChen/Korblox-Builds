@@ -1,0 +1,30 @@
+{
+  "name": "TREKParkour",
+  "tree": {
+    "$className": "Folder",
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+    "ReplicatedStorage": {
+      "$className": "Folder",
+      "TREKParkour": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "Folder",
+      "TREKParkour": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+      "TREKParkour": {
+        "$path": "src/client"
+      }
+    },
+    "Tools": {
+      "$path": "src/tools"
+    }
+  }
+}

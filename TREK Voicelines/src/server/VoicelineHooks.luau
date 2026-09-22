@@ -136,17 +136,98 @@ local function onCharacter(player: Player?, character: Model)
 
 	local lastHealth = humanoid.Health
 
+	-- Death and Kill are announced by whichever of HealthChanged and Died gets
+	-- here first, and in practice that is never Died.
+	--
+	-- Died is not raised by the damage that kills you. It is raised when the
+	-- humanoid's state machine transitions to Dead, which is a separate step
+	-- from the health write and, for a player's character, one the server does
+	-- not own. HealthChanged fires from the write itself, inside TakeDamage --
+	-- the earliest instant at which a kill exists at all. That gap is what made
+	-- the kill bark land noticeably behind the shot.
+	--
+	-- Both stay connected, because they are not redundant. Health can be driven
+	-- to zero without HealthChanged firing (set to a value it already held), and
+	-- a humanoid can be killed by state change rather than by damage. Whichever
+	-- loses the race finds `spoke` already true and does nothing.
+	local spoke = false
+
+	-- Credit the kill. Returns whether a TAG WAS THERE TO READ -- not whether
+	-- anything barked. A suicide reads a tag and deliberately says nothing, and
+	-- must not look like a failed read.
+	--
+	-- The distinction earns its keep because of the order inside TREK's own
+	-- DamagePlayer (TREKDamageModule):
+	--
+	--     target.Humanoid:TakeDamage(damage)
+	--     lbmodule.tagPlr(target.Humanoid, player)
+	--
+	-- The tag is written AFTER the damage. Under Roblox's default deferred
+	-- signal behaviour our handler is resumed after both lines have run, so the
+	-- first read finds it; on a place configured for immediate signals the
+	-- handler runs inside TakeDamage, before the tag exists. Hence the retry.
+	local function creditKill(retry: boolean?): boolean
+		local tag = humanoid:FindFirstChild("WeaponTag")
+		local killer = (tag and tag:IsA("ObjectValue")) and tag.Value or nil
+
+		if Config.Debug then
+			warn(string.format(
+				"[TREKVoicelines] death%s: %s (player=%s) weaponTag=%s",
+				if retry then " (tag retry)" else "",
+				character.Name,
+				tostring(player and player.Name or "no"),
+				tostring(killer and (killer :: any).Name or "none")
+			))
+		end
+
+		if not killer then
+			return false
+		end
+
+		if not killer:IsA("Player") or killer == player then
+			return true
+		end
+
+		local killerCharacter = killer.Character
+		if killerCharacter then
+			Service.request(killerCharacter, "Kill")
+		end
+
+		return true
+	end
+
+	local function speakDeath()
+		if spoke then
+			return
+		end
+		spoke = true
+
+		Service.request(character, "Death")
+
+		-- task.defer rather than a wait: it resumes at the end of the current
+		-- resumption cycle, which is after whatever damaged us has returned and
+		-- therefore after tagPlr, while still being this frame. Unreached on a
+		-- place running the default deferred signals.
+		if not creditKill() then
+			task.defer(creditKill, true)
+		end
+	end
+
 	humanoid.HealthChanged:Connect(function(health: number)
 		local delta = lastHealth - health
 		lastHealth = health
 
-		-- HealthChanged also fires on heals and on the respawn reset.
-		if delta <= 0 then
+		-- Tested before the delta check rather than after it. A killing blow is
+		-- worth announcing even when it arrives as a repeat of a health value we
+		-- have already seen, which reads as a delta of zero. Death also has its
+		-- own line, so a dying hit must not additionally say "ow".
+		if health <= 0 then
+			speakDeath()
 			return
 		end
 
-		-- Death has its own line; a dying hit must not also say "ow".
-		if health <= 0 then
+		-- HealthChanged also fires on heals and on the respawn reset.
+		if delta <= 0 then
 			return
 		end
 
@@ -157,32 +238,7 @@ local function onCharacter(player: Player?, character: Model)
 		Service.request(character, "Hurt")
 	end)
 
-	humanoid.Died:Connect(function()
-		-- TREK tags the victim's Humanoid with the killer for one second
-		-- (LeaderBoardModule.tagPlr). Same tag its own kill feed reads.
-		local tag = humanoid:FindFirstChild("WeaponTag")
-		local killer = (tag and tag:IsA("ObjectValue")) and tag.Value or nil
-
-		if Config.Debug then
-			warn(string.format(
-				"[TREKVoicelines] death: %s (player=%s) weaponTag=%s",
-				character.Name,
-				tostring(player and player.Name or "no"),
-				tostring(killer and (killer :: any).Name or "none")
-			))
-		end
-
-		Service.request(character, "Death")
-
-		if not killer or not killer:IsA("Player") or killer == player then
-			return
-		end
-
-		local killerCharacter = killer.Character
-		if killerCharacter then
-			Service.request(killerCharacter, "Kill")
-		end
-	end)
+	humanoid.Died:Connect(speakDeath)
 
 	-- Only players reload, so the ammo watcher is theirs alone.
 	if not player then

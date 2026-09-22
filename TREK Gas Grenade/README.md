@@ -1,0 +1,249 @@
+# TREK Gas Grenade
+
+A throwable for TREK 4. Hold to cook, release to throw. It bounces to a stop and
+vents a gas cloud that damages anyone standing in it until it disperses.
+
+**Requires TREK 4.** Damage goes through `ServerStorage.TREKDamageModule`, part of
+the core install. Nothing in `trek-core` is modified — TREK dispatches tool
+behaviour on a `ToolType` string, so this registers a new handler and leaves your
+install byte-for-byte as it was.
+
+**The first TREK tool that is not a gun.** Vanilla TREK ships exactly one tool
+handler, `Gun`. This adds `Throwable`.
+
+## Install
+
+Drag `TREKGasGrenade.rbxm` into ServerStorage, then paste
+[tools/Install.luau](tools/Install.luau) into the Studio command bar in **edit
+mode**. It moves everything and deletes the staging folder.
+
+**Use it rather than installing by hand.** The package lands in five places and
+has gained a destination in most builds. Moving new folders in alongside old ones
+leaves two with the same name, Roblox runs both, and the stale copy fails on a
+module it has never heard of — which reads as a broken package rather than a
+half-finished install. The installer replaces wholesale instead of merging.
+
+If you'd rather do it by hand anyway:
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `TREKGasGrenade` | ReplicatedStorage |
+| `ServerScriptService/` | `TREKGasGrenade` | ServerScriptService |
+| `ServerStorage/TREKToolHandlers/` | `Throwable` | your existing `ServerStorage.TREKToolHandlers` |
+| `GunConfigs/` | `Gas Grenade` | your existing `GunConfigs` |
+| `StarterPlayerScripts/` | `TREKGasGrenade` | `StarterPlayer.StarterPlayerScripts` |
+
+**Delete the old folder at each destination first — don't merge into it.** Then
+delete the empty wrapper.
+
+With rojo, skip all of it: `rojo serve` from this folder puts everything at the
+right paths itself.
+
+**The config module's name must match the Tool's name exactly.** Several TREK
+paths resolve a tool's config by `tool.Name` and ignore the `TConfigToUse`
+attribute — naming them identically is the only arrangement every lookup agrees
+on. Do not set `TConfigToUse` on this tool.
+
+## The art
+
+The meshes ship separately in `GasGrenades.rbxm` — two models, `ActiveGasGrenade`
+and `InactiveGasGrenade`. Drop both into `ServerStorage.TREKGasGrenade`, then:
+
+```bash
+# paste tools/PrepareGrenadeRig.luau into the Studio command bar
+```
+
+That rigs both models and leaves a finished `Gas Grenade` tool in StarterPack.
+
+Doing it by hand instead: make a Tool named `Gas Grenade`, set `RequiresHandle`
+to false, and put a copy of `InactiveGasGrenade` inside it.
+
+You do **not** need to weld, unanchor, or set a `PrimaryPart`. The export arrives
+as four loose anchored MeshParts with no welds and no `PrimaryPart` every single
+time, so the rig is rebuilt at runtime from whatever the model contains. Re-export
+the art with different part names and it still works.
+
+## How it plays
+
+**One grenade, and it does not come back.** `MagCapacity = 1`, `ReservedAmmo = 0`,
+and `DestroyWhenEmpty` removes the tool from your hotbar once it is spent — so
+throwing it leaves you with an empty hand and one fewer slot, not a grenade that
+silently refuses to throw.
+
+Raise `ReservedAmmo` if you want a resupply; the reload path is wired and works,
+it just has nothing to draw from at zero.
+
+Hold left mouse to cook. An arc shows where it lands and reddens as the fuse
+burns. Release to throw.
+
+The fuse starts on **press**, not release. That is what cooking is: you spend
+fuse time to deny the enemy the time to walk out of where it lands. Hold too long
+and it goes off in your hand — `CookKillsYou`, on by default.
+
+Putting the grenade away does not stop the fuse. If it did, cooking would be free.
+
+Where it detonates is where it stopped rolling. Bounce is deliberately dead; a
+gas grenade that pinballs back to your feet is funny exactly once.
+
+## The cloud
+
+Gas builds over `BuildUpTime` instead of appearing at full strength, and damage
+follows the same curve as the visual density — a cloud that looks thin is thin.
+
+| Behaviour | Why |
+|---|---|
+| Full damage to `FullDamageRadius`, tapering to zero at `CloudRadius` | Gentler than a blast curve, so the rim moves people rather than sheltering them |
+| Walls block it | Gas that seeps round corners meant players dying behind cover with no idea why |
+| Bodies do not block it | A raycast that hits a character is re-fired past them |
+| Damages everyone, thrower included | Otherwise there is no decision about where to put it |
+| A `VehicleSeat` protects you | Matches what TREK's own explosions already do |
+
+While a character is in gas its Humanoid carries a `TGasCondition` BoolValue,
+following TREK's own `TBleedCondition` / `TParalCondition` convention. Read it for
+a coughing animation, a screen effect, or a mask mechanic. It is ref-counted, so
+overlapping clouds do not clear each other's condition.
+
+## What it borrows from TREK, and what it doesn't
+
+It is a TREK tool, not a TREK weapon. It goes through the tool pipeline and the
+damage module; it does not touch the gun pipeline, because none of the gun
+pipeline applies to something you throw.
+
+| Uses | Doesn't use |
+|---|---|
+| `checkForGun` dispatch — GunConfigs entry + `ToolType` | Any `BulletType` (Hitscan / Projectile / Melee) |
+| `createAmmoStore` → a real `TAmmo` store | FastCast, rays, spread, recoil |
+| `handleReload` via TREK's own Reload remote | The Explosion remote and `TREKExplosionModule` |
+| `TREKDamageModule.DamagePlayer` — kill credit and stats | `updateMotor` / `AnimPart` — see below |
+| The `TREK_INSTALLED` gate, `workspace.IgnoreList` | `EffectTypes` / `ImpactTypes` |
+| TREK's `T*Condition` BoolValue convention | `MainHud` — no ammo HUD, see below |
+| | The GFX remote — no muzzle flash, no reload GFX |
+| | Scopes, zoom, fire modes |
+
+**It is joined to the hand, not the torso.** TREK hangs tools off `toolAnim`, a
+Motor6D from the *torso* to a part called `AnimPart`, and relies on each weapon's
+animations keyframing the `AnimPart` track to carry it into the hands. That works
+for a rifle with a full animation set. The grenade has no idle pose, so the same
+arrangement parks it at a fixed point beside the chest — attached and moving with
+the body, but never following the arm, which reads as hovering in mid air.
+
+So the grenade ships **no `AnimPart` at all**. `checkForGun` then skips
+`updateMotor` entirely, and the package joins the grenade to `Right Arm` (R6) or
+`RightHand` (R15) with its own `GasGrenadeGrip` Motor6D. It swings with every
+walk cycle and gets carried by the throw animation for free. `GasConfig.GripOffset`
+is that joint's `C0`.
+
+**It also sets `NoHolster` on itself.** TREK Bayonet's `HolsterService` slings any
+Tool carrying an `AnimPart`. This one has none, so it's already excluded — but
+the attribute states the intent outright and survives anyone adding an `AnimPart`
+later. Harmless without that package; it's just an unread attribute.
+
+**No ammo HUD.** TREK sources a weapon's ammo display from a `MainHud` Frame
+parented to the config ModuleScript, which the Gun handler clones into `GunHud`.
+The grenade's config has no `MainHud` and the Throwable handler never looks for
+one, so nothing appears and nothing errors. The count is live at
+`tool.TAmmo["1"].Ammo.Value` if you want to drive a label off it.
+
+## Design notes
+
+**The server owns the fuse clock.** Cook start and throw arrive as two separate
+messages and the elapsed time is measured server-side. If the client reported its
+own cook time, the cheapest possible cheat would be to claim a full cook on an
+instantly-thrown grenade, landing a cloud with no warning at all.
+
+**The cloud snapshots its config at spawn.** It never looks at the thrower's tool
+again, because it cannot: TREK resolves a tool's config through `returnTool`,
+which is `FindFirstChildOfClass('Tool')` — the *currently equipped* tool. A
+grenade's whole life happens after it left the hand.
+
+**Damage does not go through the explosion module.** `handleExplosion` is
+one-shot, fires blast VFX to every client on each call, and applies blast falloff
+semantics that do not fit a cloud. It also routes through an armour-resist branch
+whose `math.clamp` arguments are swapped (value and min), so any part with an
+`ArmourDamageResist` takes exactly zero. Falloff is computed locally instead,
+which sidesteps that entirely.
+
+**`TREKDamageModule.DamagePlayer` rather than `Humanoid:TakeDamage`.** It also
+tags the victim for kill credit and records damage against the thrower's stats. A
+raw `TakeDamage` kills people and credits nobody.
+
+**Particles are built in code.** Every vanilla TREK effect clones a pre-authored
+`Particle` instance staged inside its module. This does not, so the whole look
+answers to `GasConfig.Visual` with no Studio round-trip. It is a deliberate break
+from convention and the one place this package does not follow TREK's lead.
+
+## The throw animation
+
+`GasConfig.Animation` holds the id, the priority, and the wind-up timing.
+
+```lua
+GasConfig.Animation = {
+	Throw = "rbxassetid://98119005875692",
+	Priority = Enum.AnimationPriority.Action,
+	ReleaseDelay = 0.25,
+	FadeTime = 0.1,
+}
+```
+
+Two things decide whether it looks right:
+
+**Priority must be Action or above.** TREK's global `Run` and `WalkAnim` sit at
+`Movement`, and Roblox blends equal-priority tracks by weight — a throw authored
+at `Movement` gets averaged halfway into your run cycle and reads as a twitch.
+`Action` is what [WeaponPosePriority](../TREK%20Bayonet/src/WeaponPosePriority.client.luau)
+raises weapon poses to, so the throw sits level with them rather than fighting.
+
+**`ReleaseDelay` should match the frame your hand opens.** The grenade spawns
+that many seconds after the animation starts. At 0 it leaves before the arm has
+moved, which reads as it teleporting out of you. It's client-side pacing only —
+the fuse has been burning since you pressed, so the delay costs you fuse time
+like any other hesitation.
+
+The track is built from the id in code rather than shipped as an `Animation`
+instance in an `Animations` folder, which is TREK's convention. Same trade as the
+particles: one id in one file, at the cost of `WeaponPosePriority` not seeing it,
+so the priority is set explicitly instead.
+
+The animation must be owned by the place owner or its group or it won't load. If
+it can't, you get one warning and the grenade still throws — just without the
+animation.
+
+## Where it sits in the hand
+
+Don't iterate on this through the config. Paste
+[tools/GripTuner.luau](tools/GripTuner.luau) into the Studio command bar during a
+playtest with the grenade equipped:
+
+- Run as-is, it **measures** and prints where the grenade currently sits, in the
+  same six numbers you'd edit. Nothing moves.
+- Set `APPLY = true`, change the numbers, run again — it moves in the live
+  playtest, no rebuild, no re-import.
+- When it looks right it prints the exact `GasConfig.GripOffset` line to paste.
+
+`YAW` spins the grenade in the palm; `PITCH` and `ROLL` tip it out of the hand.
+Re-equipping resets to whatever the config says, so save the line before you stop
+the playtest.
+
+## Tuning
+
+Everything is in `ReplicatedStorage.TREKGasGrenade.GasConfig`, documented in place.
+The `GunConfigs` module is a thin shim that reads from it — edit `GasConfig`.
+
+```bash
+lune run tools/configtest.luau
+```
+
+Checks the config for mistakes that stay invisible until someone throws one: a
+full-damage radius larger than the cloud, a build-up longer than the duration, a
+tick interval of zero, a key deleted while the source still reads it.
+
+## Out of scope
+
+No gas mask or immunity gear — TREK has no damage typing or resistance system at
+all, so there is nothing to hook into. `TGasCondition` is the place to build one.
+
+No cook or idle pose — only the throw is animated. The grenade is gripped by the
+right hand and otherwise just follows your global movement animations.
+
+No impact detonation. The fuse is a timer, because a grenade that went off on
+contact would not be cookable.

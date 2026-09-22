@@ -6,34 +6,107 @@
       "$className": "ReplicatedStorage",
       "TREKBayonet": {
         "$path": "src/shared"
-      }
+      },
+      "$ignoreUnknownInstances": true
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "TREKBayonet": {
-        "$path": "src/server"
-      }
+        "$className": "Folder",
+        "BayonetService": {
+          "$path": "src/BayonetService.server.luau"
+        },
+        "$ignoreUnknownInstances": false
+      },
+      "TREKHolster": {
+        "$className": "Folder",
+        "HolsterService": {
+          "$path": "src/HolsterService.server.luau"
+        },
+        "$ignoreUnknownInstances": false
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "TREKToolHandlers": {
+        "$className": "Folder",
+        "Gun": {
+          "$path": "vendor/TREKCustomBullets/TREKToolHandlers/Gun.client.luau"
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "TREKBayonet": {
-          "$path": "src/client"
-        }
-      }
-    },
-    "ServerStorage": {
-      "$className": "ServerStorage",
-      "TREKBayonetPoses": {
-        "$className": "Folder",
-        "BayonetCharge": {
-          "$path": "assets/BayonetCharge.rbxm"
+          "$className": "Folder",
+          "WeaponPosePriority": {
+            "$path": "src/WeaponPosePriority.client.luau"
+          },
+          "$ignoreUnknownInstances": false
         },
-        "BayonetThrust": {
-          "$path": "assets/BayonetThrust.rbxm"
-        }
-      }
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "Installer ": {
+        "$className": "Script",
+        "Plugins": {
+          "$className": "Folder",
+          "TREKCustomBullets": {
+            "$className": "Folder",
+            "ReplicatedStorage": {
+              "$className": "Folder",
+              "TREK_SERVICES": {
+                "$className": "Folder",
+                "TREK_Modules": {
+                  "$className": "Folder",
+                  "BulletModule": {
+                    "$path": "vendor/TREKCustomBullets/TREK_Modules/BulletModule.luau"
+                  },
+                  "ShapecastHitbox": {
+                    "$path": "vendor/TREKCustomBullets/TREK_Modules/ShapecastHitbox"
+                  },
+                  "BulletTypes": {
+                    "$className": "Folder",
+                    "Hitscan": {
+                      "$path": "vendor/TREKCustomBullets/TREK_Modules/BulletTypes/Hitscan.luau"
+                    },
+                    "Projectile": {
+                      "$path": "vendor/TREKCustomBullets/TREK_Modules/BulletTypes/Projectile.luau"
+                    },
+                    "Melee": {
+                      "$path": "vendor/TREKCustomBullets/TREK_Modules/BulletTypes/Melee.luau"
+                    },
+                    "Bayonet": {
+                      "$path": "src/Bayonet.luau"
+                    }
+                  }
+                }
+              }
+            },
+            "ServerStorage": {
+              "$className": "Folder",
+              "TREKToolHandlers": {
+                "$className": "Folder",
+                "Gun": {
+                  "$path": "vendor/TREKCustomBullets/TREKToolHandlers/Gun.client.luau"
+                }
+              }
+            },
+            "$ignoreUnknownInstances": false
+          },
+          "$ignoreUnknownInstances": true
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
     }
   }
 }

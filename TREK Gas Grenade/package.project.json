@@ -1,0 +1,69 @@
+{
+  "name": "TREKGasGrenade",
+  "tree": {
+    "$className": "Folder",
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+    "ReplicatedStorage": {
+      "$className": "Folder",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "GasConfig": {
+          "$path": "src/shared/GasConfig.luau"
+        },
+        "GasShared": {
+          "$path": "src/shared/GasShared.luau"
+        },
+        "ThrowGrenade": {
+          "$className": "RemoteEvent"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "Folder",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "GasRuntime": {
+          "$path": "src/server/GasRuntime.server.luau"
+        },
+        "GasService": {
+          "$path": "src/server/GasService.luau"
+        },
+        "GasCloud": {
+          "$path": "src/server/GasCloud.luau"
+        },
+        "GasVisuals": {
+          "$path": "src/server/GasVisuals.luau"
+        },
+        "GasExposure": {
+          "$path": "src/server/GasExposure.luau"
+        }
+      }
+    },
+    "ServerStorage": {
+      "$className": "Folder",
+      "TREKToolHandlers": {
+        "$className": "Folder",
+        "Throwable": {
+          "$path": "src/client/ThrowableHandler.client.luau"
+        }
+      }
+    },
+    "GunConfigs": {
+      "$className": "Folder",
+      "Gas Grenade": {
+        "$path": "src/shim/GasGrenade.luau"
+      }
+    },
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "GasDisorient": {
+          "$path": "src/client/GasDisorient.client.luau"
+        }
+      }
+    }
+  }
+}
