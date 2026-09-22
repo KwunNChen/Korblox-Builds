@@ -377,6 +377,38 @@ function Service.request(character: Model, event: string): boolean
 	end
 
 	sound:Play()
+
+	-- Leading silence in the recording is skipped here rather than by asking
+	-- anyone to re-export the file.
+	--
+	-- Set AFTER Play, not before. Play() seeks the stream to the start, so an
+	-- offset written first is overwritten by the call meant to honour it -- the
+	-- kind of bug that reads as "StartOffset does nothing".
+	-- Read off the VOICE, not the event. The clips came from the voice owner via
+	-- soundsFor, so the lead-in to trim is the voice owner's too: LowAmmo speaks
+	-- Reload's recordings and must skip whatever Reload skips.
+	local voiceCfg = Config.Events[voice]
+	local offset = voiceCfg and voiceCfg.StartOffset
+	if offset and offset > 0 then
+		sound.TimePosition = offset
+	end
+
+	-- What this package actually cost, measured from the moment it was asked.
+	--
+	-- Worth reporting because a late bark has two possible homes and they need
+	-- telling apart: the path that decides and starts the line, and the clip
+	-- itself. This number is the whole of the first one. If it is a fraction of
+	-- a millisecond and a bark still sounds late, the lateness is baked into the
+	-- audio and StartOffset is the only thing that will move it.
+	if Config.Debug then
+		warn(string.format(
+			"[TREKVoicelines] played %s on %s -- %.3f ms from request to Play",
+			event,
+			character.Name,
+			(os.clock() - now) * 1000
+		))
+	end
+
 	return true
 end
 

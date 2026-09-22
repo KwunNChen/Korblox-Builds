@@ -1,0 +1,108 @@
+{
+  "name": "TREKGasGrenade",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "GasConfig": {
+          "$path": "src/shared/GasConfig.luau"
+        },
+        "GasShared": {
+          "$path": "src/shared/GasShared.luau"
+        },
+        "ThrowGrenade": {
+          "$className": "RemoteEvent"
+        },
+        "$ignoreUnknownInstances": false
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "GasRuntime": {
+          "$path": "src/server/GasRuntime.server.luau"
+        },
+        "GasService": {
+          "$path": "src/server/GasService.luau"
+        },
+        "GasCloud": {
+          "$path": "src/server/GasCloud.luau"
+        },
+        "GasVisuals": {
+          "$path": "src/server/GasVisuals.luau"
+        },
+        "$ignoreUnknownInstances": false,
+        "GasExposure": {
+          "$path": "src/server/GasExposure.luau"
+        }
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "TREKGasGrenade": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true
+      },
+      "TREKToolHandlers": {
+        "$className": "Folder",
+        "Throwable": {
+          "$path": "src/client/ThrowableHandler.client.luau"
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "Installer ": {
+        "$className": "Script",
+        "GunConfigs": {
+          "$className": "Folder",
+          "Gas Grenade": {
+            "$path": "src/shim/GasGrenade.luau"
+          },
+          "$ignoreUnknownInstances": true
+        },
+        "Plugins": {
+          "$className": "Folder",
+          "TREKGasGrenade": {
+            "$className": "Folder",
+            "ServerStorage": {
+              "$className": "Folder",
+              "TREKToolHandlers": {
+                "$className": "Folder",
+                "Throwable": {
+                  "$path": "src/client/ThrowableHandler.client.luau"
+                }
+              }
+            },
+            "$ignoreUnknownInstances": false
+          },
+          "$ignoreUnknownInstances": true
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "TREKGasGrenade": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": false,
+          "GasDisorient": {
+            "$path": "src/client/GasDisorient.client.luau"
+          }
+        }
+      }
+    }
+  }
+}

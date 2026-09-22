@@ -1,0 +1,41 @@
+{
+  "name": "TREKParkour",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "TREKParkour": {
+        "$path": "src/shared"
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "TREKParkour": {
+        "$path": "src/server"
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "TREKParkour": {
+          "$path": "src/client"
+        },
+        "$ignoreUnknownInstances": true
+      },
+      "$ignoreUnknownInstances": true
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "TREKParkour": {
+        "$className": "Folder",
+        "Tools": {
+          "$path": "src/tools"
+        }
+      },
+      "$ignoreUnknownInstances": true
+    }
+  }
+}
