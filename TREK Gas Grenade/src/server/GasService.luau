@@ -82,13 +82,13 @@ local function resolveModels(): (Model?, Model?)
 
 	for _, child in ipairs(ServerStorage:GetChildren()) do
 		if child.Name == "TREKGasGrenade" then
-			active = active or child:FindFirstChild("ActiveGasGrenade")
-			inactive = inactive or child:FindFirstChild("InactiveGasGrenade")
+			active = active or child:FindFirstChild(Config.Models.Thrown)
+			inactive = inactive or child:FindFirstChild(Config.Models.Held)
 		end
 	end
 
-	active = active or ServerStorage:FindFirstChild("ActiveGasGrenade", true)
-	inactive = inactive or ServerStorage:FindFirstChild("InactiveGasGrenade", true)
+	active = active or ServerStorage:FindFirstChild(Config.Models.Thrown, true)
+	inactive = inactive or ServerStorage:FindFirstChild(Config.Models.Held, true)
 
 	return (active :: Model?), (inactive :: Model?)
 end
@@ -186,7 +186,7 @@ local function consumeAmmo(tool: Tool)
 		having the slot disappear out of the hotbar mid-swing reads badly even
 		once the animation is no longer cut short by it.
 	]]
-	local model = tool:FindFirstChild("InactiveGasGrenade")
+	local model = tool:FindFirstChild(Config.Models.Held)
 	if model then
 		model:Destroy()
 	end
@@ -383,7 +383,7 @@ local function onThrow(player: Player, direction: Vector3)
 
 	local active = resolveModels()
 	if not active then
-		warn("[GasService] ServerStorage.TREKGasGrenade.ActiveGasGrenade is missing; nothing to throw.")
+		warn("[GasService] ServerStorage.TREKGasGrenade." .. Config.Models.Thrown .. " is missing; nothing to throw.")
 		return
 	end
 
@@ -400,7 +400,7 @@ local function onThrow(player: Player, direction: Vector3)
 
 	local grenade = spawnGrenade(origin, velocity, active)
 	if not grenade then
-		warn("[GasService] ActiveGasGrenade contains no BaseParts; cannot build a rig.")
+		warn("[GasService] " .. Config.Models.Thrown .. " contains no BaseParts; cannot build a rig.")
 		return
 	end
 
@@ -461,10 +461,10 @@ local function onToolAdded(tool: Instance)
 	end
 
 	local offset = GasShared.gripOffsetFor(character, Config)
-	local root = GasShared.prepareHeldRig(tool)
+	local root = GasShared.prepareHeldRig(tool, Config.Models.Held)
 
 	if not root then
-		warn("[GasService] " .. tool.Name .. " contains no InactiveGasGrenade model; nothing to hold.")
+		warn("[GasService] " .. tool.Name .. " contains no " .. Config.Models.Held .. " model; nothing to hold.")
 		return
 	end
 
@@ -573,13 +573,28 @@ function GasService.start()
 	end)
 
 	--[[
-		Tools sitting in a Backpack get prepared on equip via the character hook
-		above; this catches any staged in ServerStorage or placed in the world
-		before the first character exists.
+		One startup check that the art is actually installed.
+
+		Rigging itself happens on equip, so nothing here prepares anything -- but
+		without this the first sign of missing models is a player equipping a
+		grenade and finding nothing in their hand, which reads as a code fault
+		rather than an incomplete install.
 	]]
-	local _, inactive = resolveModels()
-	if not inactive then
-		warn("[GasService] ServerStorage.TREKGasGrenade.InactiveGasGrenade is missing; the held model will not be rigged.")
+	local thrown, held = resolveModels()
+	local missing = {}
+
+	if not held then
+		table.insert(missing, Config.Models.Held)
+	end
+	if not thrown and Config.Models.Thrown ~= Config.Models.Held then
+		table.insert(missing, Config.Models.Thrown)
+	end
+
+	if #missing > 0 then
+		warn(
+			"[GasService] ServerStorage has no " .. table.concat(missing, " or ")
+				.. " -- import GasGrenades.rbxm and run tools/PrepareGrenadeRig."
+		)
 	end
 end
 

@@ -384,8 +384,21 @@ end
 local function watch(player: Player, character: Model)
 	clearHolster(character)
 
+	--[[
+		Only a weapon coming out takes the weapon off your back.
+
+		Clearing on ANY tool meant drawing a grenade, a map, a medkit -- anything
+		that is not itself slung -- made the rifle vanish from your back, because
+		the holster read "a tool was equipped" as "the slung weapon was equipped".
+		Those are different events the moment a place has a tool that is not a
+		weapon.
+
+		Now the rifle stays visibly slung while you have something else in your
+		hands, which is both what it looks like it should do and what actually
+		happens: you did not put the rifle away, you just stopped holding it.
+	]]
 	local function onEquip(child: Instance)
-		if child:IsA("Tool") then
+		if child:IsA("Tool") and isHolsterable(child) then
 			clearHolster(character)
 		end
 	end
@@ -419,9 +432,18 @@ local function watch(player: Player, character: Model)
 	character.ChildAdded:Connect(onEquip)
 	character.ChildRemoved:Connect(onUnequip)
 
-	-- Spawning with a weapon already in the backpack should show it slung.
+	--[[
+		Spawning with a weapon already in the backpack should show it slung.
+
+		"Nothing equipped" is not the condition -- "no WEAPON equipped" is.
+		Spawning with a grenade already in your hands should still put the rifle
+		on your back, and the original check skipped the scan entirely the moment
+		anything at all was held.
+	]]
 	task.defer(function()
-		if not character:FindFirstChildOfClass("Tool") then
+		local held = character:FindFirstChildOfClass("Tool")
+
+		if not held or not isHolsterable(held) then
 			for _, item in ipairs(player.Backpack:GetChildren()) do
 				-- isHolsterable, not a bare AnimPart check: this loop stops at
 				-- the first match, so a grenade counting as a weapon here would

@@ -235,6 +235,23 @@ local function onCharacter(player: Player?, character: Model)
 			return
 		end
 
+		--[[
+			Generic opt-out, same shape as RagdollDeath's SuppressRagdoll.
+
+			Any system that kills someone slowly and makes its own noise about
+			it sets this on the character. Without it, damage applied in small
+			repeated steps -- the gas grenade's nerve agent drains health every
+			quarter second for twelve seconds -- fires a hurt bark per step, so
+			a single death produces dozens of them over the top of whatever
+			sound that system is playing.
+
+			Only Hurt is gated. Death is not: they do still die, and the death
+			line lands once at the end rather than on every tick.
+		]]
+		if character:GetAttribute("SuppressHurtVoice") then
+			return
+		end
+
 		Service.request(character, "Hurt")
 	end)
 

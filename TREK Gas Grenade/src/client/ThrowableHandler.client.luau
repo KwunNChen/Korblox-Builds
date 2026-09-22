@@ -492,13 +492,18 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
-UserInputService.InputEnded:Connect(function(input, processed)
+UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 		return
 	end
 
-	-- Deliberately not gated on `processed`: a release swallowed by the UI would
-	-- otherwise leave the player holding a live grenade with no way to let go.
+	--[[
+		The gameProcessed flag is deliberately not taken, let alone checked.
+
+		A release swallowed by the UI would otherwise leave the player holding a
+		live grenade with no way to let go of it, which is a far worse outcome
+		than a throw that happens while a menu is open.
+	]]
 	releaseThrow()
 end)
 

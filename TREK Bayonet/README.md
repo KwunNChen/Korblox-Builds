@@ -486,9 +486,20 @@ A tool opts out by declaring it:
 tool:SetAttribute("NoHolster", true)
 ```
 
-Worth doing for anything that isn't a weapon. The spawn scan stops at the first
-holsterable tool it finds in the backpack, so a grenade that counted would take
-the rifle's place on the back and the rifle would never appear at all.
+Worth doing for anything that isn't a weapon, and it buys more than just staying
+off your back. The attribute is what separates "a tool was equipped" from "the
+slung weapon was equipped", which are the same event right up until a place has
+a tool that isn't a weapon. Tools that declare it:
+
+- are never slung themselves
+- **don't clear the holster when drawn**, so your rifle stays visibly on your
+  back while you're holding a grenade — you didn't put it away, you just stopped
+  holding it
+- don't block the spawn scan, so spawning with one in hand still slings your
+  rifle
+- don't consume the spawn scan's single slot, which stops at the first
+  holsterable tool it finds — one that counted would take the rifle's place and
+  the rifle would never appear at all
 
 [TREK Gas Grenade](../TREK%20Gas%20Grenade) sets this on itself.
 

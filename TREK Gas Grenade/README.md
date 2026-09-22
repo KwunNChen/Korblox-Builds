@@ -1,7 +1,8 @@
 # TREK Gas Grenade
 
 A throwable for TREK 4. Hold to cook, release to throw. It bounces to a stop and
-vents a gas cloud that damages anyone standing in it until it disperses.
+vents a cloud of nerve agent — thin white smoke that kills anyone who breathes
+it, whether or not they get out.
 
 **Requires TREK 4.** Damage goes through `ServerStorage.TREKDamageModule`, part of
 the core install. Nothing in `trek-core` is modified — TREK dispatches tool
@@ -87,34 +88,114 @@ gas grenade that pinballs back to your feet is funny exactly once.
 
 ## The cloud
 
-Gas builds over `BuildUpTime` instead of appearing at full strength, and damage
-follows the same curve as the visual density — a cloud that looks thin is thin.
+Gas builds over `BuildUpTime` instead of appearing at full strength, and the
+visual density, the hiss and the disorientation all ride the same curve — a cloud
+that looks thin is thin.
 
 | Behaviour | Why |
 |---|---|
-| Full damage to `FullDamageRadius`, tapering to zero at `CloudRadius` | Gentler than a blast curve, so the rim moves people rather than sheltering them |
 | Walls block it | Gas that seeps round corners meant players dying behind cover with no idea why |
 | Bodies do not block it | A raycast that hits a character is re-fired past them |
-| Damages everyone, thrower included | Otherwise there is no decision about where to put it |
+| Affects everyone, thrower included | Otherwise there is no decision about where to put it |
 | A `VehicleSeat` protects you | Matches what TREK's own explosions already do |
+| You cannot run through it | Contact is tested against the path you travelled, not where you stood on a tick |
+
+Contact is a **swept** test. Sampling where someone stands at each tick is how a
+sprinter crosses a cloud untouched — at 18 studs of radius and a 0.4s tick a
+sprint covers 11 studs between samples, so a path clipping the edge can begin and
+end outside the sphere having gone straight through it. The check is against the
+segment travelled instead, and the overlap query reaches `SweepMargin` studs past
+the edge so fast movers are handed to it at all. Raise that margin if people
+start driving through clouds.
+
+Who it reaches is one rule; **what it does to them** is the nerve agent below.
+`FullDamageRadius` and `DamagePerTick` shape the fallback irritant only — with
+`Nerve.Enabled` they do nothing, because the whole radius doses equally.
 
 While a character is in gas its Humanoid carries a `TGasCondition` BoolValue,
 following TREK's own `TBleedCondition` / `TParalCondition` convention. Read it for
 a coughing animation, a screen effect, or a mask mechanic. It is ref-counted, so
 overlapping clouds do not clear each other's condition.
 
+## The nerve agent
+
+**One lungful is fatal.** The cloud does not damage you — it reports that you
+breathed it, and everything after that is already decided. Leaving the cloud does
+not help. Neither does the cloud expiring.
+
+```
+dose    one tick inside the radius. Irreversible from here.
+seize   0.35s later the body goes limp and starts convulsing
+bleed   1.2s after that, blood from the mouth
+death   health drains to zero across 12 seconds
+```
+
+| | |
+|---|---|
+| Lethal zone | The whole radius. No falloff — either you're breathing it or you aren't |
+| Thrower | Gets **1.4s of grace**, and only the thrower. A bad bounce is survivable if you run immediately |
+| Your team | No grace at all. It kills them exactly as fast as it kills the enemy |
+| Recovery | None. `TNerveCondition` on the Humanoid is the hook a gas mask would read later |
+
+Health is *drained*, not set — a player watching their own bar sees it fall. A
+kill that set Health to 0 outright reads as a disconnect. The drain is a fraction
+of **max** health per tick, so a wounded player and a healthy one die on the same
+schedule; that's what "the dose is lethal" means.
+
+From the moment of the dose the victim loops `Nerve.Sound.Id` from their Head —
+positional, so it travels with the body through the collapse and outlives the
+cloud, which expires long before a slow death does. It fades over `FadeOut` when
+they stop, because a loop cut dead on the last frame sounds like a bug rather
+than a body going quiet.
+
+Their ordinary pain noises are suppressed for the duration. The drain takes
+health every `TickInterval` for twelve seconds, and every one of those steps is a
+health change big enough to trigger a hurt bark — roughly **48 of them per
+death**, over the top of the sound above. `GasNerve` sets `SuppressHurtVoice` on
+the character before the first tick lands; TREK Voicelines reads it and skips
+`Hurt` only. Death lines still play: they do die, and that lands once at the end.
+
+> `SuppressHurtVoice` lives in **TREK Voicelines**, a separate package. Syncing
+> this one does not carry it.
+
+Going limp takes the body off the player entirely, which turned out to need more
+than limp joints:
+
+| | |
+|---|---|
+| `Physics` state | `PlatformStand` is a property the state machine walks back out of — jump on the dose frame and the Humanoid stands you up again mid-ragdoll |
+| Blocked states | `GettingUp` is the door back to standing; `Jumping` and `Climbing` are how a held key re-enters from the far end |
+| Network ownership | All of the above is the server asking politely. For your own character the **client** owns the physics and can overrule it next frame |
+| Disarmed | Hands emptied, hotbar stashed out of reach. Unequipping alone just means they press the key again |
+
+Everything taken is recorded first, so `stop()` hands it all back. Nothing calls
+`stop()` — there's no recovery from the gas — but `start()` shouldn't be a one-way
+trapdoor, and a gas mask would need it.
+
+The ragdoll is **R6 only**. TREK is an R6 framework and the joint names are R6;
+on an R15 rig it finds nothing and leaves the character upright, still dying. That
+failure is deliberate — better than half-rigging a skeleton it doesn't understand.
+
+`Nerve.Enabled = false` reverts to the old irritant: damage by distance, walking
+out saves you. The two are mutually exclusive — with it on, the cloud deals no
+damage of its own at all.
+
 ## Being gassed
 
-Perceptual only. Nothing touches WalkSpeed, aim or controls — you can still
-fight your way out, you just can't see or hear well doing it. The damage kills;
-this is what makes it frightening.
+Perceptual only — blur, tint, muffled hearing. Nothing here touches WalkSpeed,
+aim or controls.
+
+That is not the same as being able to fight your way out. Contact doses you, and
+the seizure follows `SeizeDelay` later; from that point the ragdoll has the body
+and your weapons are gone. This section describes the fraction of a second before
+that, and what everyone *else* in the cloud sees while they are still standing.
 
 | | |
 |---|---|
 | Vision | Blur, a wash toward the gas colour, drained saturation, darkened and contrastier |
 | Hearing | The world muffled through an equaliser, with a ring fading in over it |
 | Build | Reaches full over `BuildTime` in the cloud, clears over `FadeTime` once you're out |
-| Who | Everyone in it, thrower included — same rule as the damage |
+| Who | Everyone in it, thrower included — same rule as the dose |
 
 All of it rides one number: **`GasExposure`**, a 0–1 attribute the server writes
 to the victim's Humanoid. The server owns it because the server is the only thing
