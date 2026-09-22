@@ -15,6 +15,7 @@ export type EventConfig = {
 	SharesWith: string?,
 	Concurrent: boolean?,
 	IgnoresCrowd: boolean?,
+	StartOffset: number?,
 }
 
 local Config = {}
@@ -327,6 +328,17 @@ Config.CrowdLimit = 2      -- nearby speakers allowed inside the window
 --             from producing the same bark every single time -- but note a
 --             FAILED roll still starts the cooldown, so the real gap between
 --             lines is roughly Cooldown / Chance, not Cooldown.
+--   StartOffset  seconds of the clip to skip. For trimming LEADING SILENCE off
+--             a recording, which is the one kind of lateness no amount of work
+--             on this side can fix: if the file opens with a third of a second
+--             of room tone, the bark is a third of a second late however fast
+--             the server reaches it. Applies to every clip in the event, so
+--             split clips across two events if their lead-ins differ. Leave at
+--             0 or omit for a clip that starts on the word.
+--
+--             To find the value, drop a Sound with the id into Workspace in
+--             Studio, run it, and step TimePosition until the line starts
+--             immediately. See "MEASURING A LEAD-IN" below.
 Config.Events = {
 	-- Reload owns the ammo voice; LowAmmo borrows it below.
 	Reload = {
@@ -460,5 +472,31 @@ Config.Events = {
 		Sounds = {"rbxassetid://3526632933", "rbxassetid://1869828588", "rbxassetid://101474734749359", "rbxassetid://140539866173088"},
 	},
 }
+
+-- MEASURING A LEAD-IN
+--
+-- A bark that is consistently late by the same amount, every single time, is
+-- not a timing bug. Timing bugs vary with ping, load and distance. A fixed
+-- offset that never moves is the clip.
+--
+-- Turn Config.Debug on and the service reports, for every line it plays, how
+-- long it spent between being asked and calling Play. That number is the whole
+-- of what this package controls. If it reads a fraction of a millisecond and
+-- the bark still sounds late, the delay is inside the audio file and the only
+-- fix is StartOffset.
+--
+-- To measure one, paste this into the Studio command bar with the id you want:
+--
+--     local s = Instance.new("Sound")
+--     s.SoundId = "rbxassetid://95443426895855"
+--     s.Parent = workspace
+--     s.Loaded:Wait()
+--     print("length", s.TimeLength)
+--     s.TimePosition = 0.4   -- raise until the line starts on the instant
+--     s:Play()
+--
+-- Step TimePosition until the very first syllable is audible immediately, then
+-- put that number in StartOffset for the event. Go too far and you clip the
+-- start of the word, so come back down until you can hear the whole thing.
 
 return Config
