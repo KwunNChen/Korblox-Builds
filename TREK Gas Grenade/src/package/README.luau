@@ -13,7 +13,7 @@
 	not modify a single core file.
 
 	This is a ModuleScript, so it never runs. Read it, then delete it with the
-	wrapper folder in step 5.
+	wrapper folder.
 
 
 	========================================================
@@ -28,32 +28,43 @@
 	INSTALL
 	========================================================
 
-	1. Drag TREKGasGrenade.rbxm into ServerStorage. This creates a
-	   TREKGasGrenade folder holding all the pieces. ServerStorage is temporary:
-	   nothing runs there, which is the point. Put the .rbxm anywhere else and
-	   the server scripts start before the modules they need exist.
+	Drag TREKGasGrenade.rbxm into ServerStorage, then paste tools/Install.luau
+	into the Studio command bar in EDIT MODE. It moves everything and deletes the
+	staging folder.
 
-	2. Move TREKGasGrenade out of TREKGasGrenade/ReplicatedStorage/ into the real
-	   ReplicatedStorage.
+	USE IT RATHER THAN INSTALLING BY HAND. This package lands in five places and
+	has gained a destination in most versions. Moving new folders in alongside
+	old ones leaves two with the same name, Roblox runs both, and the stale copy
+	fails on a module it has never heard of -- which reads as a broken package
+	rather than a half-finished install. The installer replaces wholesale.
 
-	3. Move TREKGasGrenade out of TREKGasGrenade/ServerScriptService/ into the
-	   real ServerScriptService.
+	By hand, if you must -- and DELETE the existing folder at each destination
+	first rather than merging into it:
 
-	4. Move Throwable out of TREKGasGrenade/ServerStorage/TREKToolHandlers/ into
-	   your existing ServerStorage.TREKToolHandlers folder, alongside Gun.
+	1. Drag TREKGasGrenade.rbxm into ServerStorage. Nothing runs there, which is
+	   the point: put it anywhere else and the server scripts start before the
+	   modules they need exist.
 
-	   If you do not have one, TREK has not been installed yet. Do that first.
+	2. ReplicatedStorage/TREKGasGrenade   ->  ReplicatedStorage
+	3. ServerScriptService/TREKGasGrenade ->  ServerScriptService
+	4. ServerStorage/TREKToolHandlers/Throwable
+	                                      ->  your existing
+	                                          ServerStorage.TREKToolHandlers,
+	                                          alongside Gun. No such folder means
+	                                          TREK is not installed yet.
+	5. GunConfigs/"Gas Grenade"           ->  your existing GunConfigs
+	6. StarterPlayerScripts/TREKGasGrenade
+	                                      ->  StarterPlayer.StarterPlayerScripts
 
-	5. Move "Gas Grenade" out of TREKGasGrenade/GunConfigs/ into your existing
-	   GunConfigs folder, alongside your weapons.
+	7. Delete the empty TREKGasGrenade staging folder.
 
-	   THE NAME MATTERS. It must match the Tool's name exactly. TREK resolves a
-	   tool's config by name in several places, and at least one of them ignores
-	   the TConfigToUse attribute entirely, so naming them identically is the
-	   only arrangement where every lookup agrees. Do not set TConfigToUse on
-	   this tool.
+	ON STEP 5, THE NAME MATTERS. It must match the Tool's name exactly. TREK
+	resolves a tool's config by name in several places and at least one ignores
+	the TConfigToUse attribute entirely, so identical names are the only
+	arrangement where every lookup agrees. Do not set TConfigToUse on this tool.
 
-	6. Delete the empty TREKGasGrenade staging folder.
+	If you use Rojo, none of this applies: `rojo serve` from the package folder
+	places every file itself, and keeps placing them.
 
 
 	========================================================
@@ -130,6 +141,40 @@
 	it if you want a coughing animation, a screen effect, or a mask mechanic.
 	The count is ref-counted across overlapping clouds, so two clouds will not
 	have the first to expire clear a condition the second is still applying.
+
+
+	========================================================
+	BEING GASSED
+	========================================================
+
+	Perceptual only. Nothing touches WalkSpeed, aim or controls -- you can still
+	fight your way out, you just cannot see or hear well doing it.
+
+	    vision    blur, a wash toward the gas colour, drained saturation,
+	              darkened and contrastier
+	    hearing   the world muffled through an equaliser, with a ring over it
+	    build     full over Disorient.BuildTime in the gas, clears over FadeTime
+	    who       everyone in it, thrower included -- same rule as the damage
+
+	All of it rides one number: GasExposure, a 0-1 attribute the SERVER writes to
+	the victim's Humanoid. The server owns it because the server is the only
+	thing that knows who is standing in gas, and publishing a value rather than
+	firing effect remotes means the worst a tampered client can do is blind
+	itself.
+
+	It is a plain attribute, so anything else can watch it -- a HUD, a medic
+	system, a spectator overlay, a gas mask you build later -- without this
+	package knowing they exist.
+
+	Muffle needs a SoundGroup called Muffle in SoundService, which is where
+	TREK's own concussion muffle lives. No group, no muffle; everything else
+	still works. The ring borrows TREK's staged Tinnitus sound so gas and blasts
+	ring with the same tone.
+
+	The cloud also hisses -- a looping POSITIONAL sound, so you can hear roughly
+	where the gas is. Sound.RollOffMax reaches well past CloudRadius on purpose:
+	the warning is for people near the cloud, not confirmation for the ones
+	already choking in it.
 
 
 	========================================================

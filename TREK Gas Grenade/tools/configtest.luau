@@ -336,6 +336,28 @@ check(
 	"positive values oversaturate instead of bleaching; below -1 is clamped anyway"
 )
 
+--[[
+	MaxTint is a lerp position along white -> TintColour, so it only means
+	anything between 0 and 1. Above 1 the lerp overshoots past the gas colour
+	into whatever lies beyond it, which is not a colour anyone chose.
+]]
+check(
+	"tint strength is a valid lerp position",
+	dis.MaxTint >= 0 and dis.MaxTint <= 1,
+	"MaxTint is how far from white toward the gas colour, so it lives in 0..1"
+)
+
+check(
+	"the gas darkens rather than brightens",
+	dis.MaxBrightness <= 0,
+	"a positive brightness reads as a flashbang, not as gas stinging your eyes"
+)
+
+check(
+	"brightness and contrast stay in sane bounds",
+	dis.MaxBrightness >= -1 and dis.MaxContrast >= -1 and dis.MaxContrast <= 1
+)
+
 check(
 	"muffle gain attenuates rather than boosts",
 	dis.MuffleGain <= 0,

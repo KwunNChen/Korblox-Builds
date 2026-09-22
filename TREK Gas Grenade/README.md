@@ -103,6 +103,46 @@ following TREK's own `TBleedCondition` / `TParalCondition` convention. Read it f
 a coughing animation, a screen effect, or a mask mechanic. It is ref-counted, so
 overlapping clouds do not clear each other's condition.
 
+## Being gassed
+
+Perceptual only. Nothing touches WalkSpeed, aim or controls — you can still
+fight your way out, you just can't see or hear well doing it. The damage kills;
+this is what makes it frightening.
+
+| | |
+|---|---|
+| Vision | Blur, a wash toward the gas colour, drained saturation, darkened and contrastier |
+| Hearing | The world muffled through an equaliser, with a ring fading in over it |
+| Build | Reaches full over `BuildTime` in the cloud, clears over `FadeTime` once you're out |
+| Who | Everyone in it, thrower included — same rule as the damage |
+
+All of it rides one number: **`GasExposure`**, a 0–1 attribute the server writes
+to the victim's Humanoid. The server owns it because the server is the only thing
+that knows who's standing in gas, and publishing a value rather than firing effect
+remotes means the worst a tampered client can do is blind *itself*.
+
+It's also a plain attribute, so anything else can watch it — a HUD, a medic
+system, a spectator overlay, a future gas mask — without this package knowing
+they exist.
+
+Muffle needs a `SoundGroup` called `Muffle` in SoundService, which is where
+TREK's own concussion effect lives. No group, no muffle; everything else still
+works. The ring borrows TREK's staged `Tinnitus` sound so gas and blasts ring
+with the same tone.
+
+## The hiss
+
+A looping positional sound on the cloud itself, so you can hear roughly where the
+gas is. That matters more than it sounds — gas is the one thing here that hurts
+you from outside your field of view, so `RollOffMax` deliberately reaches well
+past `CloudRadius`. The warning is for people *near* the cloud, not confirmation
+for people already choking in it.
+
+Volume rides the same build-up curve as the particles and the damage, and fades
+rather than cutting on expiry: the gas keeps drifting for a few seconds after it
+stops hurting, and a hiss stopping dead would call it safe while it still looked
+dangerous.
+
 ## What it borrows from TREK, and what it doesn't
 
 It is a TREK tool, not a TREK weapon. It goes through the tool pipeline and the

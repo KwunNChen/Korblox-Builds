@@ -22,14 +22,10 @@ local ServerStorage = game:GetService("ServerStorage")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild inside a require chain does not fail -- it hangs
-	the module forever, and every module waiting on THIS one hangs with it.
-	Adding one new file to this chain once killed the entire service that way:
-	the grenade quietly stopped being held, with nothing in the output to say
-	why, because nothing had errored. It was still waiting.
-
-	Ten seconds is far longer than replication or install ever needs and far
-	shorter than a playtest, so a missing file announces itself instead.
+	An unbounded WaitForChild in a require chain does not fail, it hangs -- and
+	every module waiting on this one hangs with it, silently. Ten seconds is far
+	longer than replication ever needs and far shorter than a playtest, so a
+	missing file announces itself instead of stalling the package.
 ]]
 local function expect(parent: Instance, name: string): Instance
 	local child = parent:FindFirstChild(name) or parent:WaitForChild(name, 10)
