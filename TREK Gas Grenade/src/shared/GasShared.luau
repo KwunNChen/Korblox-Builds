@@ -41,8 +41,6 @@ local function largestPart(model: Model): BasePart?
 	return best
 end
 
-GasShared.largestPart = largestPart
-
 --[[
 	Weld `part` to `anchor`, replacing any earlier weld that points somewhere
 	else.
@@ -196,8 +194,6 @@ local function rightHandOf(character: Model): BasePart?
 	return (part and part:IsA("BasePart")) and part or nil
 end
 
-GasShared.rightHandOf = rightHandOf
-
 --[[
 	Join the grenade to the player's right hand.
 
@@ -288,8 +284,6 @@ local function toCFrame(offset): CFrame
 			math.rad(offset.Roll or 0)
 		)
 end
-
-GasShared.toCFrame = toCFrame
 
 function GasShared.gripOffsetFor(character: Model, config): CFrame
 	local humanoid = character:FindFirstChildOfClass("Humanoid")

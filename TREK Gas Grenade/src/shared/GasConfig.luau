@@ -477,18 +477,39 @@ GasConfig.Disorient = {
 	]]
 	AttributeName = "GasExposure",
 
-	-- Peak BlurEffect size. 24 is heavy enough to lose someone at range while
-	-- still leaving the shape of the world readable at arm's length.
-	MaxBlur = 24,
+	-- Peak BlurEffect size. At 36 you cannot pick a man out at range, but the
+	-- shape of the world is still readable at arm's length.
+	MaxBlur = 36,
 
-	-- The colour vision washes toward, and how far. Matched to the gas so it
-	-- reads as looking THROUGH the cloud rather than as damage feedback.
+	--[[
+		The colour vision washes toward, and how far at full exposure.
+
+		MaxTint is how far along white -> TintColour the frame travels, and it is
+		scaled by exposure on top of that, so the orange arrives and leaves with
+		everything else.
+
+		That scaling is the whole point. TintColor MULTIPLIES the frame, so
+		assigning the gas colour directly -- at any exposure at all -- slams the
+		whole screen to full orange and holds it there for the entire fade while
+		the blur politely decays around it. Lerping from white is what makes it
+		decay rather than merely switch off at the end.
+	]]
 	TintColour = Color3.fromRGB(255, 120, 40),
-	MaxTint = 0.4,
+	MaxTint = 0.75,
 
 	-- Negative drains colour. Combined with the tint this gives the flat,
 	-- bleached look of stinging eyes rather than a coloured filter.
-	MaxSaturation = -0.45,
+	MaxSaturation = -0.7,
+
+	--[[
+		Darkening and contrast at full exposure.
+
+		Both push the effect from "the screen has gone orange" toward "I cannot
+		see properly". Brightness goes NEGATIVE -- gas closing your eyes darkens
+		the world; brightening it reads as a flashbang instead.
+	]]
+	MaxBrightness = -0.12,
+	MaxContrast = 0.3,
 
 	--[[
 		Ear ringing. Empty means use TREK's own staged Tinnitus sound, which is
@@ -496,7 +517,7 @@ GasConfig.Disorient = {
 		same game. Set an id here to override.
 	]]
 	Ring = "",
-	RingVolume = 1.2,
+	RingVolume = 1.9,
 
 	--[[
 		How hard the world is muffled, in decibels of high and mid gain.
@@ -506,7 +527,7 @@ GasConfig.Disorient = {
 		Muffle group the muffle is skipped and everything else still works --
 		checked rather than assumed, because TREK guards it the same way.
 	]]
-	MuffleGain = -32,
+	MuffleGain = -46,
 
 	--[[
 		How fast the client chases the server's value, in units per second.
