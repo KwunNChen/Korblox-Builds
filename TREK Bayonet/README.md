@@ -3,7 +3,7 @@
 A melee **fire mode** for TREK rifles. Press **V** to switch from the rifle to the blade,
 click to thrust — **at any ammo count, mid-reload, while sprinting**. TREK ships no melee
 of any kind, so all of this is new.
-
+[YOUTUBE DEMO](https://www.youtube.com/watch?v=7VJA5upp-lU)
 | | |
 |---|---|
 | **Needs** | [TREK Custom Bullets](https://devforum.roblox.com/t/shapecasthitbox-for-all-your-melee-needs-v025/3624241) installed as your gun handler, and an existing TREK 4 install |
