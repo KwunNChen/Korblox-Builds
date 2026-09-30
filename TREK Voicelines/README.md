@@ -8,6 +8,8 @@ Lines are spatial and server-played, so the people around you hear your callouts
 — which is the entire reason to have them. TREK's own `LocalSound` remote plays
 2D to a single client, so it is deliberately not used.
 
+[YOUTUBE DEMO](https://www.youtube.com/watch?v=LY4UVCCrWaA)
+
 ## It does not modify TREK
 
 No TREK script is edited, patched or replaced. Every event is reached from
