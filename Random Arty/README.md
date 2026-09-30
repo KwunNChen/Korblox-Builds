@@ -14,6 +14,8 @@ the trails arc roughly parallel, scatter across an area centred on wherever play
 clustered, and detonate with a kill radius, a falloff band, and a cover check. Anyone killed
 by one loses limbs. Anyone who survives nearby is dazed for a few seconds.
 
+[YOUTUBE DEMO](https://www.youtube.com/watch?v=VgFTfooAdXM) 
+
 ## Architecture
 
 Server-based code, clients pull from it.
