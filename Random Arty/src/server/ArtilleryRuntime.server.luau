@@ -42,6 +42,21 @@ Players.PlayerAdded:Connect(watchPlayer)
 
 BarrageService.start()
 
+-- Anything else on the server calls a fire mission through this, so it never
+-- has to know where this package was installed:
+--     ServerStorage.ArtilleryFireMission:Invoke(position) -> ok, info
+-- Bloxian radiomen use it. A Bindable in ServerStorage is server-only, so no
+-- client can call in artillery.
+local fireMission = Instance.new("BindableFunction")
+fireMission.Name = "ArtilleryFireMission"
+fireMission.OnInvoke = function(position: Vector3)
+	if typeof(position) ~= "Vector3" then
+		return false, "position must be a Vector3"
+	end
+	return BarrageService.fireMission(position)
+end
+fireMission.Parent = game:GetService("ServerStorage")
+
 -- Set true to drop a barrage immediately. Resets itself, same contract as the
 -- snowstorm's DebugThunder -- the Command Bar runs its own VM, so an attribute
 -- is the only thing that reliably reaches a running server script.

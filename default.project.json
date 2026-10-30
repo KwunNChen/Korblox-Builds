@@ -1,0 +1,61 @@
+{
+  "name": "Korblox Combat",
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "BloxianGuns": {
+        "$className": "Folder",
+        "AWP": {
+          "$path": "Bloxian/assets/guns/AWP.rbxm"
+        },
+        "FAL": {
+          "$path": "Bloxian/assets/guns/FAL.rbxm"
+        },
+        "M4A1": {
+          "$path": "Bloxian/assets/guns/M4A1.rbxm"
+        }
+      },
+      "BloxianJavelin": {
+        "$path": "Bloxian/assets/Javelin.rbxm"
+      },
+      "BLOXIAN": {
+        "$className": "Model",
+        "$path": "Bloxian/src"
+      },
+      "BloxianVehicles": {
+        "$className": "Folder",
+        "Warthog": {
+          "$path": "Warthog/package.project.json"
+        },
+        "Abrams": {
+          "$path": "Abrams/package.project.json"
+        },
+        "Apache": {
+          "$path": "Apache/package.project.json"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "BloxianSpawner": {
+        "$path": "Bloxian/spawner/BloxianSpawner"
+      },
+      "VehicleSpawner": {
+        "$path": "Vehicle Spawner/spawner/VehicleSpawner"
+      }
+    },
+    "StarterPack": {
+      "$className": "StarterPack",
+      "$ignoreUnknownInstances": true,
+      "Bloxian Spawner": {
+        "$path": "Bloxian/spawner/Bloxian Spawner"
+      },
+      "Vehicle Spawner": {
+        "$path": "Vehicle Spawner/spawner/Vehicle Spawner"
+      }
+    }
+  }
+}

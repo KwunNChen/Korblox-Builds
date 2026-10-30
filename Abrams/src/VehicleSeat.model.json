@@ -1,0 +1,17 @@
+{
+  "className": "VehicleSeat",
+  "properties": {
+    "Anchored": true,
+    "CanCollide": false,
+    "CastShadow": false,
+    "HeadsUpDisplay": false,
+    "Transparency": 1,
+    "Size": [2, 0.2, 2],
+    "CFrame": {
+      "CFrame": {
+        "position": [100.73, 2.4, -129.5],
+        "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+      }
+    }
+  }
+}

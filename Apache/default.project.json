@@ -1,0 +1,13 @@
+{
+  "name": "Apache",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "Apache": {
+        "$path": "package.project.json"
+      }
+    }
+  }
+}

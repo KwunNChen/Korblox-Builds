@@ -1,0 +1,16 @@
+{
+  "className": "Seat",
+  "properties": {
+    "Anchored": true,
+    "CanCollide": false,
+    "CastShadow": false,
+    "Transparency": 1,
+    "Size": [2, 0.2, 2],
+    "CFrame": {
+      "CFrame": {
+        "position": [98.98, 8.6, -118.98],
+        "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+      }
+    }
+  }
+}

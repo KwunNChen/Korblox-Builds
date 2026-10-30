@@ -1,0 +1,36 @@
+{
+  "name": "VehicleSpawner",
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "BloxianVehicles": {
+        "$className": "Folder",
+        "Warthog": {
+          "$path": "../Warthog/package.project.json"
+        },
+        "Abrams": {
+          "$path": "../Abrams/package.project.json"
+        },
+        "Apache": {
+          "$path": "../Apache/package.project.json"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "VehicleSpawner": {
+        "$path": "spawner/VehicleSpawner"
+      }
+    },
+    "StarterPack": {
+      "$className": "StarterPack",
+      "$ignoreUnknownInstances": true,
+      "Vehicle Spawner": {
+        "$path": "spawner/Vehicle Spawner"
+      }
+    }
+  }
+}

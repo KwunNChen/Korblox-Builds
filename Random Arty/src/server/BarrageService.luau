@@ -292,14 +292,16 @@ local function fireShell(impact: Vector3, heading: number, thisGeneration: numbe
 	end)
 end
 
-local function runBarrage()
+-- epicenterOverride: a fire mission's aim point. Without one the guns pick
+-- their own, biased toward where players are.
+local function runBarrage(epicenterOverride: Vector3?)
 	generation += 1
 	local thisGeneration = generation
 	barrageActive = true
 
 	refreshSnapFilter()
 
-	local epicenter = pickEpicenter()
+	local epicenter = epicenterOverride or pickEpicenter()
 	if not epicenter then
 		barrageActive = false
 		log("barrage skipped -- nobody alive to shell")
@@ -400,6 +402,32 @@ end
 
 function BarrageService.isActive(): boolean
 	return barrageActive
+end
+
+--[[
+	A fire mission called in from inside the game (a Bloxian radioman, say): the
+	same barrage, centred on position instead of on wherever players cluster.
+
+	Gives back true and what a caller needs to get clear -- seconds of warning,
+	the radius shells can land and still kill in, and how long until the last
+	shell is down -- or false and why it could not fire.
+]]
+function BarrageService.fireMission(position: Vector3): (boolean, any)
+	if not running then
+		return false, "artillery is not running"
+	end
+	if barrageActive then
+		return false, "the guns are already firing"
+	end
+
+	task.spawn(runBarrage, position)
+	return true, {
+		warning = Config.BarrageWarningLead,
+		radius = Config.ShellScatterRadius + Config.KillRadius,
+		duration = Config.BarrageWarningLead
+			+ Config.ShellsPerBarrage.Max * Config.ShellSpacing.Max
+			+ Config.ShellFlightTime.Max,
+	}
 end
 
 function BarrageService.start()

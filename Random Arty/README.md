@@ -52,6 +52,23 @@ trip's latency per shell.
 them; it is never asked what it hit. A client that simply declined to mention it was
 standing in the crater would otherwise be immortal.
 
+## Fire missions
+
+Other server scripts can call a barrage on a spot of their choosing instead of
+waiting for the guns to pick one:
+
+```lua
+local ok, info = game.ServerStorage.ArtilleryFireMission:Invoke(position)
+-- ok:   false (and info is why) if the guns are off or already firing
+-- info: { warning = seconds to first impact,
+--         radius = studs shells can land and still kill in,
+--         duration = seconds until the last shell is down }
+```
+
+It is the same barrage -- same warning, scatter, damage and shell count --
+centred on `position`. It ignores `MinPlayersForBarrage`. The Bindable lives in
+ServerStorage, so clients cannot call one. Bloxian radiomen use it.
+
 ## The arc
 
 Real projectile motion. Given a launch point `S`, an impact point `P` and a flight time `T`:

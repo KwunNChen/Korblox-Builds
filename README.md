@@ -11,14 +11,20 @@ own games can go ahead and utilize the assets I built!
 
 | | Model file | What it is | Needs |
 |---|---|---|---|
+| [Abrams](Abrams) | `Abrams.rbxm` | M1A2 tank that Bloxians crew: crushes, machine-guns and shells you | Bloxian (for NPC crews) |
+| [Apache](Apache) | `Apache.rbxm` | Self-flying attack helicopter: M230, Hydras and Hellfires, on the Bloxian team system | none |
+| [Bloxian](Bloxian) | `Bloxian.rbxm` | Soldier NPC that hunts, shoots, and talks to its squad | — |
 | [Door system](Door%20system) | `BlastDoor.rbxm` | Tagged blast doors that split down the middle | — |
 | [Objective System](Objective%20System) | `ObjectiveSystem.rbxm` | Capture points with terminals and a round timer | — |
 | [Random Arty](Random%20Arty) | `RandomArtillery.rbxm` | Randomised artillery barrages, with gore | R6 |
 | [Ski](Ski) | `Ski.rbxm` | Skiing: physics, poses, ragdoll wipeouts | — |
+| [Skull Death Screen](Skull%20Death%20Screen) | `SkullDeathScreen.rbxm` | Death screen: the Evil Skull Man and a clip, respawn when it ends | — |
 | [TREK Bayonet](TREK%20Bayonet) | `TREKBayonet.rbxm` | Bayonet melee for TREK rifles | TREK 4 |
 | [TREK Gas Grenade](TREK%20Gas%20Grenade) | `TREKGasGrenade.rbxm` | Cookable gas grenades that deny ground | TREK 4 |
 | [TREK Parkour](TREK%20Parkour) | `TREKParkour.rbxm` | Vaulting and ledge mantling | TREK 4 |
 | [TREK Voicelines](TREK%20Voicelines) | `TREKVoicelines.rbxm` | Spatial voice barks for TREK | TREK 4 |
+| [Vehicle Spawner](Vehicle%20Spawner) | `VehicleSpawner.rbxm` | Tool that drops Warthogs, Abrams and Apaches, empty or with a Bloxian crew | Bloxian (for crews) |
+| [Warthog](Warthog) | `Warthog.rbxm` | Turret buggy that players can drive and Bloxians will crew | Bloxian (for NPC crews) |
 | [Variable Snowstorm](Variable%20Snowstorm) | `VariableSnowstorm.rbxm` | Weather that builds and breaks, with lightning | — |
 
 ---
@@ -102,6 +108,18 @@ like a broken install.
 | `Tools/` | `AnimationRig` | *optional* — leave in ServerStorage |
 
 `SkiRemotes` is a convenience: the server rebuilds any missing remote at start.
+
+### Skull Death Screen — `SkullDeathScreen.rbxm`
+
+| From | Move | Into |
+|---|---|---|
+| `ReplicatedStorage/` | `SkullDeathScreen` | ReplicatedStorage |
+| `ServerScriptService/` | `SkullDeathScreen` | ServerScriptService |
+| `StarterPlayerScripts/` | `SkullDeathScreen` | SPS |
+
+**It turns `CharacterAutoLoads` off** and spawns every character itself, so the
+respawn waits for the clip to finish. Don't pair it with another custom respawn
+script. Like Voicelines, the sound id is mine — replace it with your own upload.
 
 ### TREK Bayonet — `TREKBayonet.rbxm`
 
@@ -222,6 +240,7 @@ need to touch:
 | Objective System | inside `Workspace.TObjectiveSystem` |
 | Random Arty | `ReplicatedStorage.Artillery.ArtilleryConfig` |
 | Ski | `ReplicatedStorage.Ski.SkiConfig` |
+| Skull Death Screen | `ReplicatedStorage.SkullDeathScreen.DeathScreenConfig` |
 | TREK Bayonet | `ReplicatedStorage.TREKBayonet.BayonetConfig` |
 | TREK Parkour | `ReplicatedStorage.TREKParkour.ParkourConfig` |
 | TREK Voicelines | `ReplicatedStorage.TREKVoicelines.VoicelineConfig` |
@@ -229,3 +248,26 @@ need to touch:
 
 Every package also carries its full README as a ModuleScript inside the model, so
 the instructions travel with the file even if it gets separated from this repo.
+
+## Live-syncing the combat packages with Rojo
+
+The Rojo plugin syncs one project at a time, so serving `Abrams` alone leaves
+the Bloxian in ServerStorage stale. `default.project.json` in this folder serves
+Bloxian, Warthog, Abrams, Apache and both spawners together. Run this from this folder, with any other
+`rojo serve` stopped:
+
+```bash
+/c/Users/pbche/.rokit/bin/rojo.exe serve
+```
+
+| Synced to | From |
+|---|---|
+| `ServerStorage.BLOXIAN` (the spawner's template) | `Bloxian/src` |
+| `ServerScriptService.BloxianSpawner`, `StarterPack.Bloxian Spawner` | `Bloxian/spawner` |
+| `ServerStorage.BloxianVehicles.Warthog` / `.Abrams` / `.Apache` (the vehicle spawner's templates) | `Warthog/package.project.json`, `Abrams/package.project.json`, `Apache/package.project.json` |
+| `ServerScriptService.VehicleSpawner`, `StarterPack.Vehicle Spawner` | `Vehicle Spawner/spawner` |
+
+Before the first sync, delete any hand-inserted copies of these from the place:
+Rojo only manages the ones it created. Soldiers and vehicles already standing
+in Workspace are clones and do not update; clear them and spawn fresh ones with
+the spawners.

@@ -240,6 +240,12 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 	-- Spawn protection is NOT checked. Artillery penetrates a ForceField, in
 	-- every layer -- see applyDamage.
 
+	-- The crew of a Warthog or Abrams is protected by the vehicle until it is
+	-- destroyed; those packages set InVehicle while someone is seated.
+	if character:GetAttribute("InVehicle") then
+		return
+	end
+
 	-- LAYER 4. Past the damage sphere entirely: rattled, unhurt.
 	if distance > Config.DamageRadius then
 		applyConcussion(humanoid, distance)
