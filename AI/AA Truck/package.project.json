@@ -1,0 +1,39 @@
+{
+  "name": "AA Truck",
+  "tree": {
+    "$path": "src/Base.rbxm",
+    "$properties": {
+      "ModelStreamingMode": "Persistent"
+    },
+    "$attributes": {
+      "Driver": false,
+      "Gunner": false,
+      "Support": true,
+      "EngageDistance": 70,
+      "HalfWidth": 6,
+      "AgentRadius": 7,
+      "SmallArmsScale": 0.25
+    },
+    "Truck": {
+      "$path": "src/Truck.server.luau"
+    },
+    "Wheels": {
+      "$path": "src/Wheels.server.luau",
+      "$properties": {
+        "RunContext": "Client"
+      }
+    },
+    "Effects": {
+      "$path": "../Shared/Effects.server.luau"
+    },
+    "Spearhead": {
+      "$path": "../Shared/Spearhead.server.luau"
+    },
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "AirDefense": {
+      "$path": "../Shared/AirDefense.luau"
+    }
+  }
+}

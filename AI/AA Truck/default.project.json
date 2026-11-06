@@ -1,0 +1,17 @@
+{
+  "name": "AA Truck",
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "BloxianVehicles": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "AA Truck": {
+          "$path": "package.project.json"
+        }
+      }
+    }
+  }
+}

@@ -33,6 +33,11 @@ local equipEvent: RemoteEvent
 local unequippedAt: { [Player]: number } = {}
 local UNEQUIP_CRASH_GRACE = 1
 
+-- Least time between one player's state reports (seconds). Every report is
+-- passed on to every client, so faster ones are dropped.
+local REPORT_INTERVAL = 0.05
+local lastReport: { [Player]: number } = {}
+
 local function log(message: string, ...)
 	if Config.DebugLog then
 		print(string.format("[Ski] " .. message, ...))
@@ -135,6 +140,11 @@ function SkiService.onStateReport(player: Player, payload: unknown)
 	if type(payload) ~= "table" or not character or not equipped[player] then
 		return
 	end
+	local now = os.clock()
+	if now - (lastReport[player] or -math.huge) < REPORT_INTERVAL then
+		return
+	end
+	lastReport[player] = now
 
 	local data = payload :: any
 
@@ -235,6 +245,7 @@ end
 
 function SkiService.onPlayerRemoving(player: Player)
 	equipped[player] = nil
+	lastReport[player] = nil
 	zoneCooldown[player] = nil
 	unequippedAt[player] = nil
 end

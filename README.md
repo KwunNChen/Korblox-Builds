@@ -11,20 +11,22 @@ own games can go ahead and utilize the assets I built!
 
 | | Model file | What it is | Needs |
 |---|---|---|---|
-| [Abrams](Abrams) | `Abrams.rbxm` | M1A2 tank that Bloxians crew: crushes, machine-guns and shells you | Bloxian (for NPC crews) |
-| [Apache](Apache) | `Apache.rbxm` | Self-flying attack helicopter: M230, Hydras and Hellfires, on the Bloxian team system | none |
-| [Bloxian](Bloxian) | `Bloxian.rbxm` | Soldier NPC that hunts, shoots, and talks to its squad | — |
+| [AA Truck](AI/AA%20Truck) | `AA Truck.rbxm` | BM-21 truck firing homing anti-air rockets: Bloxian crews shoot down enemy Phantoms, AC-130s and Apaches | Bloxian (for NPC crews), Vehicle Spawner (to spawn it crewed) |
+| [AC130](AI/AC130) | `AC130.rbxm` | AC-130 gunship that Bloxian radiomen call in: it circles high up and the artillery barrage comes from it | Bloxian, Random Arty |
+| [Abrams](AI/Abrams) | `Abrams.rbxm` | M1A2 tank that Bloxians crew: crushes, machine-guns and shells you | Bloxian (for NPC crews) |
+| [Apache](AI/Apache) | `Apache.rbxm` | AH-64 that Bloxians fly and gun: M230 and Hellfires; the crew parachute out when it is shot up | Bloxian (for NPC crews) |
+| [F4](AI/F4) | `F4.rbxm` | Self-flying F-4 Phantom from the Vehicle Spawner: clears enemy AC-130s, Phantoms and Apaches from the sky, then strafes the enemy near its own troops with its gun | Vehicle Spawner (to spawn it) |
 | [Door system](Door%20system) | `BlastDoor.rbxm` | Tagged blast doors that split down the middle | — |
+| [KorbloxAI](AI/KorbloxAI) | `KorbloxAI.rbxm` | The whole AI system in one file: soldiers, spawner, every vehicle and artillery, with a one-line installer | R6 for gore |
 | [Objective System](Objective%20System) | `ObjectiveSystem.rbxm` | Capture points with terminals and a round timer | — |
-| [Random Arty](Random%20Arty) | `RandomArtillery.rbxm` | Randomised artillery barrages, with gore | R6 |
+| [Random Arty](AI/Random%20Arty) | `RandomArtillery.rbxm` | Randomised artillery barrages, with gore | R6 |
 | [Ski](Ski) | `Ski.rbxm` | Skiing: physics, poses, ragdoll wipeouts | — |
 | [Skull Death Screen](Skull%20Death%20Screen) | `SkullDeathScreen.rbxm` | Death screen: the Evil Skull Man and a clip, respawn when it ends | — |
 | [TREK Bayonet](TREK%20Bayonet) | `TREKBayonet.rbxm` | Bayonet melee for TREK rifles | TREK 4 |
 | [TREK Gas Grenade](TREK%20Gas%20Grenade) | `TREKGasGrenade.rbxm` | Cookable gas grenades that deny ground | TREK 4 |
 | [TREK Parkour](TREK%20Parkour) | `TREKParkour.rbxm` | Vaulting and ledge mantling | TREK 4 |
 | [TREK Voicelines](TREK%20Voicelines) | `TREKVoicelines.rbxm` | Spatial voice barks for TREK | TREK 4 |
-| [Vehicle Spawner](Vehicle%20Spawner) | `VehicleSpawner.rbxm` | Tool that drops Warthogs, Abrams and Apaches, empty or with a Bloxian crew | Bloxian (for crews) |
-| [Warthog](Warthog) | `Warthog.rbxm` | Turret buggy that players can drive and Bloxians will crew | Bloxian (for NPC crews) |
+| [Warthog](AI/Warthog) | `Warthog.rbxm` | Turret buggy that players can drive and Bloxians will crew | Bloxian (for NPC crews) |
 | [Variable Snowstorm](Variable%20Snowstorm) | `VariableSnowstorm.rbxm` | Weather that builds and breaks, with lightning | — |
 
 ---
@@ -249,11 +251,30 @@ need to touch:
 Every package also carries its full README as a ModuleScript inside the model, so
 the instructions travel with the file even if it gets separated from this repo.
 
+## Shared code
+
+`AI/Shared/` holds code that several combat packages build in as children
+of their model, so each `.rbxm` still works on its own:
+
+| Module | What it is | Built into |
+|---|---|---|
+| `Sides` | Who is on which side: a Bloxian's or player's team, an aircraft's side, enemy aircraft | F4, AA Truck, Abrams, Apache, Warthog |
+| `AirDefense` | Flares, how they fool missiles, aircraft health and damage | F4, AA Truck |
+| `Effects` | Vehicle effects on each client, such as dust | Abrams, AA Truck, Apache, Warthog |
+| `Spearhead` | Lets SPEARHEAD guns damage the vehicle (one hit per round fired) | Abrams, AA Truck, Apache, Warthog |
+
+Change the rules there once, then rebuild each package. Check the side rules
+with:
+
+```bash
+cd AI && /c/Users/pbche/.rokit/bin/lune.exe run Shared/tests/sides.test.luau
+```
+
 ## Live-syncing the combat packages with Rojo
 
 The Rojo plugin syncs one project at a time, so serving `Abrams` alone leaves
 the Bloxian in ServerStorage stale. `default.project.json` in this folder serves
-Bloxian, Warthog, Abrams, Apache and both spawners together. Run this from this folder, with any other
+Bloxian, the Warthog, Abrams, AA Truck, Apache, F4 and AC130, Random Arty, and the spawner tool with both its server scripts together. Run this from this folder, with any other
 `rojo serve` stopped:
 
 ```bash
@@ -262,12 +283,18 @@ Bloxian, Warthog, Abrams, Apache and both spawners together. Run this from this 
 
 | Synced to | From |
 |---|---|
-| `ServerStorage.BLOXIAN` (the spawner's template) | `Bloxian/src` |
-| `ServerScriptService.BloxianSpawner`, `StarterPack.Bloxian Spawner` | `Bloxian/spawner` |
-| `ServerStorage.BloxianVehicles.Warthog` / `.Abrams` / `.Apache` (the vehicle spawner's templates) | `Warthog/package.project.json`, `Abrams/package.project.json`, `Apache/package.project.json` |
-| `ServerScriptService.VehicleSpawner`, `StarterPack.Vehicle Spawner` | `Vehicle Spawner/spawner` |
+| `ServerStorage.BLOXIAN` (the spawner's template) | `AI/Bloxian/src` |
+| `ServerScriptService.BloxianSpawner`, `StarterPack.Bloxian Spawner` | `AI/Bloxian/spawner` |
+| `ServerStorage.BloxianVehicles.Warthog` / `.Abrams` / `.Apache` / `.F4 Phantom` / `.AA Truck` (the vehicle spawner's templates) | `Warthog/package.project.json`, `Abrams/package.project.json`, `Apache/package.project.json`, `F4/package.project.json`, `AA Truck/package.project.json` |
+| `ServerScriptService.VehicleSpawner` (Vehicles mode of the Bloxian Spawner) | `AI/Vehicle Spawner/spawner` |
+| `ServerStorage.BloxianVehicles.AC130` (the radiomen's gunship) | `AI/AC130/package.project.json` |
+| `ReplicatedStorage.Artillery`, `.ArtilleryState`, `.ArtilleryShell`, `.ArtilleryBlast`, `ServerScriptService.Artillery`, `StarterPlayer.StarterPlayerScripts.Artillery` (Random Arty) | `Random Arty/src` |
 
-Before the first sync, delete any hand-inserted copies of these from the place:
+Random Arty's `ServerScriptService.Common` syncs too. Anything else already in
+that folder, such as Ski's or Variable Snowstorm's modules, stays.
+
+Before the first sync, delete any hand-inserted copies of these from the place
+(for Random Arty: the six listed above, not `Common`):
 Rojo only manages the ones it created. Soldiers and vehicles already standing
 in Workspace are clones and do not update; clear them and spawn fresh ones with
 the spawners.

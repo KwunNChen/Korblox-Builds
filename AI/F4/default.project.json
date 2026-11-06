@@ -1,0 +1,17 @@
+{
+  "name": "F4 Phantom",
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "BloxianVehicles": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "F4 Phantom": {
+          "$path": "package.project.json"
+        }
+      }
+    }
+  }
+}

@@ -5,35 +5,71 @@
     "ServerStorage": {
       "$className": "ServerStorage",
       "$ignoreUnknownInstances": true,
+      "BloxiaMorphs": {
+        "$className": "Folder",
+        "Infantry": {
+          "$path": "AI/Bloxian/assets/morphs/Infantry.rbxm"
+        },
+        "Radioman": {
+          "$path": "AI/Bloxian/assets/morphs/Radioman.rbxm"
+        },
+        "Sniper": {
+          "$path": "AI/Bloxian/assets/morphs/Sniper.rbxm"
+        },
+        "SpecOps": {
+          "$path": "AI/Bloxian/assets/morphs/SpecOps.rbxm"
+        }
+      },
       "BloxianGuns": {
         "$className": "Folder",
+        "AR18": {
+          "$path": "AI/Bloxian/assets/guns/AR18.rbxm"
+        },
+        "Benelli": {
+          "$path": "AI/Bloxian/assets/guns/Benelli.rbxm"
+        },
+        "XM177M203": {
+          "$path": "AI/Bloxian/assets/guns/XM177M203.rbxm"
+        },
         "AWP": {
-          "$path": "Bloxian/assets/guns/AWP.rbxm"
+          "$path": "AI/Bloxian/assets/guns/AWP.rbxm"
         },
         "FAL": {
-          "$path": "Bloxian/assets/guns/FAL.rbxm"
+          "$path": "AI/Bloxian/assets/guns/FAL.rbxm"
         },
         "M4A1": {
-          "$path": "Bloxian/assets/guns/M4A1.rbxm"
+          "$path": "AI/Bloxian/assets/guns/M4A1.rbxm"
+        },
+        "M249": {
+          "$path": "AI/Bloxian/assets/guns/M249.rbxm"
         }
       },
       "BloxianJavelin": {
-        "$path": "Bloxian/assets/Javelin.rbxm"
+        "$path": "AI/Bloxian/assets/Javelin.rbxm"
       },
       "BLOXIAN": {
         "$className": "Model",
-        "$path": "Bloxian/src"
+        "$path": "AI/Bloxian/src"
       },
       "BloxianVehicles": {
         "$className": "Folder",
         "Warthog": {
-          "$path": "Warthog/package.project.json"
+          "$path": "AI/Warthog/package.project.json"
         },
         "Abrams": {
-          "$path": "Abrams/package.project.json"
+          "$path": "AI/Abrams/package.project.json"
         },
         "Apache": {
-          "$path": "Apache/package.project.json"
+          "$path": "AI/Apache/package.project.json"
+        },
+        "F4 Phantom": {
+          "$path": "AI/F4/package.project.json"
+        },
+        "AC130": {
+          "$path": "AI/AC130/package.project.json"
+        },
+        "AA Truck": {
+          "$path": "AI/AA Truck/package.project.json"
         }
       }
     },
@@ -41,20 +77,57 @@
       "$className": "ServerScriptService",
       "$ignoreUnknownInstances": true,
       "BloxianSpawner": {
-        "$path": "Bloxian/spawner/BloxianSpawner"
+        "$path": "AI/Bloxian/spawner/BloxianSpawner"
       },
       "VehicleSpawner": {
-        "$path": "Vehicle Spawner/spawner/VehicleSpawner"
+        "$path": "AI/Vehicle Spawner/spawner/VehicleSpawner"
+      },
+      "Artillery": {
+        "$path": "AI/Random Arty/src/server"
+      },
+      "Common": {
+        "$path": "AI/Random Arty/src/server-common",
+        "$ignoreUnknownInstances": true
       }
     },
     "StarterPack": {
       "$className": "StarterPack",
       "$ignoreUnknownInstances": true,
       "Bloxian Spawner": {
-        "$path": "Bloxian/spawner/Bloxian Spawner"
+        "$path": "AI/Bloxian/spawner/Bloxian Spawner"
+      }
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Artillery": {
+        "$path": "AI/Random Arty/src/shared"
       },
-      "Vehicle Spawner": {
-        "$path": "Vehicle Spawner/spawner/Vehicle Spawner"
+      "ArtilleryState": {
+        "$className": "Configuration",
+        "$attributes": {
+          "BarrageActive": false,
+          "WarningActive": false,
+          "ShellsLeft": 0,
+          "SecondsToFirstImpact": 0
+        }
+      },
+      "ArtilleryShell": {
+        "$className": "RemoteEvent"
+      },
+      "ArtilleryBlast": {
+        "$className": "RemoteEvent"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "Artillery": {
+          "$path": "AI/Random Arty/src/client"
+        }
       }
     }
   }
