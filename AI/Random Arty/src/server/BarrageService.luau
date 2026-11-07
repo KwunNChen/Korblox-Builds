@@ -376,7 +376,7 @@ local function runBarrage(epicenterOverride: Vector3?, mission: { caller: Model?
 	local count = math.round(Shared.rollRange(Config.ShellsPerBarrage))
 	local impacts: { Vector3 } = {}
 
-	--A gunship puts its shells right where the radioman called; the battery spreads them.
+	--A gunship puts its shells right where it aimed; the battery spreads them.
 	local scatter = if gunship then Config.GunshipScatterRadius else Config.ShellScatterRadius
 	for _ = 1, count do
 		local impact = rollImpact(epicenter, scatter)
@@ -472,7 +472,7 @@ function BarrageService.isActive(): boolean
 end
 
 --[[
-	A fire mission called in from inside the game (a Bloxian radioman, say): the
+	A fire mission called in from inside the game (the Bloxian Spawner's Kinetic Events tab, say): the
 	same barrage, centred on position instead of on wherever players cluster.
 
 	Gives back true and what a caller needs to get clear -- seconds of warning,

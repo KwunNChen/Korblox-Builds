@@ -780,9 +780,9 @@ local function burst(car,enemy)
 
 	for _ = 1,TURRET_BURST do
 		if role ~= "Gunner" or not enemy.Parent or myHuman.Health <= 0 or not tip.Parent then break end
-		--Rounds go at where he will be while the barrel is roughly on him.
+		--Rounds go at him while the barrel is roughly on him.
 		local muzzle = tip.WorldCFrame
-		local aimAt = core.leadPoint(enemy,muzzle.Position,TURRET_SPEED)
+		local aimAt = enemy.Position
 		if muzzle.LookVector:Dot((aimAt - muzzle.Position).Unit) > math.cos(math.rad(AIM_TOLERANCE)) then
 			muzzle = CFrame.lookAt(muzzle.Position,aimAt)
 		end
@@ -870,8 +870,7 @@ local function gun(car,enemy)
 		enemy = reachableEnemy(car,tipPos) or enemy
 	end
 
-	--Lead a moving enemy by the bullet's flight time.
-	local aimPoint = core.leadPoint(enemy,tipPos,TURRET_SPEED)
+	local aimPoint = enemy.Position
 	if aimer then
 		aimer.WorldCFrame = CFrame.lookAt(aimer.WorldPosition,aimPoint)
 	else

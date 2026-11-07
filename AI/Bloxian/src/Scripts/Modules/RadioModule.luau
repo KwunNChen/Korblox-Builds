@@ -11,6 +11,11 @@
 		           squads behind it, and his men follow him as usual.
 
 	Settings.Role forces "Radioman" or "Rifleman"; "Random" rolls.
+
+	Regular infantry need no radioman to call for help: anyone in a unit who is
+	attacked radios where the attacker is to every other unit on his side, at most
+	every UNIT_CALL_INTERVAL seconds per attacker. Those past core.ENGAGED_RANGE
+	from him drop it at once.
 ]]
 
 local radioNet = {}
@@ -23,12 +28,16 @@ local marine = modules.Parent.Parent
 local myRoot = marine.HumanoidRootPart
 local mySettings = marine.Settings
 local teamValue = mySettings.Team
+local unitValue = mySettings:FindFirstChild("Unit")
 
 --Chance a soldier spawns as the radioman when Settings.Role is "Random".
 local RADIOMAN_CHANCE = 0.1
 
 --How far a radioman's net reaches.
 local RADIO_RANGE = 300
+
+--Seconds between a side's radio calls about one attacker.
+local UNIT_CALL_INTERVAL = 5
 
 --Platoon formation: the gap between squads, side to side and front to back.
 local PLATOON_SPACING = 30
@@ -87,6 +96,25 @@ function radioNet.netMembers()
 		end
 	end
 	return list
+end
+
+--A regular infantryman attacked by attacker: every other unit on his side hears.
+_G.BloxianUnitCalls = _G.BloxianUnitCalls or setmetatable({},{__mode = "k"})
+function radioNet.callUnits(attacker)
+	if (marine:GetAttribute("Unit") or unitValue and unitValue.Value or "Infantry") ~= "Infantry" then return end
+	local calls = _G.BloxianUnitCalls[attacker] or {}
+	_G.BloxianUnitCalls[attacker] = calls
+	local now = os.clock()
+	if now - (calls[teamValue.Value] or -math.huge) < UNIT_CALL_INTERVAL then return end
+	calls[teamValue.Value] = now
+
+	local me = soldiers()[marine]
+	for _,entry in pairs(soldiers()) do
+		if entry.allyShot and entry.squadId ~= me.squadId and onMyTeam(entry) then
+			task.spawn(entry.allyShot,attacker,"unitCall")
+		end
+	end
+	log("target","radio: unit under attack, called it in")
 end
 
 --Where this squad's leader belongs in the platoon, or nil when his squad is

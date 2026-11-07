@@ -86,6 +86,10 @@ local STANCES = {
 	prone = {drop = 2.4, pitch = 90, neck = 80},
 }
 local STANCE_TIME = 0.35
+--Least seconds between going prone and getting up (either way; riding skips it),
+--and his share of his usual walk speed while prone.
+local STANCE_COOLDOWN = 3
+local PRONE_SPEED = 0.6
 
 --Where his eyes would be in each pose, off his root (prone: down and forward),
 --for checking he can still see his target from it.
@@ -166,11 +170,17 @@ function actions.aim()
 		local dist = math.max(core.checkDist(target,myTorso),1)
 		if core.checkSight(target) then
 			lastSeen = os.clock()
+			if myHuman.WalkSpeed == 16 and not status:get("closingIn") then
+				myHuman.WalkSpeed = 10
+			end
 		elseif os.clock() - lastSeen > AIM_LINGER and not status:get("reloading") then
 			break
+		elseif myHuman.WalkSpeed == 10 then
+			--Nobody in sight: he runs, rifle up.
+			myHuman.WalkSpeed = 16
 		end
 
-		aimPos = core.leadPoint(target,m4.Position,weapon.bulletSpeed)
+		aimPos = target.Position
 
 		local tilt = math.round(math.clamp((myRoot.Position.Y - aimPos.Y)/(dist*0.04),-45,45))
 		local toAim = aimPos - m4.Position
@@ -439,8 +449,11 @@ end
 
 --Moves him into a pose from STANCES over STANCE_TIME.
 local stanceToken = 0
-function actions.setStance(name)
+local stanceChangedAt = -math.huge
+function actions.setStance(name,force)
 	if name == stance or not STANCES[name] then return end
+	if not force and os.clock() - stanceChangedAt < STANCE_COOLDOWN then return end
+	stanceChangedAt = os.clock()
 	stance = name
 	marine:SetAttribute("Stance",name)
 	--Torso, head, arms and rifle all lie on the ground prone.
@@ -508,7 +521,23 @@ end
 
 --Prone when caught in the open with no cover (status proneUntil), or when his
 --team asks for it (status teamStance), if he can still see his target from
---there. Up whenever he moves, rides or holds a knife.
+--there. Up whenever he moves, rides or holds a knife, once STANCE_COOLDOWN allows.
+local function applyProneSpeed()
+	local usual = status:get("weaponAimed") and 10 or 16
+	if stance == "prone" then
+		myHuman.WalkSpeed = math.min(myHuman.WalkSpeed,usual*PRONE_SPEED)
+	elseif myHuman.WalkSpeed < usual then
+		myHuman.WalkSpeed = usual
+	end
+end
+
+--Rushes, scrambles and breaking contact all set his speed: lying down, none of them count.
+myHuman:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+	if stance == "prone" then
+		applyProneSpeed()
+	end
+end)
+
 task.spawn(function()
 	while myHuman.Health > 0 and marine.Parent do
 		local want = "stand"
@@ -519,13 +548,14 @@ task.spawn(function()
 		elseif status:get("teamStance") then
 			want = keepSight(status:get("teamStance"))
 		end
-		actions.setStance(want)
+		actions.setStance(want,myHuman.Sit)
+		applyProneSpeed()
 		--Down and not aiming, keep the rifle's pivot level (the pose can leave it tipped).
-		if want ~= "stand" and not status:get("weaponAimed") then
+		if stance ~= "stand" and not status:get("weaponAimed") then
 			applyPose()
 		end
 		--Down, he always has his rifle in his hands.
-		if want ~= "stand" and not status:get("m4Equipped") and not status:get("reloading")
+		if stance ~= "stand" and not status:get("m4Equipped") and not status:get("reloading")
 			and not status:get("launching") and not status:get("knifeEquipped") then
 			actions.drawM4()
 		end

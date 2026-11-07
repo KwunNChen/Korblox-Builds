@@ -1,17 +1,16 @@
 # AC130
 
 A spawnable AC-130 gunship. It flies itself, holds station over where it was
-spawned, and flies the fire missions its side's Bloxian radiomen call, in
-place of the artillery battery. An enemy F-4 Phantom can shoot it down.
+spawned, and picks its own targets for its barrages. An enemy F-4 Phantom can shoot it down.
 
 ## Install
 
 It goes in `ServerStorage.BloxianVehicles` as `AC130`, next to the other
-vehicles. The root project, the Vehicle Spawner project and this package's own
-`default.project.json` all sync it there. It needs:
+vehicles. The root project and this package's own `default.project.json` both
+sync it there. It needs:
 
 - **Random Arty**, current build, for `ServerStorage.ArtilleryFireMission`.
-- **Bloxian**, current build, whose radiomen call it.
+- **Bloxian**, current build.
 - The **Bloxian Spawner** tool (Vehicles mode) to spawn it.
 
 ## What it does
@@ -42,8 +41,8 @@ announced. That's the only heads-up: its barrages come with no warning.
     spread.
   - **The impacts:** each lands with the same artillery explosion.
 - **After:** once the last shell lands it slides back to its station
-  (`OnMission` is set while it's out). Radiomen always call the artillery
-  battery, never the gunship, and the two can fire at the same time.
+  (`OnMission` is set while it's out). It and the artillery battery can fire at
+  the same time.
 - **Flares, chaff and health:** it carries 120 flares and 120 chaff bundles, 8 to a salvo, against missiles and 600
   `AirHealth` against a Phantom's cannon (see the F4 README).
 - **Shot down:** it's tagged `BloxianGunship`. A missile from an F-4 Phantom on another

@@ -7,13 +7,15 @@
 	With the Vehicle Spawner's server script installed, the panel's Spawn row
 	switches to vehicles: vehicle, team and crew, a footprint marker facing the
 	way you look, and clicks sent to the VehicleSpawner server script instead.
+
+	Its Kinetic Events tab calls artillery or an airstrike on the clicked spot,
+	through the BloxianSpawner server script.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Teams = game:GetService("Teams")
-local CollectionService = game:GetService("CollectionService")
 
 local tool = script.Parent
 local player = Players.LocalPlayer
@@ -33,8 +35,7 @@ local CLICK_RANGE = 5000
 local OPTIONS = {
 	{key = "branch", label = "Branch", values = {"Infantry","Special Operations"}, tabs = true},
 	{key = "unit", label = "Unit", values = {"Infantry","Sniper team","AT team"}},
-	{key = "sofUnit", label = "Unit", values = {"Special Recon","Raiders"}, columns = 2},
-	{key = "sofSize", label = "Size", values = {"Recce","Fireteam","ODA"}},
+	{key = "sofSize", label = "Size", values = {"Recce","Fireteam"}, columns = 2},
 	{key = "size", label = "Group", values = {1,4,9}, names = {"Soldier","Fire team","Squad"}},
 	{key = "team", label = "Team", values = {"Hostile","Friendly"}, columns = 2},
 	{key = "weapon", label = "Weapon", values = {"Random","Rifle","DMR","Carbine","LMG","Sniper"}},
@@ -51,13 +52,23 @@ local VEHICLE_OPTIONS = {
 	{key = "crew", label = "Crew", values = {"None","Gunner","Full"}, names = {"Empty","Gunner only","Full crew"}},
 }
 
-local MODE_OPTION = {key = "mode", label = "Spawn", values = {"Soldiers","Vehicles"}, tabs = true}
+--Kinetic Events mode. Side is whose airstrike it is; artillery hits everyone.
+local KINETIC_OPTIONS = {
+	{key = "kinetic", label = "Event", values = {"Artillery","Airstrike"}, columns = 2},
+	{key = "kineticTeam", send = "team", label = "Side", values = {"Hostile","Friendly"}, columns = 2},
+}
+
+local KINETIC_MODE = "Kinetic Events"
+local MODE_OPTION = {key = "mode", label = "Spawn", values = {"Soldiers",KINETIC_MODE}, tabs = true}
 
 local ALL_OPTIONS = {MODE_OPTION}
 for _,option in ipairs(OPTIONS) do
 	table.insert(ALL_OPTIONS,option)
 end
 for _,option in ipairs(VEHICLE_OPTIONS) do
+	table.insert(ALL_OPTIONS,option)
+end
+for _,option in ipairs(KINETIC_OPTIONS) do
 	table.insert(ALL_OPTIONS,option)
 end
 
@@ -86,39 +97,24 @@ local MEDIUM = Font.new(GOTHAM,Enum.FontWeight.Medium)
 local HEAVY = Font.new(GOTHAM,Enum.FontWeight.Heavy)
 local MONO = Font.new("rbxasset://fonts/families/RobotoMono.json")
 
-local IDLE_STATUS = "[CLICK] - SPAWN AT CURSOR"
+local IDLE_STATUS = "[CLICK] - AT CURSOR"
 
 --Marker colours for the teams that are not Roblox teams (those use their TeamColor),
 --and how wide the marker is per group size.
 local TEAM_COLORS = {Any = Color3.fromRGB(230,230,230), Hostile = Color3.fromRGB(220,60,60), Friendly = Color3.fromRGB(70,140,255)}
 local MARKER_WIDTH = {[1] = 4, [4] = 12, [9] = 20}
 local PAIR_WIDTH = 8
-local SOF_WIDTH = {Recce = 6, Fireteam = 12, ODA = 24}
+--Ring width per kinetic event: Random Arty's shell scatter and the server's STRIKE_RADIUS, doubled.
+local KINETIC_WIDTH = {Artillery = 180, Airstrike = 300}
+local SOF_WIDTH = {Recce = 6, Fireteam = 12}
 --Vehicle footprint when the server has not sent one.
 local VEHICLE_FOOTPRINT = Vector2.new(8,16)
 
 --Rows that only apply to infantry; other units bring their own make-up.
 local INFANTRY_ONLY = {size = true, weapon = true, radio = true}
 --Rows shown on one tab of the Branch row only.
-local BRANCH_ONLY = {unit = "Infantry", size = "Infantry", weapon = "Infantry", radio = "Infantry", sofUnit = "Special Operations", sofSize = "Special Operations"}
+local BRANCH_ONLY = {unit = "Infantry", size = "Infantry", weapon = "Infantry", radio = "Infantry", sofSize = "Special Operations"}
 
---Seconds between tracker refreshes.
-local TRACK_INTERVAL = 0.2
-
---Soldiers, the aircraft (Phantoms, AC-130s, Apaches) and the land vehicles,
---and what an aircraft's tag is shown as (a land vehicle shows its name).
-local TRACKED_TAGS = {"Bloxian","BloxianJet","BloxianGunship","BloxianAircraft","BloxianVehicle","MarineVehicle"}
-local AIRCRAFT_NAMES = {BloxianJet = "F-4 Phantom",BloxianGunship = "AC-130",BloxianAircraft = "Apache"}
-local VEHICLE_TAGS = {"BloxianVehicle","MarineVehicle"}
---How far above an aircraft's or a vehicle's root its tag floats (studs).
-local AIRCRAFT_TAG_HEIGHT = 14
-local VEHICLE_TAG_HEIGHT = 9
-local TRACKER_NAME = "BloxianTracker"
-
---NATO unit-size mark for each echelon (the unit's SquadEchelon).
-local ECHELON_MARKS = {["Fire team"] = "Ø", Squad = "●", Section = "●●", Platoon = "●●●", ["SOF Fireteam"] = "Ø", Recce = "Ø", ODA = "●●"}
---How far above the middle of a squad its tag floats (studs).
-local SQUAD_TAG_HEIGHT = 35
 local TRACKING_ATTRIBUTE = "BloxianTracking"
 
 local chosen = {}
@@ -128,9 +124,6 @@ end
 
 local gui,statusLabel,trackButton,marker,renderConnection
 local rows = {}
-local trackers = {}
-local trackConnections = {}
-local trackRun = 0
 
 local function optionFor(key)
 	for _,option in ipairs(ALL_OPTIONS) do
@@ -156,6 +149,10 @@ local function vehiclesOn()
 	return vehicleRemote ~= nil and value("mode") == "Vehicles"
 end
 
+local function kineticOn()
+	return value("mode") == KINETIC_MODE
+end
+
 --An aircraft always spawns with a full crew, so it has no crew choice.
 local function aircraftChosen()
 	local name = value("vehicle")
@@ -175,6 +172,8 @@ local function refreshChoices()
 	end
 	setValues("team",soldierTeams)
 	setValues("vehicleTeam",vehicleTeams)
+	setValues("kineticTeam",soldierTeams)
+	setValues("mode",vehicleRemote and {"Soldiers","Vehicles",KINETIC_MODE} or {"Soldiers",KINETIC_MODE})
 
 	local vehicles = vehicleRemote and vehicleRemote:GetAttribute("Vehicles") or ""
 	setValues("vehicle",vehicles ~= "" and string.split(vehicles,",") or {})
@@ -265,13 +264,14 @@ end
 
 local function refreshRows()
 	local vehicles = vehiclesOn()
+	local kinetic = kineticOn()
 	local infantry = value("unit") == "Infantry"
 	local branch = value("branch")
 	for _,option in ipairs(OPTIONS) do
 		local row = rows[option.key]
 		if row then
 			local onTab = BRANCH_ONLY[option.key] == nil or BRANCH_ONLY[option.key] == branch
-			row.Visible = option.key == "uniform" or not vehicles and onTab and (infantry or not INFANTRY_ONLY[option.key])
+			row.Visible = not kinetic and (option.key == "uniform" or not vehicles and onTab and (infantry or not INFANTRY_ONLY[option.key]))
 		end
 	end
 	for _,option in ipairs(VEHICLE_OPTIONS) do
@@ -280,8 +280,11 @@ local function refreshRows()
 			row.Visible = vehicles and not (option.key == "crew" and aircraftChosen())
 		end
 	end
-	if rows.mode then
-		rows.mode.Visible = vehicleRemote ~= nil
+	for _,option in ipairs(KINETIC_OPTIONS) do
+		local row = rows[option.key]
+		if row then
+			row.Visible = kinetic and (option.key == "kinetic" or value("kinetic") == "Airstrike")
+		end
 	end
 end
 
@@ -342,7 +345,7 @@ local function optionRow(parent,option,order)
 	end
 	for index,name in ipairs(names) do
 		local chip = flatButton(chips,tostring(name),index)
-		if option.key == "team" or option.key == "vehicleTeam" then
+		if option.key == "team" or option.key == "vehicleTeam" or option.key == "kineticTeam" then
 			padding(chip,8,0).PaddingLeft = UDim.new(0,22)
 			make("Frame",{
 				AnchorPoint = Vector2.new(0,0.5),
@@ -369,15 +372,7 @@ local function optionRow(parent,option,order)
 	rows[option.key] = row
 end
 
-local function aliveTracked()
-	local count = 0
-	for _,tracker in pairs(trackers) do
-		if tracker.Enabled or tracker:GetAttribute("Alive") then
-			count += 1
-		end
-	end
-	return count
-end
+local tracking
 
 local function refreshTrackButton()
 	if not trackButton then
@@ -385,373 +380,21 @@ local function refreshTrackButton()
 	end
 	local on = player:GetAttribute(TRACKING_ATTRIBUTE) == true
 	setSelected(trackButton,on)
-	trackButton.Text = on and ("TRACKING "..aliveTracked()) or "TRACK ALL"
+	trackButton.Text = on and ("TRACKING "..tracking.alive()) or "TRACK ALL"
 end
 
--- Tracker ---------------------------------------------------------------------
-
-local function untrack(model)
-	local tracker = trackers[model]
-	if tracker then
-		tracker:Destroy()
-		trackers[model] = nil
-	end
-end
-
---What a machine is tracked as, and whether it flies. nil for a soldier.
-local function machineName(model)
-	for tag,name in pairs(AIRCRAFT_NAMES) do
-		if model:HasTag(tag) then
-			return name,true
-		end
-	end
-	for _,tag in ipairs(VEHICLE_TAGS) do
-		if model:HasTag(tag) then
-			return model.Name,false
-		end
-	end
-	return nil
-end
-
---The most AirHealth each plane has been seen with, for its health bar.
-local airHealthMax = setmetatable({},{__mode = "k"})
-
-local function track(model)
-	if trackers[model] or not model:IsDescendantOf(workspace) then
-		return
-	end
-	local name,flies = machineName(model)
-	local machine = name ~= nil
-	--A model can arrive before its parts stream in, or lose them streaming out:
-	--the refresh points the tag at whatever is there now.
-	local anchor = if machine then model.PrimaryPart else model:FindFirstChild("Head")
-
-	--Hidden until the first refresh has filled it in and found where it goes.
-	local tracker = make("BillboardGui",{
-		Name = TRACKER_NAME,
-		Adornee = anchor,
-		Enabled = false,
-		AlwaysOnTop = true,
-		LightInfluence = 0,
-		MaxDistance = math.huge,
-		ResetOnSpawn = false,
-		Size = UDim2.fromOffset(150,48),
-		StudsOffsetWorldSpace = Vector3.new(0,if not machine then 2.6 elseif flies then AIRCRAFT_TAG_HEIGHT else VEHICLE_TAG_HEIGHT,0),
-	},nil)
-
-	local box = make("Frame",{
-		Name = "Box",
-		Size = UDim2.fromScale(1,1),
-		BackgroundColor3 = BOX,
-		BackgroundTransparency = BOX_TRANSPARENCY,
-		BorderSizePixel = 0,
-	},tracker)
-	outline(box,1,0.4)
-	make("Frame",{
-		Name = "Swatch",
-		Position = UDim2.fromOffset(8,8),
-		Size = UDim2.fromOffset(8,8),
-		BorderSizePixel = 0,
-	},box)
-	make("TextLabel",{
-		Name = "Title",
-		Text = "",
-		Position = UDim2.fromOffset(22,3),
-		Size = UDim2.new(1,-28,0,18),
-		BackgroundTransparency = 1,
-		FontFace = BOLD,
-		TextSize = 12,
-		TextColor3 = INK,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-	},box)
-	make("TextLabel",{
-		Name = "Detail",
-		Text = "",
-		Position = UDim2.fromOffset(8,20),
-		Size = UDim2.new(1,-16,0,16),
-		BackgroundTransparency = 1,
-		FontFace = MONO,
-		TextSize = 12,
-		TextColor3 = INK_DIM,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	},box)
-	local bar = make("Frame",{
-		Name = "Health",
-		Position = UDim2.new(0,8,1,-9),
-		Size = UDim2.new(1,-16,0,3),
-		BackgroundColor3 = Color3.fromRGB(60,60,60),
-		BorderSizePixel = 0,
-	},box)
-	make("Frame",{
-		Name = "Fill",
-		Size = UDim2.fromScale(1,1),
-		BorderSizePixel = 0,
-	},bar)
-
-	tracker.Parent = playerGui
-	trackers[model] = tracker
-end
-
---Who is in a vehicle's seats: how many, and the team of the first.
-local function crewOf(model)
-	local count,team = 0,nil
-	for _,seatName in ipairs({"VehicleSeat","Seat"}) do
-		local seat = model:FindFirstChild(seatName)
-		local occupant = seat and seat.Occupant
-		if occupant and occupant.Health > 0 then
-			count += 1
-			local crewSettings = occupant.Parent and occupant.Parent:FindFirstChild("Settings")
-			local crewTeam = crewSettings and crewSettings:FindFirstChild("Team")
-			local player = Players:GetPlayerFromCharacter(occupant.Parent)
-			team = team or (crewTeam and crewTeam.Value ~= "" and crewTeam.Value) or (player and player.Team and player.Team.Name)
-		end
-	end
-	return count,team
-end
-
---An aircraft's or vehicle's tag: its team, what it is, what it is doing and how far off.
-local function refreshMachine(model,tracker,kind,flies)
-	local root = model.PrimaryPart
-	local human = model:FindFirstChildOfClass("Humanoid")
-	local down = model:GetAttribute("ShotDown") or model:GetAttribute("Wrecked") or (human and human.Health <= 0)
-	tracker.Adornee = root
-	tracker.Enabled = root ~= nil and model:IsDescendantOf(workspace)
-	if not tracker.Enabled then
-		return
-	end
-
-	local crew,crewTeam = crewOf(model)
-	local settings = model:FindFirstChild("Settings")
-	local teamValue = settings and settings:FindFirstChild("Team")
-	local teamName = model:GetAttribute("Team") or crewTeam or (teamValue and teamValue.Value ~= "" and teamValue.Value)
-		or (model:HasTag("BloxianJet") and "Friendly") or "Any"
-	local color = down and DANGER or teamColor(teamName)
-
-	local status = model:GetAttribute("Status")
-	if down then
-		status = flies and "Down" or "Wrecked"
-	elseif not status then
-		if model:GetAttribute("OnMission") then
-			status = "Fire mission"
-		elseif model:HasTag("BloxianGunship") then
-			status = "On station"
-		elseif flies and crew == 0 and human then
-			status = "Empty"
-		elseif flies then
-			status = "Flying"
-		else
-			status = crew == 0 and "Empty" or ("Crew "..crew)
-		end
-	end
-
-	local camera = workspace.CurrentCamera
-	local distance = camera and math.floor((camera.CFrame.Position - root.Position).Magnitude) or 0
-
-	local box = tracker.Box
-	box.Swatch.BackgroundColor3 = color
-	box.Title.Text = string.upper(teamName.." / "..kind)
-	box.Detail.Text = string.format("%-10s%5dM",string.upper(status),distance)
-	box.Health.Fill.BackgroundColor3 = color
-	local airHealth = model:GetAttribute("AirHealth")
-	if airHealth then
-		airHealthMax[model] = math.max(airHealthMax[model] or 0,airHealth)
-	end
-	local health = if down then 0
-		elseif human then human.Health/human.MaxHealth
-		elseif airHealth then airHealth/math.max(airHealthMax[model],1)
-		else 1
-	box.Health.Fill.Size = UDim2.fromScale(math.clamp(health,0,1),1)
-end
-
-local function refreshTracker(model,tracker)
-	local kind,flies = machineName(model)
-	if kind then
-		refreshMachine(model,tracker,kind,flies)
-		return
-	end
-	--Soldiers have no tag of their own: their unit's tag, or their vehicle's, stands for them.
-	local human = model:FindFirstChildOfClass("Humanoid")
-	tracker:SetAttribute("Alive",human ~= nil and human.Health > 0 and model:IsDescendantOf(workspace))
-	tracker.Enabled = false
-end
-
---One tag per squad (by SquadId) high over the middle of its soldiers on foot:
---its NATO size mark above its name and strength. Anyone seated in a vehicle
---still counts toward the squad but is left out of where the tag sits.
---squadTags[id] = {gui, anchor (an invisible client-side part), heads}
-local squadTags = {}
-
-local function newSquadTag()
-	local anchor = make("Part",{
-		Name = "BloxianSquadAnchor",
-		Anchored = true,
-		CanCollide = false,
-		CanQuery = false,
-		CanTouch = false,
-		Transparency = 1,
-		Size = Vector3.new(0.2,0.2,0.2),
-	},workspace.CurrentCamera)
-	local tag = make("BillboardGui",{
-		Name = TRACKER_NAME,
-		Adornee = anchor,
-		Enabled = false,
-		AlwaysOnTop = true,
-		LightInfluence = 0,
-		MaxDistance = math.huge,
-		ResetOnSpawn = false,
-		Size = UDim2.fromOffset(160,42),
-		StudsOffsetWorldSpace = Vector3.new(0,SQUAD_TAG_HEIGHT,0),
-	},nil)
-	local box = make("Frame",{
-		Name = "Box",
-		Size = UDim2.fromScale(1,1),
-		BackgroundColor3 = BOX,
-		BackgroundTransparency = BOX_TRANSPARENCY,
-		BorderSizePixel = 0,
-	},tag)
-	outline(box,1,0.4)
-	make("TextLabel",{
-		Name = "Mark",
-		Position = UDim2.fromOffset(0,3),
-		Size = UDim2.new(1,0,0,18),
-		BackgroundTransparency = 1,
-		FontFace = BOLD,
-		TextSize = 16,
-		Text = "",
-	},box)
-	make("TextLabel",{
-		Name = "Label",
-		Position = UDim2.fromOffset(0,21),
-		Size = UDim2.new(1,0,0,16),
-		BackgroundTransparency = 1,
-		FontFace = MONO,
-		TextSize = 12,
-		Text = "",
-	},box)
-	tag.Parent = playerGui
-	return {gui = tag, anchor = anchor, heads = {}}
-end
-
-local function dropSquadTag(id)
-	local entry = squadTags[id]
-	entry.gui:Destroy()
-	entry.anchor:Destroy()
-	squadTags[id] = nil
-end
-
---Every frame: each tag's anchor to the middle of its squad's heads.
-local function placeSquadTags()
-	for _,entry in pairs(squadTags) do
-		local sum,count = Vector3.zero,0
-		for _,head in ipairs(entry.heads) do
-			if head.Parent then
-				sum += head.Position
-				count += 1
-			end
-		end
-		entry.gui.Enabled = count > 0
-		if count > 0 then
-			entry.anchor.CFrame = CFrame.new(sum/count)
-		end
-	end
-end
-
---Every refresh: who is in each squad, and its mark, name and strength.
-local function refreshSquads()
-	local squads = {}
-	for model,tracker in pairs(trackers) do
-		local id = (tracker.Enabled or tracker:GetAttribute("Alive")) and model:GetAttribute("SquadName") and model:GetAttribute("SquadId")
-		local human = id and model:FindFirstChildOfClass("Humanoid")
-		local head = human and model:FindFirstChild("Head")
-		if head then
-			local squad = squads[id]
-			if not squad then
-				squad = {alive = 0,heads = {},model = model}
-				squads[id] = squad
-			end
-			squad.alive += 1
-			if not human.SeatPart then
-				squad.heads[#squad.heads+1] = head
-			end
-		end
-	end
-
-	for id in pairs(squadTags) do
-		if not squads[id] then
-			dropSquadTag(id)
-		end
-	end
-
-	for id,squad in pairs(squads) do
-		local entry = squadTags[id] or newSquadTag()
-		squadTags[id] = entry
-		entry.heads = squad.heads
-
-		local model = squad.model
-		local echelon = model:GetAttribute("SquadEchelon") or "Squad"
-		local settings = model:FindFirstChild("Settings")
-		local teamValue = settings and settings:FindFirstChild("Team")
-		local strength = math.floor(squad.alive/math.max(model:GetAttribute("SquadSize") or squad.alive,1)*100 + 0.5)
-		local box = entry.gui.Box
-		box.Mark.Text = ECHELON_MARKS[echelon] or ""
-		box.Mark.TextColor3 = teamColor(teamValue and teamValue.Value or "?")
-		local number = model:GetAttribute("SquadNumber")
-		local name = string.upper(model:GetAttribute("SquadName"))
-		box.Label.Text = echelon == "ODA" and string.format("ODA %s %d%%",name,strength)
-			or string.format("%s %s%s %d%%",name,string.upper(echelon),number and " "..number or "",strength)
-		box.Label.TextColor3 = model:GetAttribute("Demoralized") and DANGER or INK
-	end
-end
-
-local function stopTracking()
-	trackRun += 1
-	for id in pairs(squadTags) do
-		dropSquadTag(id)
-	end
-	for _,connection in ipairs(trackConnections) do
-		connection:Disconnect()
-	end
-	table.clear(trackConnections)
-	for model in pairs(trackers) do
-		untrack(model)
-	end
-end
-
-local function startTracking()
-	stopTracking()
-	for _,tag in ipairs(TRACKED_TAGS) do
-		for _,model in ipairs(CollectionService:GetTagged(tag)) do
-			track(model)
-		end
-		table.insert(trackConnections,CollectionService:GetInstanceAddedSignal(tag):Connect(track))
-		table.insert(trackConnections,CollectionService:GetInstanceRemovedSignal(tag):Connect(untrack))
-	end
-	table.insert(trackConnections,RunService.RenderStepped:Connect(placeSquadTags))
-
-	local run = trackRun
-	task.spawn(function()
-		while run == trackRun and script.Parent do
-			for model,tracker in pairs(trackers) do
-				if model.Parent then
-					refreshTracker(model,tracker)
-				else
-					untrack(model)
-				end
-			end
-			refreshSquads()
-			refreshTrackButton()
-			task.wait(TRACK_INTERVAL)
-		end
-	end)
-end
+tracking = require(script.Parent:WaitForChild("Tracker"))({
+	make = make, outline = outline, teamColor = teamColor,
+	BOX = BOX, BOX_TRANSPARENCY = BOX_TRANSPARENCY, INK = INK, INK_DIM = INK_DIM, DANGER = DANGER,
+	BOLD = BOLD, MONO = MONO,
+},refreshTrackButton)
 
 local function setTracking(on)
 	player:SetAttribute(TRACKING_ATTRIBUTE,on)
 	if on then
-		startTracking()
+		tracking.start()
 	else
-		stopTracking()
+		tracking.stop()
 	end
 	refreshTrackButton()
 end
@@ -830,7 +473,7 @@ local function buildMarker()
 	marker.CanQuery = false
 	marker.CanTouch = false
 	marker.CastShadow = false
-	marker.Material = Enum.Material.Neon
+	marker.Material = Enum.Material.SmoothPlastic
 	marker.Transparency = 0.6
 	marker.Parent = workspace.CurrentCamera
 	mouse.TargetFilter = marker
@@ -857,7 +500,14 @@ local function placeMarker()
 	local at = clickPoint()
 	marker.Transparency = at and 0.6 or 1
 	if not at then return end
-	if vehiclesOn() then
+	if kineticOn() then
+		local event = value("kinetic")
+		local width = KINETIC_WIDTH[event]
+		marker.Shape = Enum.PartType.Cylinder
+		marker.Size = Vector3.new(0.2,width,width)
+		marker.Color = event == "Airstrike" and teamColor(value("kineticTeam")) or DANGER
+		marker.CFrame = CFrame.new(at) * CFrame.Angles(0,0,math.pi/2)
+	elseif vehiclesOn() then
 		local name = value("vehicle")
 		local size = name and vehicleRemote:GetAttribute("Size_"..name:gsub("%W","_"))
 		if typeof(size) ~= "Vector2" then
@@ -900,6 +550,15 @@ tool.Unequipped:Connect(function()
 end)
 
 tool.Activated:Connect(function()
+	if kineticOn() then
+		local at = clickPoint()
+		if at then
+			remote:FireServer("kinetic",at,Vector3.zero,{event = value("kinetic"),team = value("kineticTeam")})
+		else
+			showStatus("Point at the ground",DANGER)
+		end
+		return
+	end
 	local vehicles = vehiclesOn()
 	local options = {}
 	for _,option in ipairs(vehicles and VEHICLE_OPTIONS or OPTIONS) do
@@ -907,7 +566,7 @@ tool.Activated:Connect(function()
 	end
 	options.uniform = value("uniform")
 	if not vehicles and options.branch ~= "Infantry" then
-		options.unit = options.sofUnit
+		options.unit = "Special Recon"
 	end
 	if vehicles and not options.vehicle then
 		showStatus("No vehicles in ServerStorage.BloxianVehicles",DANGER)
@@ -926,7 +585,7 @@ tool.Activated:Connect(function()
 end)
 
 local function onReply(message)
-	local failed = not string.find(message,"^Spawned") and not string.find(message,"^Cleared")
+	local failed = not string.find(message,"^Spawned") and not string.find(message,"^Cleared") and not string.find(message,"^Called")
 	showStatus(message,failed and DANGER or GOOD)
 end
 remote.OnClientEvent:Connect(onReply)
@@ -957,12 +616,6 @@ else
 	end)
 end
 
---Tracking stays on through respawns; the last life's tags are left over in PlayerGui.
-for _,leftover in ipairs(playerGui:GetChildren()) do
-	if leftover.Name == TRACKER_NAME then
-		leftover:Destroy()
-	end
-end
 if player:GetAttribute(TRACKING_ATTRIBUTE) == true then
-	startTracking()
+	tracking.start()
 end

@@ -14,8 +14,8 @@ local ArtilleryConfig = {}
 
 ArtilleryConfig.Enabled = true
 
--- false: the guns never fire on their own timer, only on fire missions (Bloxian
--- radiomen calling them in). true brings back the random barrages below.
+-- false: the guns never fire on their own timer, only on fire missions (the
+-- Bloxian Spawner's Kinetic Events tab). true brings back the random barrages below.
 ArtilleryConfig.NaturalBarrages = false
 
 -- Seconds between barrages. A random value inside the range is rolled every
@@ -151,7 +151,7 @@ ArtilleryConfig.GunshipShellFlightTime = NumberRange.new(0.8, 1)
 -- ShellSpacing, so its gun hammers out the barrage.
 ArtilleryConfig.GunshipShellSpacing = NumberRange.new(0.08, 0.18)
 
--- How wide a gunship's shells scatter around the spot the radioman called,
+-- How wide a gunship's shells scatter around the spot it picked,
 -- in studs. A gunship is precise where the battery is not (ShellScatterRadius).
 ArtilleryConfig.GunshipScatterRadius = 12
 

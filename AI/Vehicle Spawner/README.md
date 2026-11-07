@@ -37,17 +37,14 @@ Crew row is hidden for one): Bloxians on foot never board an aircraft. The
 **F-4 Phantom** (`Uncrewed` attribute) is the exception: it flies itself and gets no
 crew. Its team decides whose side it is on (`Any` counts as Friendly). The
 **AC-130** is uncrewed too: it circles high over where it was spawned and
-flies its team's radiomen's fire missions instead of the artillery. It has the
-`NeedsTeam` attribute, so the spawner refuses it on team `Any`: pick Hostile or
-Friendly, the side whose radiomen should get it. Only that side's radiomen
-can call it. See the AC130 README.
+fires its own barrages. It has the `NeedsTeam` attribute, so the spawner refuses
+it on team `Any`: pick Hostile or Friendly. See the AC130 README.
 
 Spawned vehicles do not respawn: wrecked, flipped or left abandoned away from
 where they were spawned, they are removed. At most 10 are alive on the server at
 once, one spawn per player every 2 seconds, within 5000 studs of you (`MAX_SPAWN_DISTANCE`).
 
-**Who can spawn with it:** everyone in Studio, plus the place owner in live servers.
-Add user ids to `ALLOWED_USER_IDS`. These and the limits are at the top of
+**Who can spawn with it:** anyone holding the tool. The limits are at the top of
 `VehicleSpawner`.
 
 ## Building

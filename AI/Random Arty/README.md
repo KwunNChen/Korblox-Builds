@@ -90,8 +90,8 @@ local ok, info = game.ServerStorage.ArtilleryFireMission:Invoke(position, missio
 
 It is the same barrage -- same warning, scatter, damage and shell count --
 centred on `position`. It ignores `MinPlayersForBarrage`. The Bindable lives in
-ServerStorage, so clients cannot call one. Bloxian radiomen use it for the
-battery, and the AC130 package uses it (with `gunship`) for its own barrages.
+ServerStorage, so clients cannot call one. The Bloxian Spawner's Kinetic Events
+tab uses it for the battery, and the AC130 package uses it (with `gunship`) for its own barrages.
 
 ## The arc
 

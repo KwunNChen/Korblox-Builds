@@ -115,8 +115,8 @@ and vehicles to engage. It looks within 900 studs of its station first
 (`SEARCH_RADIUS`, unlimited by default). It flies off to engage whatever it
 finds and comes back to circle its station when the ground is clear.
 
-- **Who it goes for:** an enemy its own side's Bloxian Special Recon reported in
-  the last 30 s (`REPORT_TIME`), anywhere on the map; otherwise the enemy
+- **Who it goes for:** an enemy its own side marked with the spawner's Airstrike in
+  the last 60 s (`REPORT_TIME`), anywhere on the map; otherwise the enemy
   closest to its own side's troops. It never fires with a friend within 35
   studs of the target.
 - **Not targeted:** wrecks, and anyone still hanging under a parachute, such as
@@ -156,12 +156,14 @@ It never flies lower than 100 studs above the ground.
 when fired and is back after 25 s (`REARM_TIME`). The rocket pods are only for
 show.
 
-## Called in by recon
+## Airstrikes
 
-Bloxian Special Recon radioman clones this F-4 from `ServerStorage.BloxianVehicles`
-when they see enemy aircraft and their side has none up. A copy sent like that
-carries a `Lifetime` attribute (40 s) and disappears once it runs out, unless it
-was shot down first.
+The Bloxian Spawner's Kinetic Events tab clones this F-4 from `ServerStorage.BloxianVehicles`.
+A copy sent like that attacks only people on foot (`InfantryOnly`), never vehicles
+or aircraft, and carries a `Strafes` attribute (3). There is no timer: after
+that many gun runs, or as soon as there is nobody left to attack, it stops
+attacking and flies away from the players, and is removed 8000 studs later
+(`EXIT_DISTANCE`), unless it was shot down first.
 
 ## Flyby
 
@@ -193,7 +195,7 @@ The pilot ejects at once.
   impact.
 
 Its `Status` attribute is what the Bloxian Spawner's Track all shows: Patrol,
-Intercept, Dogfight, Defending, Break, Attack, Strafe, Egress or Down.
+Intercept, Dogfight, Defending, Break, Attack, Strafe, Egress, Leaving or Down.
 
 Every number is at the top of `Jet`.
 

@@ -61,7 +61,7 @@ local diedSound = myHead.Died
 --Footsteps and jumps: how loud (STEP_VOLUME, or by Settings.Unit), the distance
 --they stay at full volume, and how far they carry.
 local STEP_VOLUME = 0.2
-local STEP_VOLUME_BY_UNIT = {Infantry = 0.4, ["Special Recon"] = 0.05, Raider = 0.05}
+local STEP_VOLUME_BY_UNIT = {Infantry = 0.4, ["Special Recon"] = 0.05}
 local STEP_FULL_VOLUME_RANGE = 4
 local STEP_HEARING = 40
 local unitSetting = marine.Settings:FindFirstChild("Unit")
@@ -208,10 +208,15 @@ end)
 local oldHealth = myHuman.Health
 local soundSpeeds = {0.9,0.95,1,1.05,1.1}
 local hurtToken = 0
+--Seconds after a fall that a loss of health is put down to it, not to an enemy.
+local FALL_HURT_TIME = 1
 myHuman.HealthChanged:Connect(function(health)
 	if health < oldHealth and health > 0 then
 		status:set("tookDamage",true)
 		status:set("lastDamaged",os.clock())
+		if workspace:GetServerTimeNow() - (marine:GetAttribute("FellAt") or -math.huge) > FALL_HURT_TIME then
+			status:set("lastHit",os.clock())
+		end
 		chatter.hit()
 
 		if math.random(3) == 1 and not hurtSound.IsPlaying then

@@ -1,7 +1,6 @@
 local combat = {}
 
 --Services
-local runService = game:GetService("RunService")
 local debrisService = game:GetService("Debris")
 
 local modules = script.Parent
@@ -14,7 +13,6 @@ local chatter = require(modules.ChatterModule)
 local troubleshoot = require(modules.Troubleshoot)
 local weapon = require(modules.WeaponProfiles).current
 local morale = require(modules.MoraleModule)
-local sof = require(modules.SofModule)
 
 local marine = modules.Parent.Parent
 local myRoot = marine.HumanoidRootPart
@@ -28,6 +26,20 @@ local chamber = m4.Chamber
 local fireSound = m4.Fire
 local impact = m4.Impact
 local flashes = {barrel.FlashBG.Flash1, barrel.FlashBG.Flash2, barrel.FlashBG.Flash3}
+
+--Rounds hit the instant they are fired. Every TRACER_EVERYth one per soldier is
+--also drawn as a tracer, with a casing; that drawn round flies at the weapon's speed.
+local TRACER_EVERY = 7
+
+--Every shot's spread is this share of the weapon's.
+local SPREAD_SCALE = 0.5
+
+--Lying prone, his spread is this share of what it would be.
+local PRONE_SPREAD = 0.25
+
+--A shot that fails weapon.accuracy (a share, nil for every shot) goes at least this
+--many degrees wide.
+local WIDE_SPREAD = 2
 
 --Bullet speed and how far one flies come from the weapon profile.
 local BULLET_SPEED = weapon.bulletSpeed
@@ -126,14 +138,26 @@ if weapon.sound then
 	fireSound.SoundId = "rbxassetid://"..weapon.sound
 end
 
+--A weapon with echo: studs its shot carries, to players and to enemy soldiers.
+--Inside ECHO_CLOSE studs players hear its own shot, fading out from ECHO_FADE;
+--past that, only the distant one.
+local ECHO_RANGE = 1000
+local ECHO_CLOSE = 150
+local ECHO_FADE = 100
+if weapon.echo then
+	fireSound.RollOffMode = Enum.RollOffMode.Linear
+	fireSound.RollOffMinDistance = ECHO_FADE
+	fireSound.RollOffMaxDistance = ECHO_CLOSE
+end
+
 --Tracers, casings and kicked-up chunks are drawn by each client (Scripts.Client
 --.BloxianEffects). The first soldier in a server puts one copy of it, switched
---on, in ReplicatedStorage; every round fired is sent through its Remote.
+--on, in ReplicatedStorage; each tracer round is sent through its Remote.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local effects = ReplicatedStorage:FindFirstChild("BloxianEffects")
 if not effects then
 	effects = modules.Parent.Client.BloxianEffects:Clone()
-	local remote = Instance.new("RemoteEvent")
+	local remote = Instance.new("UnreliableRemoteEvent")
 	remote.Name = "Remote"
 	remote.Parent = effects
 	effects.Enabled = true
@@ -142,6 +166,8 @@ end
 local effectsRemote = effects:WaitForChild("Remote")
 
 local bulletParams = RaycastParams.new()
+bulletParams.FilterDescendantsInstances = {marine}
+local shotCount = 0
 
 _G.BloxianShotBy = _G.BloxianShotBy or setmetatable({},{__mode = "k"})
 
@@ -183,62 +209,26 @@ local function onBulletHit(flight,result)
 	end
 end
 
---One Heartbeat connection moves every round in flight, and only exists while
---some are. Rounds here are just a position and heading: clients draw them.
-local activeBullets = {}
-local flightConnection
-
-local function stepBullets(dt)
-	dt = math.min(dt,0.1)
-
-	for i = #activeBullets, 1, -1 do
-		local flight = activeBullets[i]
-		local step = flight.speed*dt
-		local result = workspace:Raycast(flight.position,flight.direction*step,flight.params)
-
-		if result then
-			table.remove(activeBullets,i)
-			onBulletHit(flight,result)
-		else
-			flight.travelled += step
-			if flight.travelled > flight.range then
-				table.remove(activeBullets,i)
-			else
-				flight.position += flight.direction*step
-			end
-		end
-	end
-
-	if #activeBullets == 0 and flightConnection then
-		flightConnection:Disconnect()
-		flightConnection = nil
-	end
-end
-
 --[[
-	Fires one round from origin, thrown off by up to spread degrees.
-	shot: damage {min,max}, speed (studs/s), range (studs), color, params
-	(RaycastParams, for a turret to skip its own vehicle), ignore (what the
+	Fires one round from origin, thrown off by up to spread degrees. It hits at once.
+	shot: damage {min,max}, speed (studs/s, of the tracer), range (studs), color,
+	params (RaycastParams, for a turret to skip its own vehicle), ignore (what the
 	clients' tracer flies through: the turret's vehicle).
 	caseAt: where a spent casing comes out, if any.
 ]]
 function combat.fireFrom(origin,spread,shot,caseAt)
 	spread = math.rad(spread)
 	local aimed = origin * CFrame.Angles((math.random()*2 - 1)*spread,(math.random()*2 - 1)*spread,0)
-	effectsRemote:FireAllClients(aimed,shot.speed,shot.range,shot.color,shot.ignore or marine,caseAt)
-
-	activeBullets[#activeBullets+1] = {
-		position = aimed.Position,
-		direction = aimed.LookVector,
-		travelled = 0,
-		damage = shot.damage,
-		speed = shot.speed,
-		range = shot.range,
-		params = shot.params or bulletParams,
-	}
-	if not flightConnection then
-		flightConnection = runService.Heartbeat:Connect(stepBullets)
+	shotCount += 1
+	if shotCount % TRACER_EVERY == 0 then
+		effectsRemote:FireAllClients(aimed,shot.speed,shot.range,shot.color,shot.ignore or marine,caseAt)
 	end
+
+	local result = workspace:Raycast(aimed.Position,aimed.LookVector*shot.range,shot.params or bulletParams)
+	if result then
+		onBulletHit(shot,result)
+	end
+
 	return aimed
 end
 
@@ -251,6 +241,9 @@ local function aimScale(target)
 	end
 	local velocity = myRoot.AssemblyLinearVelocity
 	local scale = morale.spreadScale()
+	if marine:GetAttribute("Stance") == "prone" then
+		scale *= PRONE_SPREAD
+	end
 	if Vector3.new(velocity.X,0,velocity.Z).Magnitude > MOVING_SPEED then
 		scale *= MOVING_SPREAD
 	end
@@ -299,17 +292,28 @@ function combat.shoot(target)
 
 			--From the Barrel attachment: GunModels moves it to a longer gun's real muzzle.
 			local muzzle = m4.CFrame*CFrame.new(m4.Barrel.Position)
-			local aimAt = core.leadPoint(target,muzzle.Position,BULLET_SPEED)
+			local aimAt = target.Position
 			if muzzle.LookVector:Dot((aimAt - muzzle.Position).Unit) > math.cos(math.rad(AIM_ASSIST)) then
 				muzzle = CFrame.lookAt(muzzle.Position,aimAt)
 			end
 			rifleShot.range = math.max(BULLET_RANGE,(target.Position - muzzle.Position).Magnitude + OVERSHOOT)
-			local spread = weapon.spread*aimScale(target)
+			local spread = weapon.spread*aimScale(target)*SPREAD_SCALE
+			if weapon.accuracy and math.random() > weapon.accuracy then
+				spread = math.max(spread,WIDE_SPREAD)
+			end
 			for pellet = 1,weapon.pellets or 1 do
 				suppress(target,combat.fireFrom(muzzle,spread,rifleShot,pellet == 1 and chamber.WorldCFrame or nil))
 			end
 
 			fireSound:Play()
+			if weapon.echo then
+				effectsRemote:FireAllClients("echo",myRoot.Position,"rbxassetid://"..weapon.echo,fireSound.Volume,ECHO_RANGE,ECHO_CLOSE)
+				for _,entry in pairs(_G.BloxianRadio or {}) do
+					if entry.allyShot and entry.human.Health > 0 and (entry.root.Position - myRoot.Position).Magnitude <= ECHO_RANGE then
+						task.spawn(entry.allyShot,myRoot,"sniperHeard")
+					end
+				end
+			end
 
 		end
 
@@ -588,7 +592,7 @@ function combat.throwGrenade(target)
 		task.spawn(function()
 			task.wait(1)
 			status:set("weaponCool",true)
-			task.wait((sof.grenadeCooldown or GRENADE_COOLDOWN) - 1)
+			task.wait(GRENADE_COOLDOWN - 1)
 			status:set("grenadeCool",true)
 			marine.Grenade.Transparency = 0
 		end)

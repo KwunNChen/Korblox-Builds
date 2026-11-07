@@ -18,9 +18,8 @@
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
-local Teams = game:GetService("Teams")
+local kit = require(game:GetService("ServerScriptService"):WaitForChild("BloxianSpawner"):WaitForChild("SpawnerKit"))
 
 --The folder in ServerStorage the vehicles are cloned from (every Model in it is
 --offered), and the soldier cloned for a crew.
@@ -30,17 +29,13 @@ local SOLDIER_NAME = "BLOXIAN"
 --The tool's name in StarterPack; a request only counts while the player holds it.
 local TOOL_NAME = "Bloxian Spawner"
 
---Who may spawn with the tool: everyone in Studio (if ALLOW_IN_STUDIO), the place's owner
---and these user ids.
-local ALLOW_IN_STUDIO = true
-local ALLOWED_USER_IDS = {}
-
 --Most spawned vehicles alive at once on the server, and seconds between one player's spawns.
 local MAX_ALIVE = 10
 local SPAWN_COOLDOWN = 2
 
---Furthest a click can be from the player.
+--Furthest a click can be from the player, and how far above it ground is looked for.
 local MAX_SPAWN_DISTANCE = 5000
+local GROUND_HEADROOM = 20
 
 --Seconds a vehicle gets to set itself up before its crew is put in.
 local CREW_DELAY = 0.5
@@ -50,7 +45,6 @@ local CREW_DELAY = 0.5
 --never players, and any team in Teams sides with that team's players.
 local ANY_TEAM = "Any"
 local HOSTILE_TEAM = "Hostile"
-local FRIENDLY_TEAM = "Friendly"
 
 --Crew choices. A gunner-only vehicle stands still with its gun manned (its
 --GunnerOnly attribute keeps him from climbing over to drive).
@@ -71,12 +65,6 @@ local remote = Instance.new("RemoteEvent")
 remote.Name = "VehicleSpawnerRemote"
 remote.Parent = ReplicatedStorage
 
-local function isAllowed(player)
-	return (ALLOW_IN_STUDIO and RunService:IsStudio())
-		or table.find(ALLOWED_USER_IDS,player.UserId) ~= nil
-		or (game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId)
-end
-
 local function folder()
 	return ServerStorage:FindFirstChild(FOLDER_NAME)
 end
@@ -91,10 +79,6 @@ local function flat(v)
 	return Vector3.new(v.X,0,v.Z)
 end
 
-local function finite(vector)
-	return vector == vector and vector.Magnitude < 1e6
-end
-
 local function aliveCount()
 	local count = 0
 	for _,model in ipairs(CollectionService:GetTagged(TAG)) do
@@ -104,31 +88,6 @@ local function aliveCount()
 		end
 	end
 	return count
-end
-
-local function groundAt(position)
-	local ignore = CollectionService:GetTagged(SOLDIER_TAG)
-	for _,player in ipairs(Players:GetPlayers()) do
-		if player.Character then
-			ignore[#ignore+1] = player.Character
-		end
-	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = ignore
-
-	local result = workspace:Raycast(position + Vector3.new(0,20,0),Vector3.new(0,-60,0),params)
-	return result and result.Position
-end
-
-local function setValue(settings,name,className,value)
-	local holder = settings:FindFirstChild(name)
-	if not holder then
-		holder = Instance.new(className)
-		holder.Name = name
-		holder.Parent = settings
-	end
-	holder.Value = value
 end
 
 --Which way the vehicle's driver faces, flat, relative to its pivot.
@@ -195,16 +154,16 @@ local function crewUp(player,car,ground,forward,width,options)
 		local soldier = soldierTemplate:Clone()
 		local settings = soldier:FindFirstChild("Settings")
 		if settings then
-			setValue(settings,"Team","StringValue",crewTeam)
-			setValue(settings,"AttackPlayers","BoolValue",crewTeam == HOSTILE_TEAM)
-			setValue(settings,"Weapon","StringValue",car:GetAttribute("Aircraft") and PILOT_WEAPON or "Random")
-			setValue(settings,"Role","StringValue","Rifleman")
+			kit.setValue(settings,"Team","StringValue",crewTeam)
+			kit.setValue(settings,"AttackPlayers","BoolValue",crewTeam == HOSTILE_TEAM)
+			kit.setValue(settings,"Weapon","StringValue",car:GetAttribute("Aircraft") and PILOT_WEAPON or "Random")
+			kit.setValue(settings,"Role","StringValue","Rifleman")
 			if car:GetAttribute("Aircraft") then
-				setValue(settings,"Unit","StringValue",PILOT_UNIT)
+				kit.setValue(settings,"Unit","StringValue",PILOT_UNIT)
 			end
-			setValue(settings,"Respawn","BoolValue",false)
-			setValue(settings,"Vehicle","ObjectValue",car)
-			setValue(settings,"VehicleRole","StringValue",role)
+			kit.setValue(settings,"Respawn","BoolValue",false)
+			kit.setValue(settings,"Vehicle","ObjectValue",car)
+			kit.setValue(settings,"VehicleRole","StringValue",role)
 		end
 		soldier:SetAttribute("SpawnedBy",player.UserId)
 		soldier:SetAttribute("VehicleCrew",true)
@@ -213,7 +172,7 @@ local function crewUp(player,car,ground,forward,width,options)
 
 		--Beside the vehicle; his own script seats him.
 		local spot = ground + side*(width/2 + 3) + forward*((index - 1)*3)
-		local at = (groundAt(spot) or spot) + Vector3.new(0,footOffset,0)
+		local at = (kit.groundAt(spot,SOLDIER_TAG,GROUND_HEADROOM) or spot) + Vector3.new(0,footOffset,0)
 		soldier:PivotTo(CFrame.lookAt(at,at + forward))
 		soldier.Parent = workspace
 		task.wait(0.1)
@@ -229,14 +188,13 @@ local function spawnVehicle(player,position,look,options)
 	if aliveCount() >= MAX_ALIVE then
 		return "Server limit reached ("..MAX_ALIVE.." vehicles)"
 	end
-	local ground = groundAt(position)
+	local ground = kit.groundAt(position,SOLDIER_TAG,GROUND_HEADROOM)
 	if not ground then
 		return "No ground there"
 	end
-	--One that only works for its own side (NeedsTeam, the AC-130 answering its
-	--side's radiomen) has to be given a side.
+	--One that fights for a side (NeedsTeam, the AC-130) has to be given one.
 	if template:GetAttribute("NeedsTeam") and options.team == ANY_TEAM then
-		return "Pick a team for the "..template.Name..": it only flies missions for its own side's radiomen"
+		return "Pick a team for the "..template.Name
 	end
 	--An aircraft always comes with its whole crew: nobody can get in once it is up.
 	--One that flies itself (Uncrewed, like the F-4 Phantom) gets none.
@@ -263,7 +221,7 @@ local function spawnVehicle(player,position,look,options)
 	local settings = car:FindFirstChild("Settings")
 	local height = 0
 	if settings then
-		setValue(settings,"Team","StringValue",options.team == ANY_TEAM and "" or options.team)
+		kit.setValue(settings,"Team","StringValue",options.team == ANY_TEAM and "" or options.team)
 		local heightValue = template:GetAttribute("Aircraft") and settings:FindFirstChild("Height")
 		height = heightValue and heightValue.Value or 0
 	end
@@ -287,18 +245,10 @@ local function clearAll()
 	return "Cleared "..cleared..(cleared == 1 and " vehicle" or " vehicles")
 end
 
-local function validTeam(name)
-	if name == ANY_TEAM or name == HOSTILE_TEAM or name == FRIENDLY_TEAM then
-		return true
-	end
-	local team = Teams:FindFirstChild(name)
-	return team ~= nil and team:IsA("Team")
-end
-
 local function validOptions(options)
 	return typeof(options) == "table"
 		and type(options.vehicle) == "string" and templateFor(options.vehicle) ~= nil
-		and type(options.team) == "string" and validTeam(options.team)
+		and type(options.team) == "string" and (options.team == ANY_TEAM or kit.validTeam(options.team))
 		and type(options.crew) == "string" and CREWS[options.crew] ~= nil
 		and (options.uniform == nil or type(options.uniform) == "string")
 end
@@ -310,7 +260,7 @@ local function onRequest(player,action,position,look,options)
 		return nil
 	end
 
-	if typeof(position) ~= "Vector3" or typeof(look) ~= "Vector3" or not finite(position) or not finite(look) then
+	if typeof(position) ~= "Vector3" or typeof(look) ~= "Vector3" or not kit.finite(position) or not kit.finite(look) then
 		return nil
 	end
 	if not validOptions(options) then
@@ -338,19 +288,8 @@ local function onRequest(player,action,position,look,options)
 	return message
 end
 
-local function holdsTool(player)
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	local character = player.Character
-	return (backpack and backpack:FindFirstChild(TOOL_NAME))
-		or (character and character:FindFirstChild(TOOL_NAME))
-end
-
 remote.OnServerEvent:Connect(function(player,action,position,look,options)
-	if not holdsTool(player) then
-		return
-	end
-	if not isAllowed(player) then
-		remote:FireClient(player,"You are not allowed to spawn vehicles")
+	if not kit.holdsTool(player,TOOL_NAME) then
 		return
 	end
 	local message = onRequest(player,action,position,look,options)

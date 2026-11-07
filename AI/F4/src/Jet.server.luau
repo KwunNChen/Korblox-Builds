@@ -36,11 +36,15 @@
 		                more, and may pull the missile off.
 		FlaresAt        server time of its last salvo.
 		MissileInbound  how many missiles are homing on it right now.
-	Lifetime (seconds), set by whoever sends it in (Bloxian recon calling for
-	air cover), makes it leave after that long, unless it is shot down first.
+	Strafes (gun runs), set by whoever sends it in (the spawner's Kinetic Events
+	airstrike), makes it fly out of the map after that many, or as soon as nobody
+	is left to attack, unless it is shot down first: away from the players, gone
+	EXIT_DISTANCE studs later.
+	InfantryOnly, set the same way, has it attack nobody but people on foot: no
+	aircraft, no vehicles.
 	Its Status attribute says what it is doing, for the spawner tool's tracker:
 	Patrol, Intercept, Dogfight, Defending, Break, Attack, Extend, Strafe,
-	Egress or Down.
+	Egress, Leaving or Down.
 ]]
 
 local collectionService = game:GetService("CollectionService")
@@ -64,6 +68,8 @@ local PATROL_HEIGHT = 650
 local PATROL_RADIUS = 600
 local MIN_HEIGHT = 100
 local MAX_BANK = 80
+--How far it flies once its Strafes are done before it is removed.
+local EXIT_DISTANCE = 8000
 
 --Fighting near the players: with FOLLOW_PLAYERS on it patrols, and looks for
 --ground targets, round its own spot STATION_SPREAD_MIN to STATION_SPREAD_MAX
@@ -146,9 +152,9 @@ local STATION_RADIUS = 900
 local SEARCH_RADIUS = math.huge
 local SCAN_INTERVAL = 0.5
 local DANGER_CLOSE = 35
---A target its own side's Bloxian Special Recon reported (BloxianSpotted) within
+--A target its own side marked with the spawner's Airstrike (BloxianSpotted) within
 --REPORT_TIME seconds is struck before anything else, wherever it is.
-local REPORT_TIME = 30
+local REPORT_TIME = 60
 local EGRESS_TIME = 4
 --Too close to a ground target to line up (inside MIN_RUN_DISTANCE and off its
 --nose) it flies straight out to RUN_START_DISTANCE, or for EXTEND_TIME
@@ -265,14 +271,8 @@ local teamValue = settings and settings:FindFirstChild("Team")
 
 jet:AddTag(JET_TAG)
 
-local lifetime = jet:GetAttribute("Lifetime")
-if lifetime then
-	task.delay(lifetime,function()
-		if jet.Parent and not jet:GetAttribute("ShotDown") then
-			jet:Destroy()
-		end
-	end)
-end
+local infantryOnly = jet:GetAttribute("InfantryOnly") == true
+local strafesLeft = jet:GetAttribute("Strafes")
 jet:SetAttribute("AirHealth",airDefense.AIR_HEALTH[JET_TAG])
 jet:SetAttribute("Flares",airDefense.FLARE_LOAD[JET_TAG])
 jet:SetAttribute("Chaff",airDefense.CHAFF_LOAD[JET_TAG])
@@ -955,7 +955,7 @@ local function findGroundTarget()
 				local view = vehicleStanding(car)
 				if view == "friend" then
 					friends[#friends+1] = car.PrimaryPart.Position
-				elseif view == "enemy" then
+				elseif view == "enemy" and not infantryOnly then
 					vehicles[#vehicles+1] = {part = car.PrimaryPart,car = car}
 					local report = spotted[car.PrimaryPart]
 					if report and report.team == mySide() and now - report.at <= REPORT_TIME then
@@ -1035,6 +1035,7 @@ local function offBore(point,travel)
 end
 
 local travel = heading*CRUISE_SPEED
+local leaveFrom,leaveDirection = nil,nil
 
 local connection
 connection = runService.Heartbeat:Connect(function(dt)
@@ -1070,14 +1071,25 @@ connection = runService.Heartbeat:Connect(function(dt)
 		return
 	end
 
+	if leaveFrom and flat(position - leaveFrom).Magnitude > EXIT_DISTANCE then
+		connection:Disconnect()
+		jet:Destroy()
+		return
+	end
+
 	if now - lastScan > SCAN_INTERVAL then
 		lastScan = now
 		station = anchor()
-		airTarget = findAirTarget()
+		airTarget = not infantryOnly and findAirTarget() or nil
 		if airTarget then
 			airSeenAt = now
 		end
 		groundTarget = now - airSeenAt > AIR_CLEAR_TIME and findGroundTarget() or nil
+	end
+	if strafesLeft and not leaveFrom and now >= burstUntil and (strafesLeft <= 0 or not groundTarget) then
+		leaveFrom = position
+		local away = flat(position - (station - stationOffset))
+		leaveDirection = away.Magnitude > 1 and away.Unit or heading
 	end
 	if airTarget and not enemyAircraft(airTarget) then
 		airTarget = nil
@@ -1122,6 +1134,9 @@ connection = runService.Heartbeat:Connect(function(dt)
 			goalHeight = math.max(goalHeight,math.min(position.Y,ground + DOGFIGHT_FLOOR))
 		end
 		turnRate,climbRate = COMBAT_TURN_RATE*1.2,COMBAT_CLIMB_RATE
+	elseif leaveDirection then
+		goal,goalHeight,speed = position + leaveDirection*500,ground + PATROL_HEIGHT,COMBAT_SPEED
+		setStatus("Leaving")
 	elseif airTarget then
 		local at = airTarget.PrimaryPart.Position
 		local velocity = velocityOf(airTarget)
@@ -1205,6 +1220,7 @@ connection = runService.Heartbeat:Connect(function(dt)
 				egressUntil = burstUntil + EGRESS_TIME
 				nextRun = burstUntil + RUN_COOLDOWN
 				firing = "ground"
+				strafesLeft = strafesLeft and strafesLeft - 1
 			end
 		else
 			goal,goalHeight = position + heading*500,ground + PATROL_HEIGHT

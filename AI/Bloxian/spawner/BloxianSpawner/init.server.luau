@@ -5,13 +5,14 @@
 	in a unit cloned from ServerStorage.BLOXIAN, standing in a wedge facing
 	where the player looks. The tool's panel picks the unit (infantry, or a
 	sniper team or AT team), and for infantry the group size, weapon and radioman.
+	Its Kinetic Events tab calls artillery or an airstrike on the clicked spot.
 ]]
 
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
-local Teams = game:GetService("Teams")
+local kit = require(script:WaitForChild("SpawnerKit"))
 
 --The soldier cloned for every spawn, by name, in ServerStorage.
 local TEMPLATE_NAME = "BLOXIAN"
@@ -34,52 +35,34 @@ local SPACING = 5
 --Whether spawned soldiers respawn after dying.
 local SPAWNED_RESPAWN = false
 
---Panel teams that are not Roblox teams: Hostile fights everyone, Friendly fights
---Bloxians of other teams but never players. Any team in Teams can also be picked;
---those soldiers side with its players and leave players with no team alone.
+--Hostile fights everyone, Friendly fights Bloxians of other teams but never
+--players. Any team in Teams can also be picked; those soldiers side with its
+--players and leave players with no team alone.
 local HOSTILE_TEAM = "Hostile"
-local FRIENDLY_TEAM = "Friendly"
+
+--Infantry spawned this close to a living infantry unit of their team join it.
+local UNIT_JOIN_RANGE = 30
 
 local GROUP_SIZES = {1,4,9}
 local WEAPONS = {Random = true, Rifle = true, DMR = true, Carbine = true, LMG = true, Sniper = true}
 
 --Special operations sizes the panel can pick.
-local SOF_SIZES = {Recce = true, Fireteam = true, ODA = true}
-
---The pairs an ODA can carry, at the back of its wedge: its slots, each
---{weapon, role, Settings.Unit}.
-local ODA_PAIRS = {
-	sniper = {{"Sniper", "Rifleman", "Sniper"}, {"Rifle", "Rifleman", "Spotter"}},
-	at = {{"Carbine", "Rifleman", "Rocketeer"}, {"Rifle", "Rifleman", "Loader"}},
-}
-local PAIR_OF = {Sniper = "sniper", Spotter = "sniper", Rocketeer = "at", Loader = "at"}
+local SOF_SIZES = {Recce = true, Fireteam = true}
 
 --A special operations kind (SofModule) by size, each a named unit labelled
---with its echelon from the start: a Recce (radioman and rifleman), a Fireteam
---(radioman, two riflemen and a shotgunner), or an ODA of odaWeapons (the 1st
---and 7th carry the radio) with odaPairs (ODA_PAIRS) at the back. rifle is the
---kind's rifleman weapon. A slot's 4th field names the pair it belongs to.
-local function sofUnit(unit,rifle,odaWeapons,odaPairs)
+--with its echelon from the start: a Recce (radioman and rifleman) or a Fireteam
+--(radioman, two riflemen and a shotgunner). rifle is the kind's rifleman weapon.
+local function sofUnit(unit,rifle)
 	local function build(echelon,slots)
 		local roster = {squad = true, echelon = echelon}
 		for index,slot in ipairs(slots) do
-			roster[index] = {slot[3] or unit, slot[1], slot[2], slot[3] and PAIR_OF[slot[3]]}
+			roster[index] = {unit, slot[1], slot[2]}
 		end
 		return roster
-	end
-	local oda = {}
-	for index,weapon in ipairs(odaWeapons) do
-		oda[index] = {weapon, (index == 1 or index == 7) and "Radioman" or "Rifleman"}
-	end
-	for _,pair in ipairs(odaPairs) do
-		for _,slot in ipairs(ODA_PAIRS[pair]) do
-			oda[#oda+1] = slot
-		end
 	end
 	return {sizes = {
 		Recce = build("Recce",{{rifle,"Radioman"},{rifle,"Rifleman"}}),
 		Fireteam = build("SOF Fireteam",{{rifle,"Radioman"},{rifle,"Rifleman"},{rifle,"Rifleman"},{"Shotgun","Rifleman"}}),
-		ODA = build("ODA",oda),
 	}}
 end
 
@@ -96,14 +79,31 @@ local UNITS = {
 		{"Rocketeer", "Carbine", "Rifleman"},
 		{"Loader", "Rifle", "Rifleman"},
 	},
-	["Special Recon"] = sofUnit("Special Recon","Rifle",{"Rifle","DMR","Rifle","DMR","M203","LMG","Rifle","DMR","M203","LMG"},{"sniper"}),
-	Raiders = sofUnit("Raider","M203",{"M203","Shotgun","LMG","M203","Shotgun","M203","M203","Shotgun"},{"sniper","at"}),
+	["Special Recon"] = sofUnit("Special Recon","Rifle"),
 }
 local RADIO = {Random = true, Leader = true, None = true}
 
+--Kinetic Events: seconds between one player's calls, and how far off the battery's
+--shells have to be before soldiers run from them.
+local KINETIC_COOLDOWN = 10
+local SHELLS_SEEN_AT = 4
+--Airstrike: an F-4 from ServerStorage.BloxianVehicles comes in STRIKE_HEIGHT studs
+--up, STRIKE_OFFSET off, attacks only infantry, those within STRIKE_RADIUS of the
+--spot first, and leaves after STRIKE_RUNS strafes. The tool's ring shows STRIKE_RADIUS.
+local STRIKE_HEIGHT = 650
+local STRIKE_OFFSET = 800
+local STRIKE_RADIUS = 150
+local STRIKE_RUNS = 3
+local KINETIC_EVENTS = {Artillery = true, Airstrike = true}
+
 local TAG = "BloxianSpawned"
 
+--What the tracker calls each kind of two-man team, before its number.
+local PAIR_LABELS = {["Sniper team"] = "Sniper Team", ["AT team"] = "AT Team"}
+
+local pairCounts = {}
 local lastSpawn = {}
+local lastKinetic = {}
 local busy = {}
 local nextTeamId = 0
 
@@ -118,35 +118,6 @@ local function aliveCount()
 	return count
 end
 
-local function finite(vector)
-	return vector == vector and vector.Magnitude < 1e6
-end
-
-local function groundAt(position)
-	local ignore = CollectionService:GetTagged(TAG)
-	for _,player in ipairs(Players:GetPlayers()) do
-		if player.Character then
-			ignore[#ignore+1] = player.Character
-		end
-	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = ignore
-
-	local result = workspace:Raycast(position + Vector3.new(0,SPAWN_HEADROOM,0),Vector3.new(0,-(SPAWN_HEADROOM + 40),0),params)
-	return result and result.Position
-end
-
-local function setValue(settings,name,className,value)
-	local holder = settings:FindFirstChild(name)
-	if not holder then
-		holder = Instance.new(className)
-		holder.Name = name
-		holder.Parent = settings
-	end
-	holder.Value = value
-end
-
 local function roleFor(index,radio)
 	if radio == "Leader" then
 		return index == 1 and "Radioman" or "Rifleman"
@@ -154,6 +125,26 @@ local function roleFor(index,radio)
 		return "Rifleman"
 	end
 	return "Random"
+end
+
+--A living spawned infantry unit of team with a soldier within UNIT_JOIN_RANGE of position.
+local function unitAt(position,team)
+	for _,model in ipairs(CollectionService:GetTagged(TAG)) do
+		local settings = model:FindFirstChild("Settings")
+		local human = model:FindFirstChildOfClass("Humanoid")
+		local root = model:FindFirstChild("HumanoidRootPart")
+		if settings and human and root and human.Health > 0 and model:GetAttribute("SquadId")
+			and settings.Team.Value == team and settings.Unit.Value == "Infantry"
+			and (root.Position - position).Magnitude <= UNIT_JOIN_RANGE then
+			return model
+		end
+	end
+	return nil
+end
+
+local function pairLabel(kind)
+	pairCounts[kind] = (pairCounts[kind] or 0) + 1
+	return PAIR_LABELS[kind].." "..pairCounts[kind]
 end
 
 local function spawnGroup(player,position,look,options)
@@ -179,7 +170,7 @@ local function spawnGroup(player,position,look,options)
 	if roster == true then
 		roster = nil
 	elseif roster.sizes then
-		roster = roster.sizes[options.sofSize] or roster.sizes.ODA
+		roster = roster.sizes[options.sofSize] or roster.sizes.Recce
 	end
 	local size = roster and #roster or options.size
 	if roster and room < size then
@@ -192,7 +183,7 @@ local function spawnGroup(player,position,look,options)
 		local k = index - 1
 		local row = math.ceil(k/2)
 		local side = k % 2 == 1 and -1 or 1
-		return groundAt(position + right*(side*row*SPACING) - forward*(row*SPACING))
+		return kit.groundAt(position + right*(side*row*SPACING) - forward*(row*SPACING),TAG,SPAWN_HEADROOM)
 	end
 
 	--Every spot with ground first, so each soldier (and his respawn copy) knows
@@ -210,24 +201,28 @@ local function spawnGroup(player,position,look,options)
 	--Infantry groups of more than one are a unit; the soldiers name it (SquadModule).
 	local count = #spots
 	local isUnit = (not roster or roster.squad) and count > 1
-	--Special operations are labelled from the start: four random digits. Each
-	--pair an ODA carries gets its own pair id.
-	local odaName = roster and roster.squad and string.format("%04d",math.random(0,9999))
-	local pairIds = {}
-	local function pairIdOf(pair)
-		if not pairIds[pair] then
-			nextTeamId += 1
-			pairIds[pair] = nextTeamId
+	local joined = not roster and unitAt(position,options.team)
+	local unitId = joined and joined:GetAttribute("SquadId") or squadId
+	local unitSize = joined and joined:GetAttribute("SquadSize") + count or count
+	if joined then
+		for _,model in ipairs(CollectionService:GetTagged(TAG)) do
+			if model:GetAttribute("SquadId") == unitId then
+				model:SetAttribute("SquadSize",unitSize)
+			end
 		end
-		return pairIds[pair]
 	end
+	--Special operations are labelled from the start: four random digits.
+	local sofName = roster and roster.squad and string.format("%04d",math.random(0,9999))
 
 	--Each squad brings an AT team, at the back of the wedge, when there is room.
 	local atTeam = UNITS["AT team"]
 	local atTeamId = nil
+	local atLabel = nil
+	local rosterLabel = roster and not roster.squad and pairLabel(options.unit)
 	if isUnit and not roster and room - count >= #atTeam then
 		nextTeamId += 1
 		atTeamId = nextTeamId
+		atLabel = pairLabel("AT team")
 		for index,slot in ipairs(atTeam) do
 			local ground = groundInWedge(size + index)
 			if ground then
@@ -242,35 +237,36 @@ local function spawnGroup(player,position,look,options)
 		local soldier = template:Clone()
 		local settings = soldier:FindFirstChild("Settings")
 		if settings then
-			setValue(settings,"Team","StringValue",options.team)
-			setValue(settings,"AttackPlayers","BoolValue",attackPlayers)
-			setValue(settings,"Respawn","BoolValue",SPAWNED_RESPAWN)
+			kit.setValue(settings,"Team","StringValue",options.team)
+			kit.setValue(settings,"AttackPlayers","BoolValue",attackPlayers)
+			kit.setValue(settings,"Respawn","BoolValue",SPAWNED_RESPAWN)
 			local slot = spot.slot or roster and roster[index]
 			if slot then
-				setValue(settings,"Unit","StringValue",slot[1])
-				setValue(settings,"Weapon","StringValue",slot[2])
-				setValue(settings,"Role","StringValue",slot[3])
-				setValue(settings,"Guerrilla","BoolValue",false)
-				local paired = spot.slot ~= nil or slot[4] ~= nil
+				kit.setValue(settings,"Unit","StringValue",slot[1])
+				kit.setValue(settings,"Weapon","StringValue",slot[2])
+				kit.setValue(settings,"Role","StringValue",slot[3])
+				kit.setValue(settings,"Guerrilla","BoolValue",false)
 				--Special operations patrol to find the enemy; pairs hold where they are put.
-				setValue(settings,"Wander","BoolValue",roster ~= nil and roster.squad == true and not paired)
-				setValue(settings,"UseVehicles","BoolValue",false)
-				if not (roster and roster.squad) or paired then
-					soldier:SetAttribute("PairId",spot.slot and atTeamId or slot[4] and pairIdOf(slot[4]) or squadId)
+				kit.setValue(settings,"Wander","BoolValue",roster ~= nil and roster.squad == true)
+				kit.setValue(settings,"UseVehicles","BoolValue",false)
+				if not (roster and roster.squad) then
+					soldier:SetAttribute("PairId",spot.slot and atTeamId or squadId)
+					soldier:SetAttribute("TeamLabel",spot.slot and atLabel or rosterLabel)
+					soldier:SetAttribute("AttachedTo",spot.slot and unitId or nil)
 				end
 			else
-				setValue(settings,"Unit","StringValue","Infantry")
-				setValue(settings,"Weapon","StringValue",options.weapon)
-				setValue(settings,"Role","StringValue",roleFor(index,options.radio))
+				kit.setValue(settings,"Unit","StringValue","Infantry")
+				kit.setValue(settings,"Weapon","StringValue",options.weapon)
+				kit.setValue(settings,"Role","StringValue",roleFor(index,options.radio))
 			end
 		end
 		soldier:SetAttribute("SpawnedBy",player.UserId)
 		--Set before he goes in, so his respawn copy is in the same squad.
-		if isUnit and not spot.slot then
-			soldier:SetAttribute("SquadId",squadId)
-			soldier:SetAttribute("SquadSize",count)
-			if odaName then
-				soldier:SetAttribute("SquadName",odaName)
+		if (isUnit or joined) and not spot.slot then
+			soldier:SetAttribute("SquadId",unitId)
+			soldier:SetAttribute("SquadSize",unitSize)
+			if sofName then
+				soldier:SetAttribute("SquadName",sofName)
 				soldier:SetAttribute("SquadEchelon",roster.echelon)
 			end
 		end
@@ -300,39 +296,125 @@ local function clearAll()
 		model:Destroy()
 		cleared += 1
 	end
+	table.clear(pairCounts)
 	return "Cleared "..cleared
 end
 
-local function validTeam(name)
-	if name == HOSTILE_TEAM or name == FRIENDLY_TEAM then
-		return true
+--Soldiers run from every barrage on the list (FireSupportModule).
+local function callArtillery(position)
+	local mission = ServerStorage:FindFirstChild("ArtilleryFireMission")
+	if not mission then
+		return "No artillery installed"
 	end
-	local team = Teams:FindFirstChild(name)
-	return team ~= nil and team:IsA("Team")
+	local called,ok,info = pcall(mission.Invoke,mission,position)
+	if not called or not ok then
+		return "Artillery refused: "..tostring(called and info or ok)
+	end
+	_G.BloxianArtilleryZones = _G.BloxianArtilleryZones or {}
+	local now = os.clock()
+	table.insert(_G.BloxianArtilleryZones,{
+		center = position,
+		radius = info.radius,
+		untilTime = now + info.duration,
+		runsAt = now + info.firstImpact - SHELLS_SEEN_AT,
+	})
+	return "Called artillery"
+end
+
+--The model in ServerStorage.BloxianVehicles that flies itself with a Jet script.
+local function jetTemplate()
+	local folder = ServerStorage:FindFirstChild("BloxianVehicles")
+	for _,model in ipairs(folder and folder:GetChildren() or {}) do
+		if model:IsA("Model") and model:FindFirstChild("Jet") then
+			return model
+		end
+	end
+	return nil
+end
+
+--Everyone near the spot, for the F-4s to strike first (BloxianSpotted).
+local function markStrike(position,team)
+	_G.BloxianSpotted = _G.BloxianSpotted or setmetatable({},{__mode = "k"})
+	local report = {team = team, at = workspace:GetServerTimeNow()}
+	local function mark(root)
+		if root and (root.Position - position).Magnitude <= STRIKE_RADIUS then
+			_G.BloxianSpotted[root] = report
+		end
+	end
+	for _,entry in pairs(_G.BloxianRadio or {}) do
+		mark(entry.root)
+	end
+	for _,player in ipairs(Players:GetPlayers()) do
+		local human = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		mark(human and human.RootPart)
+	end
+end
+
+local function callAirstrike(player,position,team)
+	local template = jetTemplate()
+	if not template then
+		return "No F-4 in ServerStorage.BloxianVehicles"
+	end
+	markStrike(position,team)
+
+	local angle = math.random()*math.pi*2
+	local at = position + Vector3.new(math.cos(angle)*STRIKE_OFFSET,STRIKE_HEIGHT,math.sin(angle)*STRIKE_OFFSET)
+	local jet = template:Clone()
+	local settings = jet:FindFirstChild("Settings")
+	if settings then
+		kit.setValue(settings,"Team","StringValue",team)
+	end
+	jet:SetAttribute("Strafes",STRIKE_RUNS)
+	jet:SetAttribute("InfantryOnly",true)
+	jet:SetAttribute("NoRespawn",true)
+	jet:SetAttribute("SpawnedBy",player.UserId)
+	jet:AddTag("VehicleSpawned")
+	jet:PivotTo(CFrame.lookAt(at,Vector3.new(position.X,at.Y,position.Z)))
+	jet.Parent = workspace
+	return "Called airstrike"
 end
 
 local function validOptions(options)
 	return typeof(options) == "table"
 		and type(options.unit) == "string" and UNITS[options.unit] ~= nil
 		and table.find(GROUP_SIZES,options.size) ~= nil
-		and type(options.team) == "string" and validTeam(options.team)
+		and type(options.team) == "string" and kit.validTeam(options.team)
 		and type(options.weapon) == "string" and WEAPONS[options.weapon] ~= nil
 		and type(options.radio) == "string" and RADIO[options.radio] ~= nil
 		and (options.sofSize == nil or SOF_SIZES[options.sofSize] == true)
 		and (options.uniform == nil or type(options.uniform) == "string")
 end
 
+local function callKinetic(player,position,options)
+	local now = os.clock()
+	if now - (lastKinetic[player] or -math.huge) < KINETIC_COOLDOWN then
+		return "Kinetic event on cooldown"
+	end
+	lastKinetic[player] = now
+	if options.event == "Artillery" then
+		return callArtillery(position)
+	end
+	return callAirstrike(player,position,options.team)
+end
+
+local function validKinetic(options)
+	return typeof(options) == "table"
+		and type(options.event) == "string" and KINETIC_EVENTS[options.event] == true
+		and type(options.team) == "string" and kit.validTeam(options.team)
+end
+
 local function onRequest(player,action,position,look,options)
 	if action == "clear" then
 		return clearAll()
-	elseif action ~= "spawn" then
+	elseif action ~= "spawn" and action ~= "kinetic" then
 		return nil
 	end
 
-	if typeof(position) ~= "Vector3" or typeof(look) ~= "Vector3" or not finite(position) or not finite(look) then
+	if typeof(position) ~= "Vector3" or typeof(look) ~= "Vector3" or not kit.finite(position) or not kit.finite(look) then
 		return nil
 	end
-	if not validOptions(options) then
+	local kinetic = action == "kinetic"
+	if not (if kinetic then validKinetic(options) else validOptions(options)) then
 		return nil
 	end
 
@@ -340,6 +422,9 @@ local function onRequest(player,action,position,look,options)
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root or (root.Position - position).Magnitude > MAX_SPAWN_DISTANCE then
 		return "Too far away"
+	end
+	if kinetic then
+		return callKinetic(player,position,options)
 	end
 
 	local now = os.clock()
@@ -361,15 +446,8 @@ local remote = Instance.new("RemoteEvent")
 remote.Name = "BloxianSpawnerRemote"
 remote.Parent = ReplicatedStorage
 
-local function holdsTool(player)
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	local character = player.Character
-	return (backpack and backpack:FindFirstChild(TOOL_NAME))
-		or (character and character:FindFirstChild(TOOL_NAME))
-end
-
 remote.OnServerEvent:Connect(function(player,action,position,look,options)
-	if not holdsTool(player) then
+	if not kit.holdsTool(player,TOOL_NAME) then
 		return
 	end
 	local message = onRequest(player,action,position,look,options)
@@ -380,5 +458,6 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	lastSpawn[player] = nil
+	lastKinetic[player] = nil
 	busy[player] = nil
 end)

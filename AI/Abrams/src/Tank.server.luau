@@ -847,10 +847,11 @@ local function smokeCloud(at)
 	cloud.Parent = workspace
 	collectionService:AddTag(cloud,"SmokeScreen")
 	emitter:Emit(25)
+	--Debris, as the delay dies with this script if the tank goes first.
+	debris:AddItem(cloud,SMOKE_TIME + 9)
 	task.delay(SMOKE_TIME,function()
 		collectionService:RemoveTag(cloud,"SmokeScreen")
 		emitter.Enabled = false
-		debris:AddItem(cloud,9)
 	end)
 end
 
@@ -868,6 +869,7 @@ local function throwSmoke(from,to)
 	grenade.CanTouch = false
 	grenade.CFrame = CFrame.new(from)
 	grenade.Parent = workspace
+	debris:AddItem(grenade,2)
 	local flight,elapsed = 0.6,0
 	while elapsed < flight and grenade.Parent do
 		elapsed += runService.Heartbeat:Wait()

@@ -27,6 +27,7 @@ local guerrilla = require(modules.GuerrillaModule)
 local weapon = require(modules.WeaponProfiles).current
 local vehicle = require(modules.VehicleModule)
 local fireSupport = require(modules.FireSupportModule)
+local radioNet = require(modules.RadioModule)
 local specialTeam = require(modules.SpecialTeamModule)
 local morale = require(modules.MoraleModule)
 local openings = require(modules.OpeningsModule)
@@ -46,7 +47,7 @@ local ATTACKER_RADIUS = 20
 
 --A soldier told to hold fire still shoots back if he was hit this recently,
 --or if the enemy is this close.
-local SELF_DEFENSE_TIME = 3
+local SELF_DEFENSE_TIME = 15
 local SELF_DEFENSE_DISTANCE = 15
 
 ------Mood------
@@ -126,7 +127,7 @@ local function movementLogic()
 	--Out of sight: push only with the numbers to do it in a mass, otherwise
 	--hold an angle on where he was. In sight he is fought at any range.
 	if not canSee then
-		if not sof.recon and (tactics.advantage() or os.clock() < huntUntil or sof.raider) then
+		if not sof.recon and (tactics.advantage() or os.clock() < huntUntil) then
 			if not pushing then
 				pushing = true
 				chatter.advance()
@@ -173,10 +174,14 @@ local function movementLoop()
 			log("brain","hiding from aircraft")
 		elseif tactics.armorCover() then
 			log("brain","hiding from armor")
+		elseif tactics.echoCover() then
+			log("brain","hiding from a sniper")
 		elseif fireSupport.holdOutside() then
 			log("brain","holding outside artillery")
 		elseif specialTeam.update() then
 			log("brain","special team")
+		elseif sof.kind and guerrilla.update() then
+			log("brain","stalking")
 		elseif squad.update() then
 			log("brain","squad")
 		elseif guerrilla.update() then
@@ -232,7 +237,7 @@ local ALLY_ALERT_RANGE = 150
 local ALERT_REPEAT = 5
 local HUNT_TIME = 20
 local SHOT_BY_TIME = 1
-local SHOOTER_FACING = 0.7
+local SHOOTER_FACING = 0
 
 local Players = game:GetService("Players")
 _G.BloxianShotBy = _G.BloxianShotBy or setmetatable({},{__mode = "k"})
@@ -278,20 +283,43 @@ local function shooterOf()
 	return guessShooter()
 end
 
---A friend nearby was shot by shooter (or recon reported him, call "reconTasked"):
---go after him unless busy with someone in sight.
+--A friend nearby was shot by shooter (or recon or the radio reported him, call
+--"reconTasked", "contactRelay" or "unitCall"): go after him unless busy with someone in sight.
+--Recon only notes where he is.
 local alertAllies
 _G.BloxianAlerted = _G.BloxianAlerted or setmetatable({},{__mode = "k"})
 
+local function onSniperHeard(shooter)
+	local unit = marine:GetAttribute("Unit")
+	if sof.recon then
+		core.markSeen(shooter)
+		guerrilla.hear(shooter)
+	elseif unit == "Sniper" then
+		core.markSeen(shooter)
+		specialTeam.counterSnipe(shooter)
+	elseif unit ~= "Spotter" then
+		local current = status:get("currentTarget")
+		if not (current and current.Parent and core.checkSight(current)) and tactics.hideFromShot(shooter) then
+			chatter.callout("sniperHeard",nil,0.4)
+		end
+	end
+end
+
 local function onAllyShot(shooter,call)
 	if not alive() or not shooter.Parent or core.isAlly(shooter.Parent) then return end
-	if not call then
-		core.markSeen(shooter)
+	if call == "sniperHeard" then
+		onSniperHeard(shooter)
+		return
+	end
+	core.markSeen(shooter)
+	if call then
+		status:set("radioTarget",shooter)
+		status:set("radioAt",os.clock())
+	else
 		alertAllies(shooter)
 	end
 	local current = status:get("currentTarget")
 	if sof.recon or current and current.Parent and core.checkSight(current) then return end
-	core.markSeen(shooter)
 	status:set("currentTarget",shooter)
 	if not tactics.holdsBack() then
 		huntUntil = os.clock() + HUNT_TIME
@@ -352,10 +380,17 @@ local function searchTargetLoop()
 			status:set("currentTarget",shooter)
 			log("target","shot, firing back")
 			alertAllies(shooter)
-		elseif targetInvalid(target) or status:get("tookDamage") then
+			radioNet.callUnits(shooter)
+		elseif targetInvalid(target) then
 			status:set("tookDamage",false)
 			status:set("currentTarget",nil)
 			targeting.findTarget()
+		elseif status:get("tookDamage") then
+			--Hit by nobody he can name: the enemy he is on stays his target.
+			status:set("tookDamage",false)
+			if not core.checkSight(target) then
+				targeting.findTarget()
+			end
 		elseif not core.checkSight(target) then
 			targeting.findTarget()
 		end
@@ -363,9 +398,6 @@ local function searchTargetLoop()
 		--He hears the enemy reloading or healing: push, or top off.
 		openings.update()
 		threat.update()
-		sof.report(status:get("currentTarget"))
-		sof.callAir(sof.kind and not tactics.friendlyAirUp() and tactics.findAirThreat() or nil)
-		sof.callStrike(status:get("currentTarget"))
 
 		--Call out a fresh contact so nearby soldiers turn to it.
 		local newTarget = status:get("currentTarget")
@@ -442,9 +474,13 @@ local function wantsGrenade(target,visible,distance)
 	return true,why
 end
 
---Squad orders (rally, shift fire) hold fire, except in self-defence.
+--Squad orders (rally, shift fire) hold fire, except in self-defence. Special
+--operations hold it until engaged.
 local function holdingFire(target)
-	if not status:get("squadHoldFire") and not sof.recon then
+	if sof.kind then
+		return not sof.engaged(target)
+	end
+	if not status:get("squadHoldFire") then
 		return false
 	end
 	if os.clock() - status:get("lastDamaged") < SELF_DEFENSE_TIME then
@@ -537,9 +573,10 @@ local function attackLoop()
 				throw,why = wantsGrenade(target,false,core.checkDist(myRoot,target))
 			end
 
-			--A spotter only fights what his own rifle reaches; further out is the sniper's.
-			if visible and marine:GetAttribute("Unit") == "Spotter" and core.checkDist(myRoot,target) > weapon.range then
-				log("attack","spotting, out of rifle range",2)
+			--A sniper team only fires at what its rifle reaches; a spotter leaves further out to the sniper.
+			local unit = marine:GetAttribute("Unit")
+			if visible and (unit == "Spotter" or unit == "Sniper") and core.checkDist(myRoot,target) > weapon.range then
+				log("attack","spotting, out of range",2)
 			elseif visible then
 				attackLogic()
 			elseif throw then
@@ -561,8 +598,8 @@ local function attackLoop()
 		else
 			actions.updateFace("Idle")
 			--In a squad the rifle stays at low ready on patrol. Only a soldier on
-			--his own with nothing going on slings it.
-			if actions.isDown() then
+			--his own with nothing going on slings it. Stalking, it stays up.
+			if actions.isDown() or status:get("stealth") then
 				actions.drawM4()
 			elseif squad.isAlone() then
 				actions.yieldWeapons()

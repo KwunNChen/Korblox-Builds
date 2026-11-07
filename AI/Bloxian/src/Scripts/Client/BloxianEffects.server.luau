@@ -37,7 +37,7 @@ end
 local function newTracer()
 	local bullet = Instance.new("Part")
 	bullet.Size = Vector3.new(0.1,0.1,0.3)
-	bullet.Material = Enum.Material.Neon
+	bullet.Material = Enum.Material.SmoothPlastic
 	bullet.Anchored = true
 	bullet.CanCollide = false
 	bullet.CanQuery = false
@@ -197,7 +197,28 @@ local function casing(at)
 	end)
 end
 
+--A shot from at, heard from where it was fired, only past close studs.
+local function echo(at,soundId,volume,range,close)
+	if (at - cameraPosition()).Magnitude < close then return end
+	local spot = Instance.new("Attachment")
+	spot.Position = at
+	local sound = Instance.new("Sound")
+	sound.SoundId = soundId
+	sound.Volume = volume
+	sound.RollOffMode = Enum.RollOffMode.Linear
+	sound.RollOffMinDistance = close
+	sound.RollOffMaxDistance = range
+	sound.Parent = spot
+	spot.Parent = workspace.Terrain
+	sound:Play()
+	Debris:AddItem(spot,6)
+end
+
 remote.OnClientEvent:Connect(function(origin,speed,range,color,ignore,caseAt)
+	if origin == "echo" then
+		echo(speed,range,color,ignore,caseAt)
+		return
+	end
 	tracer(origin,speed,range,color,ignore)
 	if caseAt then
 		casing(caseAt)

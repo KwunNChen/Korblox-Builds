@@ -19,8 +19,14 @@
 
 	The Spotter lies down beside his sniper.
 
-	The Rocketeer goes hunting (JavelinModule sets specialTeam.hunt): toward
-	any enemy vehicle he hears of, or patrolling around where he was put down.
+	The AT team a squad brings (AttachedTo, its unit's SquadId) stays with that
+	unit, in a fight or not, and fires from there. If its unit merges or splits
+	it takes the nearest friendly unit. If the Rocketeer goes down his Loader
+	joins the unit as a rifleman.
+
+	The Rocketeer of a team on its own goes hunting (JavelinModule sets
+	specialTeam.hunt): toward any enemy vehicle he hears of, or patrolling around
+	where he was put down.
 
 	Settings.Unit is "Sniper", "Spotter", "Rocketeer", "Loader" or "Infantry".
 ]]
@@ -53,8 +59,23 @@ local TOO_CLOSE = 40
 local GUARD_LEASH = 8
 local GUARD_OFFSET = Vector3.new(4,0,3)
 
+--An AT team with a unit: how far it may drift from the nearest of its men, how
+--far off it looks for another unit when its own id is gone, and the seconds after
+--spawning before it looks, while its unit's scripts start up.
+local UNIT_LEASH = 20
+local REJOIN_RANGE = 150
+local REJOIN_AFTER = 5
+
+--Seconds a sniper stays on an enemy sniper he heard fire.
+local COUNTER_TIME = 20
+
 --How far a sniper team spots enemies; it raises Settings.DetectionRange to this.
 local SPOT_RANGE = 600
+
+--A sniper with his spotter down: the share of his shots that go true, and the
+--studs off his range, until a spotter of his pair is back.
+local NO_SPOTTER_ACCURACY = 0.5
+local NO_SPOTTER_RANGE_LOSS = 200
 
 --Where the sniper looks for a perch: rings this far out from where he was put
 --down, this many spots on each, and how much higher than him a spot may be.
@@ -106,11 +127,6 @@ if detection and (unit == "Sniper" or unit == "Spotter") and detection.Value < S
 	detection.Value = SPOT_RANGE
 end
 
---An ODA's Sniper or Rocketeer further than UNIT_LEASH from the rest of his unit
---walks back until he is within UNIT_REJOIN.
-local UNIT_LEASH = 150
-local UNIT_REJOIN = 40
-
 --Set by JavelinModule for the Rocketeer: given whether he has a target, where
 --to walk now, or nil to stand.
 specialTeam.hunt = nil
@@ -133,6 +149,46 @@ function specialTeam.partner(wantedUnit)
 		end
 	end
 	return nil
+end
+
+--The nearest living man of the unit his AT team came with, taking the nearest
+--friendly unit if that one's id is gone. Nil with no unit, or none around.
+local startedAt = os.clock()
+local function unitMate()
+	local id = marine:GetAttribute("AttachedTo")
+	if not id then return nil end
+	local mate,mateDist = nil,math.huge
+	local other,otherDist = nil,REJOIN_RANGE
+	for model,entry in pairs(_G.BloxianRadio or {}) do
+		local squadId = model:GetAttribute("SquadId")
+		if squadId and model ~= marine and entry.team.Value == marine.Settings.Team.Value and entry.root.Parent
+			and entry.human.Health > 0 and not specialTeam.detached(model) and not sof.kindOf(model) then
+			local dist = (entry.root.Position - myRoot.Position).Magnitude
+			if squadId == id and dist < mateDist then
+				mate,mateDist = entry,dist
+			elseif dist < otherDist then
+				other,otherDist = entry,dist
+			end
+		end
+	end
+	if not mate and other and os.clock() - startedAt >= REJOIN_AFTER then
+		marine:SetAttribute("AttachedTo",other.root.Parent:GetAttribute("SquadId"))
+		log("brain","AT team joining the nearest unit")
+		return other
+	end
+	return mate
+end
+
+local fullRange = weapon.range
+local spotterDown = false
+
+local function checkSpotter()
+	local down = marine:GetAttribute("PairId") ~= nil and not specialTeam.partner("Spotter")
+	if down == spotterDown then return end
+	spotterDown = down
+	weapon.range = down and fullRange - NO_SPOTTER_RANGE_LOSS or fullRange
+	weapon.accuracy = down and NO_SPOTTER_ACCURACY or nil
+	log("brain",down and "spotter down, range and accuracy cut" or "spotter back, full range and accuracy")
 end
 
 -- Sniper's perch ------------------------------------------------------------
@@ -298,6 +354,29 @@ local function searchPerch(relocating,threat)
 	end)
 end
 
+--An enemy sniper heard in range becomes his target, and he moves for a line to him.
+local counterTarget = nil
+local counterUntil = 0
+function specialTeam.counterSnipe(root)
+	if core.checkDist(root,myRoot) > weapon.range then return end
+	if counterTarget ~= root or os.clock() >= counterUntil then
+		chatter.callout("counterSnipe")
+	end
+	counterTarget = root
+	counterUntil = os.clock() + COUNTER_TIME
+end
+
+local function holdCounterTarget()
+	if not counterTarget or os.clock() >= counterUntil then return end
+	local human = counterTarget.Parent and counterTarget.Parent:FindFirstChildOfClass("Humanoid")
+	local current = status:get("currentTarget")
+	if not human or human.Health <= 0 then
+		counterTarget = nil
+	elseif not (current and current.Parent and core.checkDist(current,myRoot) < TOO_CLOSE) then
+		status:set("currentTarget",counterTarget)
+	end
+end
+
 --His target, if it is in range but he has no line to it.
 local function blindTarget()
 	local target = status:get("currentTarget")
@@ -341,25 +420,6 @@ local function perchGoal()
 	return perch
 end
 
-local rejoining = false
-
---Where to walk to get back to his unit, or nil if he is close enough or has none.
-local function rejoinGoal()
-	local id = marine:GetAttribute("SquadId")
-	if not id then return nil end
-	local best,bestDist = nil,math.huge
-	for model,entry in pairs(_G.BloxianRadio or {}) do
-		if model:GetAttribute("SquadId") == id and not specialTeam.detached(model) and entry.root.Parent and entry.human.Health > 0 then
-			local dist = (entry.root.Position - myRoot.Position).Magnitude
-			if dist < bestDist then
-				best,bestDist = entry.root,dist
-			end
-		end
-	end
-	rejoining = best ~= nil and bestDist > (rejoining and UNIT_REJOIN or UNIT_LEASH)
-	return rejoining and best.Position or nil
-end
-
 -- Brain ---------------------------------------------------------------------
 
 --True while this module moves him; false hands him back to the usual brain.
@@ -369,10 +429,21 @@ function specialTeam.update()
 		return false
 	end
 
+	if unit == "Sniper" then
+		checkSpotter()
+		holdCounterTarget()
+	end
+
 	if leaderUnit then
 		local leader = specialTeam.partner(leaderUnit)
 		if not leader then
 			log("brain",string.lower(leaderUnit).." down, fighting as a rifleman")
+			local mate = unitMate()
+			if mate then
+				for _,name in ipairs({"SquadId","SquadSize"}) do
+					marine:SetAttribute(name,mate.root.Parent:GetAttribute(name))
+				end
+			end
 			unit = "Infantry"
 			marine:SetAttribute("Unit",unit)
 			status:set("teamStance",nil)
@@ -395,13 +466,14 @@ function specialTeam.update()
 			return false
 		end
 
-		local goal = not status:get("launching") and rejoinGoal() or nil
-		if goal then
-			perchState = "none"
-		elseif status:get("launching") then
+		local goal = nil
+		local mate = unit == "Rocketeer" and unitMate()
+		if status:get("launching") then
 			goal = nil
 		elseif unit == "Sniper" then
 			goal = perchGoal()
+		elseif mate then
+			goal = (mate.root.Position - myRoot.Position).Magnitude > UNIT_LEASH and mate.root.Position or nil
 		elseif specialTeam.hunt then
 			goal = specialTeam.hunt(target ~= nil and target.Parent ~= nil)
 		end

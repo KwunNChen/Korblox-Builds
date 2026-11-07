@@ -35,6 +35,9 @@ local SCRAMBLE_TIMEOUT = 10
 --Cover only counts if the wall is this close to the spot, and the spot is at
 --least this far from the enemy.
 local WALL_MAX_DISTANCE = 7
+--Hard cover: how wide it must be, and how far from the soldier it may stand.
+local COVER_WIDTH = 10
+local COVER_REACH = 20
 local MIN_THREAT_DISTANCE = 12
 
 --How far to step sideways to shoot around the cover, and how far apart two
@@ -73,7 +76,10 @@ local SNIPER_PEEK = 0.5
 
 --Longest he stays in cover before pushing on if healthy, loaded and not
 --outnumbered.
-local COVER_MAX_TIME = 25
+local COVER_MAX_TIME = 12
+
+--Seconds in one cover spot without once seeing his target before he gives it up.
+local COVER_BLIND = 12
 
 --Peeks from one cover spot before he moves to another, so he is not
 --predictable. The spot he left is not taken again straight off.
@@ -123,6 +129,7 @@ local abandoned = nil --a spot he just moved off, not to be taken again at once
 --The enemy aircraft he is hiding from, if any, and the enemy armor (armorCover).
 local airThreat = nil
 local armorThreat = nil
+local echoThreat = nil
 local spot
 local stateSince = 0
 --Hit in the open with no cover in reach, he drops prone and shoots back for
@@ -134,6 +141,7 @@ local proneUntil = 0
 local coverStart = 0
 local lastCoverEnd = -math.huge
 local lastSearch = -math.huge
+local lastSight = -math.huge
 local damagedAt = -math.huge
 
 local lastHealth = myHuman.Health
@@ -204,14 +212,60 @@ function tactics.ground(point)
 end
 local groundPoint = tactics.ground
 
+-- Off the open --------------------------------------------------------------
+
+--With no cover he never fights from the middle of a road or field. He runs for
+--the edge of it: a spot with something solid within EDGE_REACH studs on any side,
+--not indoors, searched out to the last of EDGE_RINGS at most every EDGE_COOLDOWN seconds.
+local EDGE_RINGS = {6, 12, 18, 26, 34, 42, 50}
+local EDGE_DIRECTIONS = 12
+local EDGE_RAYS = 6
+local EDGE_REACH = 5
+local EDGE_COOLDOWN = 3
+
+--Holding an angle, a spot out in the open counts this many studs further off.
+local OPEN_COST = 15
+
+local function againstSomething(pos)
+	for i = 1,EDGE_RAYS do
+		local angle = i/EDGE_RAYS*math.pi*2
+		local hit,result = core.raycast(pos + UP_HEAD,Vector3.new(math.cos(angle),0,math.sin(angle))*EDGE_REACH)
+		if hit and result.Instance.CanCollide and not core.getHuman(result.Instance.Parent) then
+			return true
+		end
+	end
+	return false
+end
+
+--The nearest edge to center within reach studs, with a clear shot at the target
+--if needsShot. Nil if there is none.
+function tactics.findEdge(center,target,reach,needsShot)
+	for _,ring in ipairs(EDGE_RINGS) do
+		if ring > reach then break end
+		local best,bestDist = nil,math.huge
+		for i = 1,EDGE_DIRECTIONS do
+			local angle = i/EDGE_DIRECTIONS*math.pi*2
+			local pos = tactics.floor(center + Vector3.new(math.cos(angle)*ring,0,math.sin(angle)*ring))
+			local dist = pos and (pos - myRoot.Position).Magnitude
+			if pos and dist < bestDist and (pos - target.Position).Magnitude >= MIN_THREAT_DISTANCE and not claimedByOther(pos)
+				and againstSomething(pos) and not movement.indoors(pos)
+				and (not needsShot or not tactics.isHidden(pos,target)) and tactics.roomAt(pos) then
+				best,bestDist = pos,dist
+			end
+		end
+		if best then return best end
+	end
+	return nil
+end
+
 -- Holding angles and pushing in numbers -------------------------------------
 
 --He only pushes at the enemy with at least MASS_MIN of his side (him included,
 --none broken) within MASS_RANGE, and at least MASS_RATIO times as many as the
 --enemies he knows about. Otherwise he holds an angle.
 local MASS_RANGE = 60
-local MASS_MIN = 3
-local MASS_RATIO = 2
+local MASS_MIN = 2
+local MASS_RATIO = 1
 
 --Against a sniper, fewer will do: he is worst up close.
 local SNIPER_MASS_MIN = 2
@@ -338,6 +392,7 @@ function tactics.holdAngle(point)
 					local toward = Vector3.new(look.X - pos.X,0,look.Z - pos.Z)
 					local low = toward.Magnitude > 1 and core.raycast(pos - Vector3.new(0,1.5,0),toward.Unit*LOW_COVER_REACH)
 					local score = (pos - myRoot.Position).Magnitude - (low and LOW_COVER_BONUS or 0)
+						+ (againstSomething(pos) and 0 or OPEN_COST)
 					if score < bestScore then
 						angleSpot,bestScore = pos,score
 					end
@@ -351,6 +406,11 @@ function tactics.holdAngle(point)
 		chatter.callout("holdAngle",nil,0.35)
 	end
 	lastHold = now
+
+	--Inside with no view of it: he is no use in here.
+	if not angleSpot and movement.getOut() then
+		return
+	end
 
 	if angleSpot and Vector3.new(angleSpot.X - myRoot.Position.X,0,angleSpot.Z - myRoot.Position.Z).Magnitude > 2 then
 		movement.navigate(angleSpot)
@@ -394,6 +454,23 @@ function tactics.isHidden(pos,threat)
 		return true
 	end
 	return (blockedFrom(pos + UP_HEAD,threat))
+end
+
+--Whether something COVER_WIDTH wide stands between pos and the threat: a building, not a tree.
+function tactics.hardCover(pos,threat)
+	local eye = pos + UP_HEAD
+	local toThreat = threat.Position - eye
+	local side = Vector3.new(-toThreat.Z,0,toThreat.X)
+	if side.Magnitude < 1 then return false end
+	side = side.Unit*COVER_WIDTH/2
+	local reach = toThreat.Unit*COVER_REACH
+	for _,offset in ipairs({Vector3.zero,side,-side}) do
+		local hit,result = core.raycast(eye + offset,reach)
+		if not hit or result.Instance:IsDescendantOf(threat.Parent) or core.getHuman(result.Instance.Parent) then
+			return false
+		end
+	end
+	return true
 end
 
 --A spot a step to the side of the cover with a clear shot at the threat.
@@ -441,7 +518,7 @@ local function findCover(threat,center,wide)
 
 			if pos then
 				local threatDist = (pos - threatPos).Magnitude
-				if threatDist >= MIN_THREAT_DISTANCE and (threatDist <= weapon.range + 20 or threat == airThreat or threat == armorThreat)
+				if threatDist >= MIN_THREAT_DISTANCE and (threatDist <= weapon.range + 20 or threat == airThreat or threat == armorThreat or threat == echoThreat)
 					and not claimedByOther(pos) then
 					local blocked,wallDist = blockedFrom(pos + UP_HEAD,threat)
 					local indoors = threat == airThreat and roofed(pos)
@@ -510,7 +587,7 @@ local function suppressed()
 end
 
 local function hideTime(options)
-	local scale = morale.hideScale()*(threat.current() == "auto" and AUTO_HIDE or 1)*sof.hideScale
+	local scale = morale.hideScale()*(threat.current() == "auto" and AUTO_HIDE or 1)
 		*(suppressed() and SUPPRESSED_HIDE or 1)
 	if healthFraction() < LOW_HEALTH then
 		return (HURT_HIDE_MIN + math.random()*(HURT_HIDE_MAX - HURT_HIDE_MIN))*scale
@@ -567,6 +644,30 @@ local function shouldTakeCover(target,options)
 	return (underFire or outnumbered) and math.random() < caution
 end
 
+--Runs for the edge of the open. True if he ran.
+local lastEdgeRun = -math.huge
+local function offTheOpen(target,options)
+	local now = os.clock()
+	if options.noPeek or now - lastEdgeRun < EDGE_COOLDOWN or againstSomething(myRoot.Position) then
+		return false
+	end
+	lastEdgeRun = now
+	local edge = tactics.findEdge(myRoot.Position,target,EDGE_RINGS[#EDGE_RINGS])
+	if not edge then
+		return false
+	end
+	log("cover","in the open, running for the edge")
+	claims[marine] = edge
+	chatter.cover()
+	local walkSpeed = myHuman.WalkSpeed
+	myHuman.WalkSpeed = SCRAMBLE_SPEED
+	movement.goToPosition(edge,options.keepGoing or stillFighting,SCRAMBLE_TIMEOUT)
+	if myHuman.WalkSpeed == SCRAMBLE_SPEED then
+		myHuman.WalkSpeed = status:get("weaponAimed") and math.min(walkSpeed,10) or walkSpeed
+	end
+	return true
+end
+
 local function enterCover(target,options)
 	local started = os.clock()
 	lastSearch = started
@@ -595,9 +696,8 @@ local function enterCover(target,options)
 	end
 
 	--Shot, or seen in the open, with nothing close: any wall further out will do.
-	--Raiders push instead.
 	local scramble = false
-	if #candidates == 0 and (os.clock() - damagedAt < 2 or not sof.raider and core.checkSight(target)) then
+	if #candidates == 0 and (os.clock() - damagedAt < 2 or core.checkSight(target)) then
 		candidates = findCover(target,nil,true)
 		scramble = #candidates > 0
 		log("coverSearch",string.format("scrambling: %d spots further out",#candidates),1)
@@ -633,8 +733,13 @@ local function enterCover(target,options)
 	end
 	claims[marine] = nil
 
-	--Nowhere to go and being shot (special operations: just seen): down on the ground and shoot back.
-	if #candidates == 0 and (os.clock() - damagedAt < 2 or sof.kind and core.checkSight(target)) then
+	if offTheOpen(target,options) then
+		return
+	end
+
+	--Nowhere to go and being shot (special operations: just seen): down on the ground
+	--and shoot back. A line squad keeps moving instead.
+	if #candidates == 0 and (not anchor or sof.kind) and (os.clock() - damagedAt < 2 or sof.kind and core.checkSight(target)) then
 		log("cover","no cover, going prone")
 		proneUntil = os.clock() + PRONE_HOLD
 		status:set("proneUntil",proneUntil)
@@ -705,8 +810,6 @@ local function findAirThreat()
 	end
 	return best
 end
-
-tactics.findAirThreat = findAirThreat
 
 --Everyone but the AT team keeps out of an enemy tank's sight: an enemy vehicle
 --(not an aircraft) within ARMOR_DANGER studs with a line to him sends him into
@@ -786,16 +889,41 @@ function tactics.armorCover()
 	return false
 end
 
---Whether his own side has an aircraft up anywhere.
-function tactics.friendlyAirUp()
-	for _,craft in ipairs(aircraftUp()) do
-		if isFriendlyCraft(craft) then
-			return true
-		end
-	end
-	return false
+--A sniper's shot heard: hide from where it came, not peeking, at most ECHO_HIDE_MAX
+--seconds, then ECHO_FIGHT seconds before one sends him into cover again.
+local ECHO_HIDE_MAX = 8
+local ECHO_FIGHT = 12
+local ECHO_OPTIONS = {force = true, noPeek = true, hold = true, keepGoing = function()
+	return myHuman.Health > 0
+end}
+local echoStart = nil
+local echoFightUntil = 0
+
+--True when this sends him into cover, false when he already is or won't.
+function tactics.hideFromShot(root)
+	if echoThreat or os.clock() < echoFightUntil then return false end
+	echoThreat = root
+	return true
 end
 
+--True while the cover from a sniper's shot is in charge of him.
+function tactics.echoCover()
+	if not echoThreat then return false end
+	local now = os.clock()
+	echoStart = echoStart or now
+	if now - echoStart > ECHO_HIDE_MAX or not echoThreat.Parent then
+		echoThreat,echoStart = nil,nil
+		echoFightUntil = now + ECHO_FIGHT
+		if state then
+			leaveCover("done hiding from the sniper")
+		end
+		return false
+	end
+	ECHO_OPTIONS.threat = echoThreat
+	return tactics.update(ECHO_OPTIONS)
+end
+
+--Whether his own side has an aircraft up anywhere.
 local AIR_OPTIONS = {force = true, noPeek = true, hold = true, keepGoing = function()
 	return myHuman.Health > 0
 end}
@@ -911,6 +1039,15 @@ function tactics.update(options)
 
 	local now = os.clock()
 
+	--Cover from an enemy he can no longer get a shot at is a place to be stuck in.
+	if core.checkSight(target) then
+		lastSight = now
+	elseif not options.noPeek and now - math.max(lastSight,coverStart) > COVER_BLIND then
+		abandoned = spot.pos
+		leaveCover("lost sight of the enemy")
+		return false
+	end
+
 	--Pushing on: stuck in cover too long, or the enemy is on top of him.
 	if core.checkDist(myRoot,target) < MELEE_DISTANCE then
 		leaveCover("enemy too close")
@@ -921,8 +1058,8 @@ function tactics.update(options)
 		leaveCover("enemy busy, pushing")
 		return false
 	end
-	if not options.hold and now - coverStart > (sof.coverMax or COVER_MAX_TIME) and healthFraction() >= LOW_HEALTH and not magLow()
-		and (tactics.notOutnumbered() or sof.raider) and not core.checkSight(target) then
+	if not options.hold and now - coverStart > COVER_MAX_TIME and healthFraction() >= LOW_HEALTH and not magLow()
+		and tactics.notOutnumbered() and not core.checkSight(target) then
 		leaveCover("pushing on")
 		chatter.advance()
 		return false

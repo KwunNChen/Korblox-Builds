@@ -4,7 +4,7 @@
 
 	A rule matches on whichever of these it names; leave one out to match everyone:
 		unit    "Infantry", "Sniper", "Spotter", "Rocketeer", "Loader", "Pilot",
-		        "Special Recon" or "Raider"
+		        "Special Recon"
 		role    "Rifleman" or "Radioman"
 	and sets:
 		morph   a model in ServerStorage.BloxiaMorphs: its Shirt, Pants and gear go
@@ -28,7 +28,6 @@ uniform.presets = {
 		{unit = "Sniper", morph = "Sniper"},
 		{unit = "Spotter", morph = "Sniper"},
 		{unit = "Special Recon", morph = "SpecOps"},
-		{unit = "Raider", morph = "SpecOps"},
 		{unit = "Rocketeer", morph = "Infantry"},
 		{unit = "Loader", morph = "Infantry"},
 		{unit = "Pilot", morph = "Infantry"},

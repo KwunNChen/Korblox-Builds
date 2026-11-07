@@ -8,7 +8,8 @@
 	as it moves. One hit wrecks a Warthog; two wreck an Abrams. Enemy aircraft
 	(tagged BloxianAircraft, like the Apache) are fair game too: one hit.
 
-	With nothing in sight he hunts. Every other soldier who sees an enemy
+	In a team on its own, with nothing in sight he hunts; a team a squad brought
+	stays with that squad instead (SpecialTeamModule). Every other soldier who sees an enemy
 	vehicle calls it out ("Armor! Get AT on it!") and reports it to his side;
 	the Rocketeer takes the nearest fresh report within HUNT_RANGE, says he is
 	moving, and walks toward it until he can see it. With nothing reported he
@@ -37,7 +38,6 @@ local log = require(modules.Troubleshoot).log
 local specialTeam = require(modules.SpecialTeamModule)
 local chatter = require(modules.ChatterModule)
 local movement = require(modules.MovementModule)
-local sof = require(modules.SofModule)
 
 local marine = modules.Parent.Parent
 local myRoot = marine.HumanoidRootPart
@@ -611,7 +611,6 @@ local function reportArmor()
 		byTeam[teamValue.Value] = report
 	end
 	report.seen = now
-	sof.markArmor(car,part)
 	if now - report.called >= CALL_AGAIN then
 		report.called = now
 		log("attack","reporting armor: "..car.Name)

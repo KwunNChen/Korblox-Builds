@@ -19,10 +19,12 @@
 		spread          degrees of random inaccuracy per bullet
 		aimAssist       degrees off the target the rifle may point and the round
 		                still goes at him (optional; 20 otherwise)
-		bulletSpeed     studs per second
+		bulletSpeed     studs per second, of a tracer round
 		reloadTime      reload length, 1 is the rifle's
 		soundSpeed      pitch of the shot, lower is heavier
 		sound           asset id of its own shot sound (optional; the M4's otherwise)
+		echo            asset id of the sound his shot carries with; it gives him away
+		                (optional, ECHO_RANGE in CombatModule)
 		tracer          bullet colour
 		pellets         rounds per shot, each with its own spread (optional; 1)
 		launcher        an underbarrel grenade launcher (optional): fires a 40mm
@@ -32,7 +34,7 @@
 		                takes wound of his max health, falling off to nothing at
 		                radius studs
 
-	Shotgun and M203 never roll for "Random"; Raiders carry them.
+	Shotgun and M203 never roll for "Random".
 ]]
 
 local weapons = {}
@@ -41,6 +43,9 @@ local settings = script.Parent.Parent.Parent.Settings
 
 --The FN FAL shot ("FN-FAL [Free]"), for the guns that show the FAL.
 local FAL_SOUND = 154619598
+
+--The AR-18's shot, for the guns that show it.
+local AR18_SOUND = 680741924
 
 weapons.list = {
 	{
@@ -56,7 +61,7 @@ weapons.list = {
 		bulletSpeed = 420,
 		reloadTime = 1,
 		soundSpeed = 1,
-		sound = FAL_SOUND,
+		sound = AR18_SOUND,
 		tracer = Color3.fromRGB(255,255,0),
 	},
 	{
@@ -72,6 +77,7 @@ weapons.list = {
 		bulletSpeed = 650,
 		reloadTime = 1.2,
 		soundSpeed = 0.75,
+		sound = AR18_SOUND,
 		tracer = Color3.fromRGB(255,140,40),
 	},
 	{
@@ -87,7 +93,7 @@ weapons.list = {
 		bulletSpeed = 380,
 		reloadTime = 0.8,
 		soundSpeed = 1.25,
-		sound = FAL_SOUND,
+		sound = AR18_SOUND,
 		tracer = Color3.fromRGB(255,255,170),
 	},
 	{
@@ -102,8 +108,8 @@ weapons.list = {
 		spread = 2.5,
 		bulletSpeed = 450,
 		reloadTime = 1.6,
-		soundSpeed = 0.9,
-		sound = FAL_SOUND,
+		soundSpeed = 1,
+		sound = 111337931044928,
 		tracer = Color3.fromRGB(255,80,60),
 	},
 	{
@@ -121,6 +127,7 @@ weapons.list = {
 		reloadTime = 1.8,
 		soundSpeed = 1,
 		sound = 130570662564570,
+		echo = 18156809081,
 		tracer = Color3.fromRGB(230,230,255),
 	},
 	{
@@ -136,7 +143,8 @@ weapons.list = {
 		spread = 5,
 		bulletSpeed = 500,
 		reloadTime = 1.6,
-		soundSpeed = 0.7,
+		soundSpeed = 1,
+		sound = 132711300701696,
 		tracer = Color3.fromRGB(255,200,120),
 	},
 	{

@@ -20,8 +20,10 @@ local LEAN_DISTANCE = 120
 local STILL_SPEED = 1
 local STILL_LEAN = 0.01
 
---Soldiers further than this from the camera wear no gear or gun on this client
---(the server's copies are untouched), checked every GEAR_CHECK seconds.
+--Past this far from the camera, on this client only, a soldier's gear is not drawn
+--and his gun model swaps for the blocky M4 mesh and its magazine, to spare the GPU;
+--his hat stays.
+--Checked every GEAR_CHECK seconds.
 local GEAR_DISTANCE = 200
 local GEAR_CHECK = 1
 
@@ -75,20 +77,20 @@ local function sideways(amount,range,forward)
 end
 
 local function lean(model,dt)
-	local human = model:FindFirstChildOfClass("Humanoid")
 	local root = model:FindFirstChild("HumanoidRootPart")
-	local torso = model:FindFirstChild("Torso")
-	local rootJoint = root and root:FindFirstChild("RootJoint")
-	local rightHip = torso and torso:FindFirstChild("Right Hip")
-	local leftHip = torso and torso:FindFirstChild("Left Hip")
-	if not (human and rootJoint and rightHip and leftHip) or human.Health <= 0 or human.Sit
-		or model:GetAttribute("Stance") == "prone" then
+	local camera = workspace.CurrentCamera
+	if not root or camera and (camera.CFrame.Position - root.Position).Magnitude > LEAN_DISTANCE then
 		release(model)
 		return
 	end
 
-	local camera = workspace.CurrentCamera
-	if camera and (camera.CFrame.Position - root.Position).Magnitude > LEAN_DISTANCE then
+	local human = model:FindFirstChildOfClass("Humanoid")
+	local torso = model:FindFirstChild("Torso")
+	local rootJoint = root:FindFirstChild("RootJoint")
+	local rightHip = torso and torso:FindFirstChild("Right Hip")
+	local leftHip = torso and torso:FindFirstChild("Left Hip")
+	if not (human and rootJoint and rightHip and leftHip) or human.Health <= 0 or human.Sit
+		or model:GetAttribute("Stance") == "prone" then
 		release(model)
 		return
 	end
@@ -129,48 +131,42 @@ local function lean(model,dt)
 	set(state.joints[3],hip)
 end
 
---stripped[model][piece] = where the piece goes back.
-local stripped = {}
+local removedGuns = setmetatable({},{__mode = "k"})
 
-local function strip(model)
-	local pieces = stripped[model] or {}
-	stripped[model] = pieces
+local function setDrawn(model,drawn)
+	local modifier = drawn and 0 or 1
 	for _,part in ipairs(model:GetChildren()) do
-		if part.Name:match("^Morph") then
-			pieces[part] = model
-			part.Parent = nil
+		if part:IsA("BasePart") and part.Name:match("^Morph") and part:GetAttribute("Body") ~= "Head" then
+			part.LocalTransparencyModifier = modifier
 		end
 	end
 	local m4 = model:FindFirstChild("M4")
-	local gun = m4 and m4:FindFirstChild("GunModel")
-	if gun then
-		pieces[gun] = m4
-		gun.Parent = nil
+	local mag = model:FindFirstChild("Mag")
+	if drawn and removedGuns[model] then
+		removedGuns[model].Parent = m4
+		removedGuns[model] = nil
+		m4.Transparency = 1
+		if mag then mag.Transparency = 1 end
+	elseif not drawn and m4 and m4:FindFirstChild("GunModel") then
+		removedGuns[model] = m4.GunModel
+		m4.GunModel.Parent = nil
+		m4.Transparency = 0
+		if mag then mag.Transparency = 0 end
 	end
 end
 
-local function dress(model)
-	for piece,parent in pairs(stripped[model]) do
-		piece.Parent = parent
-	end
-	stripped[model] = nil
-end
-
+local hidden = setmetatable({},{__mode = "k"})
 task.spawn(function()
 	while true do
 		task.wait(GEAR_CHECK)
 		local camera = workspace.CurrentCamera
 		for _,model in ipairs(CollectionService:GetTagged("Bloxian")) do
 			local root = model:FindFirstChild("HumanoidRootPart")
-			if camera and root and (camera.CFrame.Position - root.Position).Magnitude > GEAR_DISTANCE then
-				strip(model)
-			elseif stripped[model] then
-				dress(model)
-			end
-		end
-		for model in pairs(stripped) do
-			if not model.Parent then
-				stripped[model] = nil
+			local far = camera and root and (camera.CFrame.Position - root.Position).Magnitude > GEAR_DISTANCE
+			--Repeated while far: gear goes on a few seconds after he spawns.
+			if far or hidden[model] then
+				setDrawn(model,not far)
+				hidden[model] = far or nil
 			end
 		end
 	end

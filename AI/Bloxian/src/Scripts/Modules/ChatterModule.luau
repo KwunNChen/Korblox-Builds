@@ -64,6 +64,15 @@ local TURN_GAP_MAX = 3.8
 --Chance an idle soldier with nobody close mutters to himself.
 local SOLO_CHANCE = 0.5
 
+--Radio reports (chatter.radio): the radio chatter played with one, its volume, how
+--far the noise and text carry, and studs per map grid square.
+local RADIO_SOUND = "rbxassetid://139540720"
+local RADIO_VOLUME = 0.5
+local RADIO_HEARING = 150
+local GRID_SIZE = 100
+
+local COMPASS = {"north","northeast","east","southeast","south","southwest","west","northwest"}
+
 local CLOCK_WORDS = {"twelve","one","two","three","four","five","six","seven","eight","nine","ten","eleven"}
 
 --Every soldier in the server registers here so calls can reach the others.
@@ -359,6 +368,36 @@ function chatter.spotted(target)
 	if ctx.isPlayer then tags[#tags+1] = "player" end
 
 	call("spotted",chooseEntry(lines.calls.spotted,tags),ctx,roll())
+end
+
+--The map grid square of a position, like "503-498".
+local function gridOf(position)
+	return string.format("%03d-%03d",(math.floor(position.X/GRID_SIZE) + 500) % 1000,(math.floor(position.Z/GRID_SIZE) + 500) % 1000)
+end
+
+--A radio report on target, with its grid, compass direction and distance from him:
+--radio chatter with it. Heard even while stalking; nobody answers it.
+local radioSound
+function chatter.radio(kind,target)
+	if not enabled() or myHuman.Health <= 0 or not target or not target.Parent then return end
+	local ctx = describeTarget(target)
+	local offset = target.Position - myRoot.Position
+	ctx.grid = gridOf(target.Position)
+	ctx.compass = COMPASS[math.floor(((math.deg(math.atan2(offset.X,-offset.Z)) + 360) % 360)/45 + 0.5) % 8 + 1]
+
+	if not radioSound then
+		radioSound = Instance.new("Sound")
+		radioSound.Name = "RadioChatter"
+		radioSound.SoundId = RADIO_SOUND
+		radioSound.Volume = RADIO_VOLUME
+		radioSound.RollOffMaxDistance = RADIO_HEARING
+		radioSound.Parent = myHead
+	end
+	radioSound:Play()
+
+	lastSpoke = os.clock()
+	showBubble(fill(textOf(pick(lines.calls[kind].any)),ctx))
+	bubble.MaxDistance = RADIO_HEARING
 end
 
 --He sees an enemy vehicle (part is the part he sees). hasAT: an AT team on

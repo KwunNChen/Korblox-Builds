@@ -12,7 +12,7 @@ own games can go ahead and utilize the assets I built!
 | | Model file | What it is | Needs |
 |---|---|---|---|
 | [AA Truck](AI/AA%20Truck) | `AA Truck.rbxm` | BM-21 truck firing homing anti-air rockets: Bloxian crews shoot down enemy Phantoms, AC-130s and Apaches | Bloxian (for NPC crews), Vehicle Spawner (to spawn it crewed) |
-| [AC130](AI/AC130) | `AC130.rbxm` | AC-130 gunship that Bloxian radiomen call in: it circles high up and the artillery barrage comes from it | Bloxian, Random Arty |
+| [AC130](AI/AC130) | `AC130.rbxm` | AC-130 gunship: it circles high up and fires artillery barrages at targets it picks | Bloxian, Random Arty |
 | [Abrams](AI/Abrams) | `Abrams.rbxm` | M1A2 tank that Bloxians crew: crushes, machine-guns and shells you | Bloxian (for NPC crews) |
 | [Apache](AI/Apache) | `Apache.rbxm` | AH-64 that Bloxians fly and gun: M230 and Hellfires; the crew parachute out when it is shot up | Bloxian (for NPC crews) |
 | [F4](AI/F4) | `F4.rbxm` | Self-flying F-4 Phantom from the Vehicle Spawner: clears enemy AC-130s, Phantoms and Apaches from the sky, then strafes the enemy near its own troops with its gun | Vehicle Spawner (to spawn it) |
@@ -264,11 +264,17 @@ of their model, so each `.rbxm` still works on its own:
 | `Spearhead` | Lets SPEARHEAD guns damage the vehicle (one hit per round fired) | Abrams, AA Truck, Apache, Warthog |
 
 Change the rules there once, then rebuild each package. Check the side rules
-with:
+and who hears radio calls with:
 
 ```bash
 cd AI && /c/Users/pbche/.rokit/bin/lune.exe run Shared/tests/sides.test.luau
 ```
+
+```bash
+cd AI && /c/Users/pbche/.rokit/bin/lune.exe run Shared/tests/radio.test.luau
+```
+
+The Bloxian and Vehicle spawners share `AI/Bloxian/spawner/BloxianSpawner/SpawnerKit.luau`.
 
 ## Live-syncing the combat packages with Rojo
 
@@ -287,7 +293,7 @@ Bloxian, the Warthog, Abrams, AA Truck, Apache, F4 and AC130, Random Arty, and t
 | `ServerScriptService.BloxianSpawner`, `StarterPack.Bloxian Spawner` | `AI/Bloxian/spawner` |
 | `ServerStorage.BloxianVehicles.Warthog` / `.Abrams` / `.Apache` / `.F4 Phantom` / `.AA Truck` (the vehicle spawner's templates) | `Warthog/package.project.json`, `Abrams/package.project.json`, `Apache/package.project.json`, `F4/package.project.json`, `AA Truck/package.project.json` |
 | `ServerScriptService.VehicleSpawner` (Vehicles mode of the Bloxian Spawner) | `AI/Vehicle Spawner/spawner` |
-| `ServerStorage.BloxianVehicles.AC130` (the radiomen's gunship) | `AI/AC130/package.project.json` |
+| `ServerStorage.BloxianVehicles.AC130` | `AI/AC130/package.project.json` |
 | `ReplicatedStorage.Artillery`, `.ArtilleryState`, `.ArtilleryShell`, `.ArtilleryBlast`, `ServerScriptService.Artillery`, `StarterPlayer.StarterPlayerScripts.Artillery` (Random Arty) | `Random Arty/src` |
 
 Random Arty's `ServerScriptService.Common` syncs too. Anything else already in

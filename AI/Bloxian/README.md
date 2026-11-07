@@ -17,10 +17,11 @@ Everyone gets the **Bloxian Spawner** tool from StarterPack. While it is held:
   facing the way you look. A blue or red ring shows where they will land.
 - **The panel** on the left picks what spawns. Click a choice in each row:
   - The top tabs pick `Infantry` or `Special Operations` (see below).
-  - Spawn: `Soldiers` or `Vehicles`. This row only shows when the Vehicle
-    Spawner's server script is installed (see `Vehicle Spawner`). Vehicles mode
-    swaps the rows for Vehicle, Team and Crew, and the ring for the vehicle's
-    footprint.
+  - Spawn: `Soldiers`, `Vehicles` or `Kinetic Events`. `Vehicles` only shows
+    when the Vehicle Spawner's server script is installed (see `Vehicle
+    Spawner`). It swaps the rows for Vehicle, Team and Crew, and the ring for
+    the vehicle's footprint. `Kinetic Events` swaps them for Event (and Side for
+    an airstrike), and the ring for the area it covers; see below.
   - Unit: `Infantry`, `Sniper team` (a sniper and his spotter) or `AT team`
     (a Javelin rocketeer and his loader); see below.
     Group, Weapon and Radioman only show for infantry.
@@ -38,6 +39,8 @@ Everyone gets the **Bloxian Spawner** tool from StarterPack. While it is held:
   the crew, else the vehicle's own), what it is, what it's doing, distance and
   health. Soldiers have no tag of their own, crews included: only squads and
   vehicles are tagged.
+  - Each sniper team and AT team gets a tag the same way, numbered in spawn order
+    (`SNIPER TEAM 1 100%`, `AT TEAM 2 50%`). **Clear all** starts the numbers again.
   - Each spawned squad gets one tag of its own, floating 35 studs over the
     middle of its live soldiers on foot and following them every frame (anyone
     seated in a vehicle still counts but doesn't move it, `SQUAD_TAG_HEIGHT`).
@@ -47,7 +50,7 @@ Everyone gets the **Bloxian Spawner** tool from StarterPack. While it is held:
     demoralized. Soldiers that respawn far away, or stream out and back in,
     keep their tag.
   - **A Phantom's status:** Patrol, Intercept, Dogfight, Defending, Break,
-    Attack, Strafe or Egress.
+    Attack, Strafe, Egress or Leaving.
   - **An AC-130's status:** On station or Fire mission.
   - **A land vehicle's status:** `Crew 1`, `Crew 2` or Empty.
   - **Destroyed:** Down for an aircraft, Wrecked for a land vehicle.
@@ -123,12 +126,17 @@ Soldiers no longer stand in the open and trade shots.
   them (shot at or not), and when hurt (under half health), reloading or low on ammo. Depending
   on how cautious each one is, also when outnumbered. Enemies in knife range get
   fought instead.
-- **Scrambling:** shot, or seen by the enemy he's fighting (not Raiders, who
-  push instead), with no cover within 22 studs, he looks further out (30,
+- **Scrambling:** shot, or seen by the enemy he's fighting, with no cover within 22 studs, he looks further out (30,
   40 and 50 studs, `SCRAMBLE_RINGS`, ignoring his squad's leash) for any wall
   between him and the enemy, and runs for it flat out (`SCRAMBLE_SPEED`), up
   to 10 s (`SCRAMBLE_TIMEOUT`).
-- **No cover:** with no wall even that far, he drops prone where he is and
+- **Off the open:** with no cover at all he still won't fight from the middle of a
+  road or field. He runs for the nearest spot with something solid within 5 studs
+  (`EDGE_REACH`): a wall, a tree, a car. It searches out to 50 studs (`EDGE_RINGS`),
+  at most every 3 s (`EDGE_COOLDOWN`), and skips spots indoors. Holding an angle, a
+  spot out in the open counts 15 studs further off (`OPEN_COST`).
+- **No cover:** a line soldier in a squad keeps moving with its drills. Anyone else,
+  with no wall and no edge in reach, drops prone where he is and
   shoots back. He stays down 6 s (`PRONE_HOLD`), longer while still being hit,
   and stands if he can't see his target from the ground.
 - **Shooting:** he keeps his rifle on the enemy and fires while running or
@@ -150,7 +158,7 @@ Soldiers no longer stand in the open and trade shots.
 - **Aim:** his shots go twice as wide while he is moving faster than 4 studs/s,
   and for 0.6 s after he turns on a new target, so moving and surprise both
   matter (`MOVING_SPREAD`, `NEW_TARGET_SPREAD` in `CombatModule`).
-- **Pushing on:** after 25 seconds of cover, healthy and loaded, he moves up
+- **Pushing on:** after 12 seconds of cover, healthy and loaded, he moves up
   if his side here is at least as many as the enemies he knows of, but only
   once he has lost sight of the enemy. While he can see him he stays put and
   keeps peeking.
@@ -201,8 +209,8 @@ log, rock or wall), turns to face it, rifle up, and waits for him to show. A
 sound they can't place gets the same treatment.
 
 - **Pushing in a mass:** they only push (chase, investigate, leave cover after
-  25 s, or close in when a squad has no firing spot) with at least 3 of their
-  side within 60 studs, none broken, and at least twice as many as the enemies
+  12 s, or close in when a squad has no firing spot) with at least 2 of their
+  side within 60 studs, none broken, and at least as many as the enemies
   they know of (`MASS_MIN`, `MASS_RANGE`, `MASS_RATIO`). Everyone checks the
   same thing, so a group that has the numbers moves up together ("Moving up!").
 - They say so now and then ("Holding this angle!", "Eyes on the treeline!").
@@ -238,6 +246,15 @@ straight walks inside 25 studs are left alone. Numbers are `DETOUR_*`,
 side of where he's stuck, then on to where he was going. If that side's
 blocked too, he tries the other side, and only then gives up and stands
 (`MAX_REPATHS`, `SNAG_DETOUR`, `MAX_DETOURS`).
+
+**Indoors:** a soldier drops a crumb every 4 studs and keeps the last 30. With no
+path out of a building, or blocked every way round, he walks his crumbs back out
+the way he came (`MAX_CRUMBS`, a ceiling within `ROOF_REACH` means indoors). Holding
+an angle indoors with no view of it, he heads for the last place he stood outside.
+Cover he has had no sight from for 12 s (`COVER_BLIND`) is given up, whatever his orders.
+
+**Roads:** a stud of Asphalt or Pavement counts as 3 on a route (`ROAD_COST`), so
+soldiers keep off roads unless it saves real distance.
 
 ## Reading the enemy's weapon
 
@@ -308,9 +325,13 @@ of `Scripts/Server/Soldier AI` (`PATROL_RADIUS`, `PATROL_PAUSE_MIN`,
 
 ## Prone
 
-Soldiers go prone when caught in the open with no cover (see Taking cover), and
+Soldiers outside a line squad go prone when caught in the open with no cover (see
+Taking cover), and
 snipers and spotters lie down on their perch. They stand up to move, ride or use
-the knife, and whenever they can't see their target from the ground. Prone, a
+the knife, and whenever they can't see their target from the ground. They can't
+change stance again until 3 s after the last change (`STANCE_COOLDOWN`), except
+to get in a vehicle, and move at 60% speed while prone (`PRONE_SPEED`). Their shots
+spread a quarter as wide while prone (`PRONE_SPREAD` in `CombatModule`). Prone, a
 soldier always has his rifle in his hands: he never slings it. The poses
 are done on the joints in code (`STANCES` and `EYE` at the top of
 `Scripts/Modules/ActionsModule`); prone soldiers' torso and head go in the
@@ -322,11 +343,13 @@ Soldiers of the same `Team` within 60 studs of each other fight as a squad,
 loosely after US Army / Ranger battle drills. The highest ranked soldier leads,
 and the squad splits into two fire teams, Alpha and Bravo.
 
-- **Re-planning:** the leader looks at the plan again every 12 s of a fight
-  (`REPLAN_TIME`), so a stalled fight turns into a flank, pincer or bound. A
-  bound runs to its end first. He also does it at once under any plan when the squad is losing
-  (below 40% average health, or outnumbered by 2), and breaks contact.
-
+- **Re-planning:** a squad that has been in a plain fight for 12 s gets a fresh
+  plan (`REPLAN_TIME`), so a stalled fight turns into a flank, pincer or bound.
+  Other plans run to their end first. Under any plan, the squad breaks contact at
+  once when it's losing (below 40% average health, or outnumbered by 2).
+- **What comes first:** a vehicle he's crewing, clearing an artillery zone, running
+  when broken, hiding from enemy aircraft or armor, and taking cover from a sniper's
+  shot all pull a soldier out of the drill until they're over.
 - **Staying together:** soldiers join up within 60 studs and then stay one squad
   out to 150 studs, so a straggler rejoins instead of going it alone. Anyone
   more than 30 studs from the middle of the squad heads back (only rushes and
@@ -339,12 +362,15 @@ and the squad splits into two fire teams, Alpha and Bravo.
   - *Fire team wedge* (2-3 soldiers): the leader at the point, the rest staggered
     back to either side, 8 studs apart.
   - *Squad column* (4+): Alpha's wedge leads with the squad leader at its point,
-    Bravo's wedge follows 10 studs behind.
+    Bravo's wedge follows 10 studs behind. A bigger unit adds more wedges behind
+    them, 5 soldiers each. Past 9 soldiers, how far it may spread grows with it
+    (`LEASH_SQUAD`).
   - *File*: walls within 7 studs on both sides of the leader (corridors,
     doorways) put the squad in single file, 6 studs apart.
   - *Security halt*: when the leader stops for 3 seconds, the squad forms a
-    circle 7 studs round him covering every direction. A rally after breaking
-    contact forms the same circle straight away.
+    circle at least 7 studs round him covering every direction, wider for a big
+    unit (`HALT_GAP`). A rally after breaking contact forms the same circle straight
+    away.
 - **Hearing:** a soldier hears a moving enemy through walls within
   `HearingRange` (120 studs), or within half that if the enemy is standing
   still. Hearing him counts as spotting him: he goes after him by pathing round
@@ -354,33 +380,38 @@ and the squad splits into two fire teams, Alpha and Bravo.
   about 20 studs and updates every 4 seconds, so idle soldiers (and squads, in
   formation behind their leader) head for that area to investigate. Awareness
   alone never lets them aim or shoot: that still needs sight or hearing. Lone
-  guerrillas use it to pick who to stalk.
+  guerrillas and special operations use it to pick who to stalk.
 - **Gunfire alerts everyone:** the moment any soldier fires, every ally within
   150 studs learns where the enemy is and engages, chatter on or off. Each
   burst refreshes it, so nobody forgets the enemy while a squadmate is still
   shooting at him.
 - **Everyone gets a shot:** a soldier with no cover to fire from steps to the
-  nearest spot with a clear shot, or pushes toward the enemy if there is none.
+  nearest edge of the open with a clear shot within 18 studs (`EDGE_NEAR`), then the
+  nearest spot with one, or pushes toward the enemy if there is none.
   Cover is only used for laying down fire if it has a spot to shoot out of. In
   a fight the squad leash loosens to 60 studs so they can close in together.
 - **React to contact (Battle Drill 1):** everyone gets into the nearest cover
   and returns fire. The spotter calls the contact with a clock position and
-  range. After 3 seconds the leader picks a plan.
-- **Bounding overwatch:** one team rushes 3-5 seconds to the next cover while
-  the other suppresses from cover, then they swap. With no cover ahead a soldier
-  stays where he is and keeps firing rather than rushing into the open. Stops at
-  30 studs and fights.
-- **Flank (3+ soldiers):** Alpha is the base of fire. Bravo bounds round to a
+  range. After 1.5 s (`REACT_TIME`) the leader picks a plan.
+- **Bounding overwatch:** one team rushes up to 22 studs, for at most 5 s, to the
+  next cover while the other suppresses from cover, then they swap. With no cover
+  ahead he rushes to the edge of the open instead, and flank points move to one
+  too. With neither he stays where he is and keeps firing. Stops at 30 studs, or after 6 bounds (`MAX_BOUNDS`), and fights.
+- **Flank (3+ soldiers, enemy over 18 studs off):** Alpha is the base of fire. Bravo bounds round to a
   point 30 studs off the enemy's side, preferring the side he cannot see, then
   assaults. Alpha shifts fire once Bravo is close.
-- **Pincer (4+ soldiers, half the time):** Alpha heads round one side and
+- **Pincer (4+ soldiers, enemy over 18 studs off, half the time):** Alpha heads round one side and
   Bravo the other, to points 35 studs off the enemy, shooting as they go. A
   team that gets there holds fire (it still shoots back if hit). Once both are
   in place, 6 s after the first one is, or 25 s after the order, the leader
   calls "Both sides, go now!" and both assault at once (`PINCER_*` in
   `Scripts/Modules/SquadModule`).
+- **Fight:** with no flank or pincer to run and the enemy inside 30 studs,
+  everyone fights on their own.
 - **Break contact:** when outnumbered by 2+ or the squad is badly hurt, the
-  teams bound backwards covering each other, then rally on the leader.
+  teams bound backwards 4 times covering each other, then rally on the leader
+  for 15 s (`BREAK_BOUNDS`, `RALLY_TIME`). Special Recon, stalking nobody, breaks
+  contact from any fight it ends up in as a squad.
 - Every step is called out ("Bravo, flank left!", "I'm up!", "Set!",
   "Shift fire!", "Rally on me!") and answered.
 
@@ -389,8 +420,8 @@ and the squad splits into two fire teams, Alpha and Bravo.
 Every infantry group of 2 or more from the spawner is a named unit, in NATO
 alphabet order (Alpha, Bravo, ... Zulu, then Alpha again, skipping any name a
 living unit still has), set on its soldiers as the `SquadId`, `SquadName` and
-`SquadSize` attributes, and it stays one squad (it no longer mixes with other
-squads that come near). Its strength is how many are alive against how many it
+`SquadSize` attributes, and it stays one squad (it doesn't mix with other squads
+that walk near it). Its strength is how many are alive against how many it
 spawned with, shown as `SquadStrength` (percent) and `SquadAlive`. A respawned
 soldier comes back to his squad.
 
@@ -398,13 +429,18 @@ soldier comes back to his squad.
 - **Under 75%:** the fire teams stop manoeuvring together: bounding, fighting
   and breaking contact only, no flanks or pincers.
 - **Under 30%, demoralized:** the squad stops pushing. It fights where it is,
-  holds angles and leaves the attacking to fire support. `Demoralized` is set
-  on its soldiers.
+  holds angles and leaves the attacking to fire support, though it still breaks
+  contact when losing. `Demoralized` is set on its soldiers. Special operations
+  ignore all of this.
 - **Morale:** a soldier out of the fight only recovers morale up to his squad's
   strength (never below 50), so a shot-up squad stays shaken.
+- **Spawning on top:** infantry spawned within 30 studs of a living infantry unit
+  of their team join it instead of forming their own (`UNIT_JOIN_RANGE`). The AT
+  team a group brings stays its own unit, but moves with the group.
 - **Merging:** under 20%, or down to his last man, a soldier with no target
-  joins the nearest friendly squad within 150 studs that is bigger than his. That
-  can take a squad over 100%.
+  joins the nearest friendly squad of his own kind (infantry or special
+  operations) within 150 studs that is bigger than his. That can take a squad
+  over 100%. Neither splits nor merges in a unit's first 5 s (`SPAWN_SETTLE`).
 - **Echelons:** a unit is a Fire team (1-5 alive, Ø), Squad (6-12, ●), Section
   (13-24, ●●) or Platoon (25+, ●●●), shown as `SquadEchelon`. It moves up as
   merges grow it and never moves back down: once a Section or Platoon falls
@@ -432,25 +468,36 @@ net, whatever squad they are in.
   formation. A soldier with no squad of his own joins as a squad of one, and
   nobody on a net fights as a lone guerrilla.
 
+**Calling for help** needs no radioman. When a regular infantryman is attacked,
+every other unit on his side hears where the attacker is, at most every 5 s per
+attacker (`UNIT_CALL_INTERVAL`). Those within 2000 studs of him go after him
+unless busy with someone in sight ("Unit's under attack, moving to support!");
+further off they drop him at once (`ENGAGED_RANGE` in `CoreModule`). Special Recon
+only notes where he is.
+
 `Settings.Role` is `Random`, or `Radioman` / `Rifleman` to force one. The chance,
 net range and squad spacing are at the top of `Scripts/Modules/RadioModule`.
 
-## Artillery
+## Kinetic Events
 
-A line radioman can call in the **Random Arty** package's guns
-(`Settings.CallArtillery`, on by default). If Random Arty refuses a call for
-any reason other than the guns already firing, the Output window says why,
-once per server. Every 3 seconds he
-looks at his target: if it is 70-450 studs away and no one on his net is within
-30 studs of it, there is a 35% chance he calls a fire mission on it, then not
-again for 90 seconds. The 12 second warning is his squads' time to get clear. The barrage lands centred on the target with the package's usual
-warning, scatter and damage.
+Radiomen no longer call artillery or air. Both come from the spawner's **Kinetic
+Events** tab: pick an event and click the ground, at most every 10 s per player
+(`KINETIC_COOLDOWN` in `BloxianSpawner`).
 
-The radioman's set plays a radio call when he calls it in (`RADIO_CALL_SOUND`).
-His own side clears out during the warning. The side it is called on never
-heard the call: they stay put until the shells are seen coming in, 4 s before
-the first one lands (`ENEMY_WARNING`; the timing comes from Random Arty's
-warning plus its shortest shell flight).
+- **Artillery:** one **Random Arty** barrage centred on the click, with the
+  package's usual 12 s warning, scatter and damage. It hits everyone, so it has
+  no side. If the guns are already firing, the panel says so.
+- **Airstrike:** an F-4 Phantom of the chosen **Side**, from
+  `ServerStorage.BloxianVehicles`. It appears 650 studs up, 800 studs off and
+  attacks only infantry (soldiers and players on foot, never vehicles or
+  aircraft), those within 150 studs of the click first. After 3 strafes, or
+  once nobody is left to attack, it flies out of the map, unless shot down
+  first (`STRIKE_*` in `BloxianSpawner`).
+
+### Clearing a barrage
+
+Nobody hears the call: soldiers stay put until the shells are seen coming in,
+4 s before the first one lands (`SHELLS_SEEN_AT` in `BloxianSpawner`).
 
 Soldiers inside the impact zone (plus 40 studs) run straight out, ignoring
 everything else. Each picks his spot past the edge once, on the ground, and
@@ -463,15 +510,9 @@ vehicle's path. Near a barrage, on either side of it, a soldier keeps every
 enemy he knew of in mind where he last saw them, so he picks the fight back up
 once it lifts (`EVAC_MARGIN`, `HOLD_BAND` in `Scripts/Modules/FireSupportModule`).
 
-It is always the battery. A spawned **AC-130** is never called: it picks its
-own targets and fires its own barrages with no warning (see the AC130
-README), and soldiers get no chance to clear out of those. Only a radioman calls
-the battery, so spawn squads with **Radioman: Leader** to be sure they have
-one. An out-of-date Random Arty in the place fires its own random barrages;
-Bloxian warns about it in Output.
-
-A barrage only lasts as long as the radioman who called it: once he is dead no
-more shells are fired and his squads stop clearing the zone.
+A spawned **AC-130** is separate: it picks its own targets and fires its own
+barrages with no warning (see the AC130 README), and soldiers get no chance to
+clear out of those.
 
 Every Bloxian near the zone, on either team, then gets as far from it as he can
 until the last shell is down: inside the impact radius plus 40 studs he runs
@@ -479,12 +520,7 @@ straight out past the edge, and within another 40 studs of that he holds his
 ground rather than walk back in. They keep shooting while they move. Shells hurt
 Bloxians, so a soldier caught in the zone is in real danger.
 
-Needs the current Random Arty installed for `ServerStorage.ArtilleryFireMission`
-(rebuild or re-sync that package). Random Arty no longer fires on its own timer,
-so radiomen are the only source of barrages. Without it, the first radioman to try warns
-in Output and none are ever called.
-`Settings.CallArtillery` turns calling off. Numbers are at the top of
-`Scripts/Modules/FireSupportModule`.
+Numbers are at the top of `Scripts/Modules/FireSupportModule`.
 
 ## Lone guerrilla
 
@@ -587,7 +623,7 @@ straight out for 4 s (`SMOKE_REVERSE_TIME`).
 
 ## Grenades
 
-Each soldier throws one every 20 seconds at most (Raiders: 5), at an enemy 15-70 studs away:
+Each soldier throws one every 20 seconds at most, at an enemy 15-70 studs away:
 
 - **A group:** two or more enemies within 15 studs of each other, with no ally nearby.
 - **Standing still in the open:** an enemy he can see who has stopped moving, 25+ studs out.
@@ -623,73 +659,76 @@ Not while his squad is holding fire. Ranges and timings are `GRENADE_MIN_RANGE`,
 ## Special operations
 
 The `Special Operations` tab spawns a special operations unit, named with four
-random digits. Size: a **Recce** (a radioman and a rifleman), a **Fireteam** (a
-radioman, two riflemen and a shotgunner) or an **ODA** of twelve, whose last two
-are its own sniper team (a sniper and spotter, fighting as a sniper
-team but counted in the ODA). Riflemen carry rifles in Special Recon and M203s
-in Raiders. The tracker shows one tag over the middle of the unit ("ODA 4821",
-"4821 SOF FIRETEAM", "4821 RECCE"); its soldiers get no tag each. Unit: `Special Recon` or `Raiders`. Both
-wear the `SpecOps` morph, and both:
+random digits. Size: a **Recce** (a radioman and a rifleman) or a **Fireteam** (a
+radioman, two riflemen and a shotgunner). The tracker shows one tag over the middle of the unit
+("4821 SOF FIRETEAM", "4821 RECCE"); its soldiers get no tag each. They wear the `SpecOps` morph, and:
 
 - lose no morale: never shaken, broken or demoralized, and a soldier near them
   recovers his nerve as fast as with three steady friends;
 - fire with 30% of a line soldier's spread, from suppressed rifles heard out to
   35% of the usual distance;
-- patrol on their own and fight with the usual squad drills, with two radiomen;
-- split into three SOF Fireteams once fewer than 9 are left: "4821 SOF FIRETEAM 1",
-  "2" and "3", numbered like squad splits. A fireteam down to half its men or
-  fewer is relabelled a Recce ("4821 RECCE 2", `RECCE_SHARE` in `SquadModule`). Fireteams don't split again, and only
-  merge with other special operations remnants.
+- patrol on their own until they sense a player within 300 studs, through
+  anything, or see or hear one within 800, then stalk him one by one
+  (`SOF_DETECT_RADIUS` and `SOF_STALK_RANGE` in `GuerrillaModule`);
+- a fireteam down to half its men or fewer is relabelled a Recce ("4821 RECCE",
+  `RECCE_SHARE` in `SquadModule`). They only merge with other special operations
+  remnants.
 
-**Special Recon** (rifles, DMRs, two M203 carbines, LMGs) stays out of fights. It sees
-out to 400 studs, breaks contact as soon as it meets the enemy, and holds fire
-unless shot or closed on within 15 studs. Every enemy one of them sees is
-reported, at most every 10 s per enemy ("Eyes on hostiles, sending it up!"):
+An enemy sniper, Bloxian or player, is the exception: they ignore the ring and
+work toward him at a run from cover to cover without pausing, and open fire within 150 studs
+with a clear line (`SNIPER_RANGE` in `SofModule`).
+
+**Special Recon** (rifles and a Benelli M4 shotgun) works like Air Force Special
+Reconnaissance: get eyes on, stay unseen, report, and break contact rather than
+fight. It sees out to 400 studs and follows you from cover to cover, rifle up. With
+a line to you from 120 to 250 studs (`OBSERVE_MIN`, `OBSERVE_MAX` in `SofModule`) it
+stops, goes prone and watches, reporting you over the radio. It picks spots behind something at least 10 studs wide, such as
+a building, and only uses thinner cover like a tree with none in reach
+(`COVER_WIDTH` and `COVER_REACH` in `TacticsModule`). Caught in the open it runs
+at 20 studs/s for the nearest cover up to 140 studs off, no closer to you than
+30 studs (`COVER_HOPS` and `COVER_MIN_DISTANCE` in `GuerrillaModule`). It stays
+120 studs out, and backs off when you come closer (`STALK_RING`). It is compromised for
+5 s, the whole unit together, when anyone in it is hit or fired at (a round
+passing within 12 studs, hit or miss), or when it has a clear line to you within
+30 studs, or within 60 with you not turned away from it (`ENGAGE_*` and
+`FIRED_AT_*` in `SofModule`). For 20 s after that, any enemy it can see keeps it
+compromised at any range (`COMPROMISED_TIME`), so it doesn't go quiet on someone who
+just shot it. With your back turned it keeps stalking, aimed at
+you whenever it can see you, so it's already on target when it fires. Compromised,
+it breaks contact ("We're compromised, break contact!"): it runs from cover to
+cover, each hop at least 15 studs further from you (`BREAK_GAIN`), shooting as it
+goes, stops firing when you stop, then finds a new post. With no
+sight of you for 8 s, in a building say, or told about you over the radio, it
+works toward you the same way, ring or not, until it has one. It pauses in cover
+between hops and runs for the next one if it's seen. With no cover in reach it
+moves 50 studs at a time (`HUNT_AFTER`, `COVER_HOP_COST` and `HUNT_STEP` in
+`GuerrillaModule`). Enemy
+special operations and snipers it can see are fired on at once, at any range. Fired at, he also turns on the shooter. Every player one of them is stalking, seen or not, is
+reported at most every 8 s per unit: a soldier of the unit says so over the radio, heard and read out to 150 studs even while stalking: a
+burst of radio chatter, and a line with where you are ("Hostile at grid 503-498,
+80 studs northeast of me, over."; `RADIO_*` and `GRID_SIZE` in `ChatterModule`):
 every friendly soldier within 1500 studs who isn't already fighting goes after
-him ("Recon's got a target for us, move!"), and friendly F-4s strike him before
-anything else for 30 s. Recon itself never goes after anyone: told of an enemy
-by a friend, it only notes where he is, and it never pushes toward one.
+him ("Recon's got a target for us, move!"). It never brings in aircraft.
 
-Recon also marks enemy armor it sees: friendly F-4s strike a marked vehicle
-first (one Maverick kills it), and its radioman calls in an F-4
-against it the same way as below ("Tank in the open, need a Phantom on it!").
+**Special operations radiomen** relay enemy players to each other. A radioman
+who is stalking an enemy player passes his position to every special operations
+radioman on his side, at most every 5 s per player (`RELAY_INTERVAL`), and each
+of their squads hears it ("Net's got a position, move!"). Those within 2000 studs
+of him then know where he is and stalk him (`ENGAGED_RANGE` in `CoreModule`).
+Without a radioman alive, a squad hears nothing.
 
-Special operations radiomen (Special Recon's and the Raiders') also call air
-cover; they're the only radiomen who call an airstrike. A radioman who sees an
-enemy soldier marks him for the F-4s, which strike a marked target first, and
-calls one in the same way as below ("Need a Phantom on those troops!"). A
-radioman who knows an enemy aircraft is
-in the air (no line of sight needed: he is usually hiding from it), while his
-side has none up, has a 35% chance every 2 s of calling
-in an F-4 Phantom ("Enemy air overhead, requesting fast movers!"), at most once
-a minute each. It appears 650 studs up, 800 studs off, goes after the enemy
-aircraft, and leaves after 40 s unless shot down first. It is the F-4 in
-`ServerStorage.BloxianVehicles` (installed with the Vehicle Spawner); with
-none there, nobody comes (`AIR_CALL_*` in `SofModule`).
-
-Like everyone but the AT team, both kinds keep out of a tank's sight: an enemy vehicle within 250 studs that
+Like everyone but the AT team, they keep out of a tank's sight: an enemy vehicle within 250 studs that
 can see them sends them into cover from it, not peeking, for up to 15 s, then
 they fight for 10 s before hiding from armor again (`ARMOR_*` in
 `TacticsModule`). The AT team and the F-4s are what kill it.
 
-Caught in a fight with no cover in reach and the enemy in sight, both kinds
+Caught in a fight with no cover in reach and the enemy in sight, they
 drop prone and fight from the ground instead of standing in the open.
 
-**Raiders** (M203 carbines, Benelli M4 shotguns and LMGs; an ODA also brings
-its own Javelin AT team, a rocketeer and loader, next to the sniper team) always push, whatever the numbers, and
-only break contact when badly hurt. They move cover to cover: after 3 s in one
-spot (25 s for anyone else) they push on to the next whenever the enemy can't
-see them, they hide 0.3 as long between peeks, they never run further out for
-cover just because they're seen, the squad always sends a pincer
-or flank when it can, and each has a grenade every 5 s instead of 10
-(`RAIDER_*` in `SofModule`). The shotgun fires 8 pellets out to 50
-studs. The M203 carbine also lobs a 40mm round that bursts on impact: never an
-instant kill, a direct hit takes 45% of a man's health, less out to 12 studs,, at enemies 25 to 200 studs off, every 8 s, lobbing it over cover
-onto an enemy he knows is there but can't see (`Shotgun` and `M203` in
-`WeaponProfiles`; neither rolls for `Random`).
+The shotgun fires 8 pellets out to 50 studs (`Shotgun` in `WeaponProfiles`).
 
 Numbers are at the top of `Scripts/Modules/SofModule` (`SOF_SPREAD`,
-`SUPPRESSED_HEARING`, `RECON_DETECTION`, `REPORT_RANGE`, `REPORT_INTERVAL`),
+`SUPPRESSED_HEARING`, `RECON_DETECTION`, `REPORT_RANGE`, `RADIO_INTERVAL`),
 `SOF_ECHELONS` in `SquadModule` and `SOF_STEADY` in `MoraleModule`.
 
 ## Sniper teams
@@ -735,6 +774,19 @@ with a Rifle.
   never chase, close in or stalk. An enemy who drops out of sight gets an angle
   held on where he was (`NEVER_PUSH` in `Scripts/Modules/TacticsModule`).
 - If the sniper dies, the spotter carries on as an ordinary rifleman.
+- If the spotter dies, half the sniper's shots go wide and his range drops by 200
+  studs, to 375, until a spotter of his pair is back (`NO_SPOTTER_*` in
+  `SpecialTeamModule`). He still spots out to 600.
+- **The shot gives him away:** it carries 1000 studs. Past 150 studs from him
+  (`ECHO_CLOSE` in `CombatModule`) players hear a distant rifle shot (asset
+  18156809081) from where he fired, fading out with distance (`echo` in
+  `WeaponProfiles`, `ECHO_RANGE` in `CombatModule`). Enemy soldiers in that range react:
+  - **Most soldiers** not busy with someone in sight take cover from it, not
+    peeking, for up to 8 s, then ignore it for 12 s (`ECHO_*` in `TacticsModule`).
+  - **Special operations** hunt him the way they stalk a player, out to 800
+    studs, unless already on a player, and fire on him at sight.
+  - **Snipers** within their own range drop other targets for 20 s (`COUNTER_TIME`)
+    and move to a perch with a line to him, unless an enemy is inside 40 studs.
 - Both spot enemies out to 600 studs (they raise their `DetectionRange` to
   `SPOT_RANGE`). The sniper fires out to 575; the spotter calls out what he sees.
 - Both wear the `Sniper` morph (see Uniforms below).
@@ -748,7 +800,13 @@ and the perch search: `PERCH_RINGS`, `PERCH_MAX_CLIMB`, the `*_WEIGHT` scores,
 
 `AT team` on the spawner drops a **rocketeer** with a Javelin and a carbine,
 and a **loader** with a rifle and the spare rounds. The loader stays at the rocketeer's shoulder and guards him,
-and becomes a rifleman if the rocketeer dies.
+and joins the unit as a rifleman if the rocketeer dies.
+
+The AT team a group brings stays with that group, in a fight or not, within 20 studs of
+the nearest of its men, and fires from there; it does not go off hunting. If the group
+merges or splits it takes the nearest friendly infantry unit within 150 studs (`UNIT_LEASH`,
+`REJOIN_RANGE` in `SpecialTeamModule`). An AT team spawned by itself, or one with no unit
+left, hunts and patrols on its own as below.
 
 - **Armor first:** the rocketeer fires on enemy vehicles on the ground before
   aircraft; he only takes an Apache when there is no armor in sight and range.
@@ -814,7 +872,7 @@ the morphs in `ServerStorage.BloxiaMorphs` (`assets/morphs`):
 | `Infantry` | riflemen, AT teams, pilots, vehicle crews |
 | `Radioman` | line radiomen (the radio is part of the morph) |
 | `Sniper` | snipers and spotters |
-| `SpecOps` | Special Recon and Raiders |
+| `SpecOps` | Special Recon |
 
 Bloxia soldiers with a Rifle, Carbine or DMR carry the AR-18 with its 3x20
 optic (`assets/guns/AR18.rbxm`, `gunModels.presets` in `GunModels`). It only
@@ -833,7 +891,7 @@ uniform.presets = {
 ```
 
 - **Matches on** `unit` (`Infantry` / `Sniper` / `Spotter` / `Rocketeer` /
-  `Loader` / `Pilot` / `Special Recon` / `Raider`) and `role` (`Rifleman` /
+  `Loader` / `Pilot` / `Special Recon`) and `role` (`Rifleman` /
   `Radioman`). Leave one out to match everyone.
 - **Pilots** (`Unit` `Pilot`) are the Apache's crew after they bail out. They
   fight like riflemen with the FAL. On the ground, a pilot joins the nearest
@@ -842,6 +900,11 @@ uniform.presets = {
   `Scripts/Modules/SquadModule`).
 
 ## Weapons
+
+Rifles and vehicle machine guns are hitscan: a round hits the instant it is fired,
+so nobody leads a target. Every 7th round per soldier is also drawn as a tracer,
+with a casing (`TRACER_EVERY` in `CombatModule`). `SPREAD_SCALE` there scales every
+weapon's spread. A soldier with no enemy in sight runs at full speed, rifle up.
 
 Each soldier spawns with one of four guns, rolled again on every respawn. They
 differ in how they fire, how they sound and their tracer colour. A fifth, the
@@ -855,10 +918,11 @@ differ in how they fire, how they sound and their tracer colour. A fifth, the
 | **LMG** | 10% | 6-round bursts close, 4 far | 6-12 | 180 | 100 | long bursts, slow reload, red tracer |
 | **Sniper** | never | single shots, 2.8 s apart | 80-110 | 575 | 5 | near-perfect aim, very fast round, its own shot sound (asset 130570662564570), white tracer |
 
-**Gun models.** The Rifle and Carbine show an **FN FAL** and fire its
-sound ("FN-FAL [Free]", 154619598), as does the LMG, which shows an **M249**
-(asset 17747401068, its ammo box as the magazine); the Sniper shows an **AWP**; the DMR keeps
-the original M4 mesh. An **M4A1** (EOTech, suppressor) ships too and can be given
+**Gun models.** The Rifle, Carbine and DMR show an **AR-18** in the Bloxia preset
+and fire its sound (680741924, the DMR pitched down and the Carbine up). The LMG
+shows an **M249** (asset 17747401068, its ammo box as the magazine) and fires a
+machine gun sound (111337931044928); the Shotgun fires 132711300701696; the Sniper
+shows an **AWP**. An **M4A1** (EOTech, suppressor) ships too and can be given
 to any weapon in `GunModels`. The
 models ship in `assets/guns` (stripped to their visible parts) and are served as
 `ServerStorage.BloxianGuns`. Each is welded to the hidden M4, so every hold,
@@ -909,7 +973,6 @@ Numbers are at the top of the script (`LEAN_DISTANCE`, `RANGE_OF_MOTION`,
 | `Weapon` | `Random`, or `Rifle` / `DMR` / `Carbine` / `LMG` / `Sniper` |
 | `Unit` | `Infantry`, `Sniper` / `Spotter` for a sniper team, or `Rocketeer` / `Loader` for an AT team |
 | `Role` | `Random` (10% radioman), or `Radioman` / `Rifleman` |
-| `CallArtillery` | radiomen call in Random Arty fire missions |
 | `UseVehicles` | soldiers crew nearby vehicles like the Warthog |
 | `Wander` | patrol around when idle (see Patrolling) |
 | `Respawn`, `RespawnDelay` | respawn a fresh copy this many seconds after death. The ragdolled body lies for 15 s either way (`CORPSE_TIME` in `HumanoidHandler`) |

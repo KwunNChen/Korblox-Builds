@@ -32,9 +32,8 @@ TREK is optional: soldiers only use it to work out what weapon a player carries.
 
 ## Spawner access
 
-Anyone holding the **Bloxian Spawner** tool can spawn soldiers and use **Clear all**.
-Vehicles can only be spawned by the game's owner and `ALLOWED_USER_IDS` in
-`VehicleSpawner`.
+Anyone holding the **Bloxian Spawner** tool can spawn soldiers and vehicles, call
+Kinetic Events and use **Clear all**.
 
 ## Building
 

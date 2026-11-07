@@ -16,6 +16,7 @@ local status = {
 	mag = 30,
 	actionDepth = 0,
 	lastDamaged = -math.huge,
+	lastHit = -math.huge,
 	squadHoldFire = false,
 	stealth = false,
 	shotsFired = 0,

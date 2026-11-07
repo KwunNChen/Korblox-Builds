@@ -61,8 +61,14 @@ local FIRING_RINGS = {6, 12, 18}
 local FORMATION_SPACING = 8
 local FORMATION_SLACK = 4
 
---Squad column: the gap between Alpha's wedge and Bravo's wedge behind it.
+--Squad column: the gap between wedges, and how many soldiers one wedge holds (it
+--has WEDGE_ROWS rows behind its point). A big unit is a longer column of wedges.
 local COLUMN_GAP = 10
+local WEDGE_SIZE = 5
+local WEDGE_ROWS = 2
+
+--A unit bigger than this needs more room: its leash and break range grow with it.
+local LEASH_SQUAD = 9
 
 --File: walls closer than NARROW_WIDTH on both sides of the leader put the squad
 --in single file, FILE_SPACING apart.
@@ -73,6 +79,8 @@ local FILE_SPACING = 6
 --circle round him, HALT_RADIUS out, covering every direction.
 local HALT_TIME = 3
 local HALT_RADIUS = 7
+--A big unit's circle is wide enough to leave this many studs between soldiers.
+local HALT_GAP = 4
 
 --Seconds everyone spends getting into cover before the leader picks a plan.
 local REACT_TIME = 1.5
@@ -99,6 +107,8 @@ local MAX_BOUNDS = 6
 --Where the flanking team heads: this far to the side of the enemy. Close enough
 --to the flank point counts as arrived, and the flank gives up after FLANK_TIMEOUT.
 local FLANK_OFFSET = 30
+--Flank points, rushes and firing spots move to the edge of the open within this many studs.
+local EDGE_NEAR = 18
 local FLANK_ARRIVE = 12
 local FLANK_TIMEOUT = 45
 
@@ -158,14 +168,12 @@ local ECHELONS = {
 	{name = "Platoon", min = 25, splits = 2},
 }
 --Special operations (SofModule), named with four random digits (the spawner's
---SquadName): a Recce, a SOF Fireteam or an ODA, which splits into three once
---it is down below its minimum. A fireteam down to RECCE_SHARE of its men is
---labelled a Recce.
+--SquadName): a Recce or a SOF Fireteam. A fireteam down to RECCE_SHARE of its
+--men is labelled a Recce.
 local RECCE_SHARE = 0.5
 local SOF_ECHELONS = {
 	{name = "Recce", min = 1},
 	{name = "SOF Fireteam", min = 3},
-	{name = "ODA", min = 9, splits = 3},
 }
 
 --Unit names, handed out in turn across the server, Alpha again after Zulu.
@@ -201,6 +209,11 @@ local function flat(vector)
 	return Vector3.new(vector.X,0,vector.Z)
 end
 
+--How much further than a squad of LEASH_SQUAD his unit may spread.
+local function unitScale()
+	return math.max((marine:GetAttribute("SquadSize") or 1)/LEASH_SQUAD,1)
+end
+
 --This soldier and his squad, highest rank first. The first one leads. A squad
 --is everyone who joined up within SQUAD_RANGE, and it holds together out to
 --SQUAD_BREAK_RANGE, so a soldier who gets separated rejoins instead of going it alone.
@@ -215,7 +228,7 @@ local function members()
 			local dist = (entry.root.Position - myRoot.Position).Magnitude
 			local otherId = other:GetAttribute("SquadId")
 			if myId and otherId then
-				if otherId == myId and dist <= SQUAD_BREAK_RANGE then
+				if otherId == myId and dist <= SQUAD_BREAK_RANGE*unitScale() then
 					list[#list+1] = entry
 				end
 			elseif dist <= SQUAD_RANGE or (entry.squadId == myEntry.squadId and dist <= SQUAD_BREAK_RANGE) then
@@ -312,19 +325,9 @@ local function split(id,list)
 		ids[part] = units.nextSplitId
 		units.byId[ids[part]] = parts[part]
 	end
-	--A sniper or AT pair stays in one part.
-	local assigned,sizes,pairPart = {},{},{}
 	for index,model in ipairs(list) do
-		local pairId = model:GetAttribute("PairId")
-		local part = pairId and pairPart[pairId] or math.ceil(index/per)
-		if pairId then
-			pairPart[pairId] = part
-		end
-		assigned[model] = part
-		sizes[part] = (sizes[part] or 0) + 1
-	end
-	for model,part in pairs(assigned) do
-		local count = sizes[part]
+		local part = math.ceil(index/per)
+		local count = math.min(per,#list - (part - 1)*per)
 		local group = parts[part]
 		group.echelon = echelonFor(count,ladder)
 		model:SetAttribute("SquadSize",math.max(math.ceil(oldSize*count/#list),1))
@@ -463,7 +466,7 @@ end
 
 --Heads back toward the middle of the squad when he has strayed past the leash.
 local function regroup(center,inCombat)
-	local leash = inCombat and COMBAT_LEASH or LEASH
+	local leash = (inCombat and COMBAT_LEASH or LEASH)*unitScale()
 	if flat(center - myRoot.Position).Magnitude <= leash then
 		return false
 	end
@@ -532,6 +535,7 @@ local function flankSides(target,offset)
 	local options = {}
 	for _,sign in ipairs({1,-1}) do
 		local point = tactics.ground(target.Position + side*sign*offset - line*8)
+		point = point and (tactics.findEdge(point,target,EDGE_NEAR) or point)
 		if point then
 			options[#options+1] = {point = point, sign = sign, hidden = tactics.isHidden(point,target)}
 		end
@@ -552,18 +556,17 @@ local function findFlankPoint(target)
 	return options[1].point,options[1].sign
 end
 
---Hurt or outnumbered enough to break contact (Raiders never break for numbers).
+--Hurt or outnumbered enough to break contact.
 local function losing(list)
 	local enemies = math.max(#status:get("potentialTargets"),1)
-	return sof.recon or averageHealth(list) < BREAK_HEALTH or (not sof.raider and enemies >= #list + BREAK_ODDS)
+	return sof.recon or averageHealth(list) < BREAK_HEALTH or enemies >= #list + BREAK_ODDS
 end
 
 local function choosePlan(target,list)
 	local size = #list
-	local enemies = math.max(#status:get("potentialTargets"),1)
 	local dist = core.checkDist(myRoot,target)
 
-	--Special Recon never stays in a fight; Raiders do not break for numbers.
+	--Special Recon never stays in a fight.
 	if losing(list) then
 		startPlan("break",target)
 		chatter.callout("orderBreak")
@@ -584,7 +587,7 @@ local function choosePlan(target,list)
 		size = 0
 	end
 
-	if size >= PINCER_MIN and enemies <= size and dist > ASSAULT_DISTANCE*0.6 and (sof.raider or math.random() < PINCER_CHANCE) then
+	if size >= PINCER_MIN and dist > ASSAULT_DISTANCE*0.6 and math.random() < PINCER_CHANCE then
 		local sides = flankSides(target,PINCER_OFFSET)
 		if #sides == 2 then
 			startPlan("pincer",target,{flankPoints = {A = sides[1].point, B = sides[2].point}, phase = "move", moving = "both"})
@@ -593,7 +596,7 @@ local function choosePlan(target,list)
 		end
 	end
 
-	if size >= 3 and enemies <= size and dist > ASSAULT_DISTANCE*0.6 then
+	if size >= 3 and dist > ASSAULT_DISTANCE*0.6 then
 		local flankPoint,sign = findFlankPoint(target)
 		if flankPoint then
 			startPlan("flank",target,{flankPoint = flankPoint, phase = "move"})
@@ -749,9 +752,9 @@ local function boundGoal(currentPlan,target,myTeam)
 	return myPos + offset.Unit*step
 end
 
---One 3-5 second rush, cover to cover. Gives back whether he actually moved.
---openOk: with no cover near the goal he rushes to open ground instead of staying put.
-local function bound(goal,target,openOk)
+--One 3-5 second rush, cover to cover, else to the edge of the open, else to open
+--ground. Gives back whether he actually moved.
+local function bound(goal,target)
 	--A rush is meant to leave the squad's current spot, so it is not held to it.
 	tactics.setAnchor(nil)
 
@@ -765,7 +768,7 @@ local function bound(goal,target,openOk)
 			break
 		end
 	end
-	local destination = spot and spot.pos or openOk and tactics.ground(goal)
+	local destination = spot and spot.pos or tactics.findEdge(goal,target,EDGE_NEAR) or tactics.ground(goal)
 	if not destination or flat(destination - myPos).Magnitude < MIN_RUSH then
 		return false
 	end
@@ -786,9 +789,15 @@ end
 
 local SUPPRESS = {force = true, suppress = true, hold = true}
 
---The nearest spot he can walk straight to with a clear shot at the target.
+--The nearest edge of the open with a clear shot at the target, else the nearest
+--spot he can walk straight to with one.
 local function firingPosition(target)
 	local myPos = myRoot.Position
+	local edge = tactics.findEdge(myPos,target,EDGE_NEAR,true)
+	if edge then
+		return edge
+	end
+
 	local best,bestDist = nil,math.huge
 	for _,ring in ipairs(FIRING_RINGS) do
 		for i = 1,12 do
@@ -876,7 +885,8 @@ local function formationSlot(list,myIndex,leaderEntry,halt)
 
 	if halt or (leaderStillSince and os.clock() - leaderStillSince > HALT_TIME) then
 		local angle = (myIndex - 1)/(count - 1)*math.pi*2
-		return frame.Position + Vector3.new(math.cos(angle),0,math.sin(angle))*HALT_RADIUS,"security halt"
+		local radius = math.max(HALT_RADIUS,count*HALT_GAP/(math.pi*2))
+		return frame.Position + Vector3.new(math.cos(angle),0,math.sin(angle))*radius,"security halt"
 	end
 
 	if narrowAt(frame) then
@@ -889,12 +899,10 @@ local function formationSlot(list,myIndex,leaderEntry,halt)
 	end
 
 	--Squad column: Alpha's wedge leads with the squad leader at its point,
-	--Bravo's wedge follows behind it.
-	local offset = wedgeOffset(math.floor((myIndex - 1)/2))
-	if teamOf(myIndex) == "B" then
-		local alphaRows = math.ceil((math.ceil(count/2) - 1)/2)
-		offset += Vector3.new(0,0,COLUMN_GAP + FORMATION_SPACING*alphaRows)
-	end
+	--Bravo's wedge follows behind it, then more of each for a big unit.
+	local rank = math.floor((myIndex - 1)/2)
+	local place = math.floor(rank/WEDGE_SIZE)*2 + (teamOf(myIndex) == "B" and 1 or 0)
+	local offset = wedgeOffset(rank % WEDGE_SIZE) + Vector3.new(0,0,place*(COLUMN_GAP + FORMATION_SPACING*WEDGE_ROWS))
 	return frame:PointToWorldSpace(offset),"column of wedges"
 end
 
@@ -1000,7 +1008,7 @@ local function act(currentPlan,myIndex,list,target,leaderEntry)
 		lastBoundTurn = currentPlan.turn
 		local goal = boundGoal(currentPlan,target,myTeam)
 		if goal then
-			bound(goal,target,currentPlan.kind ~= "bound")
+			bound(goal,target)
 		end
 		currentPlan.done[myEntry] = true
 		return true
@@ -1047,7 +1055,7 @@ function squad.update()
 
 	--Cover is only picked within reach of the rest of the squad.
 	local center = centerOf(list)
-	tactics.setAnchor(center,LEASH)
+	tactics.setAnchor(center,LEASH*unitScale())
 
 	local myIndex = table.find(list,myEntry)
 	local leaderEntry = list[1]

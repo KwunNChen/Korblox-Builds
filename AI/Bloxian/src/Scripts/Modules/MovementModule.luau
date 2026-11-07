@@ -23,12 +23,21 @@ local RETREAT_DISTANCE = 5
 
 local DOWN = Vector3.new(0,-7,0)
 
+--How many times longer a stud of road counts on a route. Set it to 1 to walk roads freely.
+local ROAD_COST = 3
+
 --Pathfinding agent: how wide and tall the soldier is, and spacing between path points.
-local AGENT = {AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 4}
+local AGENT = {
+	AgentRadius = 2,
+	AgentHeight = 5,
+	AgentCanJump = true,
+	WaypointSpacing = 4,
+	Costs = {Asphalt = ROAD_COST, Pavement = ROAD_COST},
+}
 
 --Working out a path is the most expensive thing a soldier does. The whole
 --server shares this many per second; extra requests wait their turn.
-local PATHS_PER_SECOND = 12
+local PATHS_PER_SECOND = 24
 
 _G.BloxianPathBudget = _G.BloxianPathBudget or {tokens = PATHS_PER_SECOND, last = os.clock()}
 local pathBudget = _G.BloxianPathBudget
@@ -192,6 +201,7 @@ movement.clearLine = clearLine
 local navPath = pathfindingService:CreatePath(AGENT)
 local nav = {
 	goal = nil,
+	retracing = false,
 	passThrough = false,
 	waypoints = nil,
 	index = 2,
@@ -208,6 +218,64 @@ local nav = {
 	lastMoveAt = 0,
 	arrivedAim = nil,
 }
+
+--He drops a crumb every CRUMB_SPACING studs, keeping the last MAX_CRUMBS. With no
+--path out of a building he walks them back the way he came. A ceiling within
+--ROOF_REACH studs means indoors. A crumb further than CRUMB_GAP from the last
+--means he was teleported or carried, and the trail starts over.
+local CRUMB_SPACING = 4
+local MAX_CRUMBS = 30
+local CRUMB_GAP = 16
+local ROOF_REACH = 16
+
+local crumbs = {}
+local lastOutside = nil
+
+local function indoors(pos)
+	return (core.raycast(pos,Vector3.new(0,ROOF_REACH,0)))
+end
+movement.indoors = indoors
+
+local function dropCrumb()
+	if nav.retracing or status:get("mounted") or myHuman.FloorMaterial == Enum.Material.Air then return end
+	local pos = myRoot.Position
+	local last = crumbs[#crumbs]
+	local gap = last and (pos - last).Magnitude or math.huge
+	if gap < CRUMB_SPACING then return end
+	if gap > CRUMB_GAP then
+		table.clear(crumbs)
+	end
+	crumbs[#crumbs+1] = pos
+	if #crumbs > MAX_CRUMBS then
+		table.remove(crumbs,1)
+	end
+	if not indoors(pos) then
+		lastOutside = pos
+	end
+end
+
+--Sets him walking his crumbs backward from the nearest one. False with no trail.
+local function retrace()
+	if #crumbs < 2 then return false end
+	local nearest,nearestDist = #crumbs,math.huge
+	for i = #crumbs,1,-1 do
+		local dist = (crumbs[i] - myRoot.Position).Magnitude
+		if dist < nearestDist then
+			nearest,nearestDist = i,dist
+		end
+	end
+	local trail = {}
+	for i = nearest,1,-1 do
+		trail[#trail+1] = {Position = crumbs[i], Action = Enum.PathWaypointAction.Walk}
+	end
+	log("nav","no way on, going back the way he came")
+	nav.retracing = true
+	nav.failed = false
+	nav.waypoints = trail
+	nav.index = 1
+	nav.pathGoal = nav.goal
+	return true
+end
 
 local function moveTo(point)
 	--Only reissue when the point changes, or every second so MoveTo's own
@@ -255,10 +323,14 @@ local function requestPath()
 					nearest,nearestDist = i,dist
 				end
 			end
+			nav.retracing = false
 			nav.waypoints = waypoints
 			nav.index = math.min(nearest + 1,#waypoints)
 			nav.pathGoal = goal
 			troubleshoot.visualizePath(nav.waypoints)
+		elseif nav.retracing or (indoors(myRoot.Position) and retrace()) then
+			--Still walking his trail out.
+			return
 		else
 			--No way there: stand rather than keep walking into whatever is in the way.
 			log("nav","no path to goal, stopping")
@@ -309,7 +381,7 @@ local function navStep()
 		log("nav",lineClear and "walking straight" or (nav.waypoints and "following path" or "waiting for a path"))
 	end
 
-	if lineClear and not nav.via then
+	if lineClear and not nav.via and not nav.retracing then
 		nav.waypoints = nil
 		moveTo(finalAim())
 	else
@@ -331,6 +403,11 @@ local function navStep()
 					myHuman.Jump = true
 				end
 				moveTo(waypoint.Position)
+			elseif nav.retracing then
+				nav.retracing = false
+				nav.waypoints = nil
+				nav.pathAt = -math.huge
+				table.clear(crumbs)
 			else
 				moveTo(finalAim())
 			end
@@ -352,10 +429,13 @@ local function navStep()
 			nav.repaths = 0
 			nav.detours += 1
 			if nav.detours > MAX_DETOURS then
-				log("nav","blocked every way round, stopping")
 				nav.via = nil
-				nav.failed = true
-				nav.failedAt = now
+				if nav.retracing or not retrace() then
+					log("nav","blocked every way round, stopping")
+					nav.retracing = false
+					nav.failed = true
+					nav.failedAt = now
+				end
 			else
 				--The other side from last time.
 				nav.detourSign = nav.detours == 1 and (math.random(2) == 1 and 1 or -1) or -nav.detourSign
@@ -387,6 +467,7 @@ task.spawn(function()
 	local nextOwnershipCheck = 0
 	while myHuman.Parent and marine.Parent do
 		if myHuman.Health <= 0 then break end
+		dropCrumb()
 		navStep()
 		if os.clock() >= nextOwnershipCheck then
 			nextOwnershipCheck = os.clock() + OWNERSHIP_CHECK
@@ -424,6 +505,14 @@ function movement.navigate(goal,passThrough)
 	lastPos,lastMoved = myRoot.Position,os.clock()
 end
 
+--Indoors, heads for the last place he stood outside. False when he is out already.
+function movement.getOut()
+	if not lastOutside or not indoors(myRoot.Position) then return false end
+	log("nav","nothing to do in here, heading outside")
+	movement.navigate(lastOutside)
+	return true
+end
+
 --Whether the current goal has no path to it (he is standing still).
 function movement.failed()
 	return nav.failed
@@ -432,6 +521,7 @@ end
 --Walks straight at a point, no pathfinding. Cancels any navigation.
 function movement.walkTo(point)
 	nav.goal = nil
+	nav.retracing = false
 	nav.waypoints = nil
 	nav.arrivedAim = nil
 	nav.lastMoveTo = point

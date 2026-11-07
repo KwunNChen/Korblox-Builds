@@ -47,7 +47,7 @@ BarrageService.start()
 --     ServerStorage.ArtilleryFireMission:Invoke(position, mission?) -> ok, info
 -- mission.caller (a character: the barrage stops if he dies) and
 -- mission.gunship (a model with a Muzzle attachment the shells leave from).
--- Bloxian radiomen use it. A Bindable in ServerStorage is server-only, so no
+-- The Bloxian Spawner's Kinetic Events tab uses it. A Bindable in ServerStorage is server-only, so no
 -- client can call in artillery.
 local fireMission = Instance.new("BindableFunction")
 fireMission.Name = "ArtilleryFireMission"

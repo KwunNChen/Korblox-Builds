@@ -1,40 +1,29 @@
 --[[
-	Special operations: Settings.Unit "Special Recon" or "Raider", spawned as an
-	ODA from the spawner's Special Operations tab. SquadModule names the ODA and
-	splits it into SOF Fireteams.
+	Special operations: Settings.Unit "Special Recon", spawned as a Recce or a SOF
+	Fireteam from the spawner's Special Operations tab.
 
-	Both kinds lose no morale (never shaken, broken or demoralized), fire with
+	They lose no morale (never shaken, broken or demoralized), fire with
 	SOF_SPREAD of a line soldier's spread, and carry suppressed rifles, heard out
 	to SUPPRESSED_HEARING of the usual distance.
 
-	Special Recon stays out of fights: it breaks contact when it meets the enemy
-	and holds fire unless shot or closed on. It sees out to RECON_DETECTION. Each
-	enemy a recon soldier sees is reported to his side, at most every
-	REPORT_INTERVAL seconds: friendly soldiers within REPORT_RANGE who are not
-	already fighting go after him, and friendly F-4s strike him first.
+	Special Recon works like Air Force Special Reconnaissance: it gets eyes on an
+	enemy player from OBSERVE_MIN to OBSERVE_MAX studs out, lies still and reports
+	him, and breaks contact when compromised (GuerrillaModule). It only fires once
+	engaged: for ENGAGE_TIME seconds after anyone in the unit is hit or fired at
+	(a round passing within FIRED_AT_RADIUS), or after an enemy with a clear line
+	comes within ENGAGE_CLOSE, or within ENGAGE_RANGE not turned away from him.
+	Enemy special operations are fired on at sight; an enemy sniper is closed on
+	first, and fired on from within SNIPER_RANGE. It sees out to RECON_DETECTION. Each
+	enemy a recon soldier is stalking is reported to his side, at most every
+	RADIO_INTERVAL seconds per unit: friendly soldiers within REPORT_RANGE who are not
+	already fighting go after him.
 
-	Both kinds, in a fight with no cover in reach and the enemy in sight, go
+	In a fight with no cover in reach and the enemy in sight, go
 	prone and fight from the ground (a line soldier only does once he is hit).
 
-	Raiders always push the enemy, whatever the numbers. They push on from cover
-	after RAIDER_COVER_MAX seconds (not COVER_MAX_TIME) whenever the enemy cannot
-	see them, hide RAIDER_HIDE of the usual time between peeks, always send a
-	pincer or flank when the squad can, and have a grenade every
-	RAIDER_GRENADE_COOLDOWN seconds.
-
-	Special Recon also marks enemy armor it sees: friendly F-4s strike it first
-	(Mavericks).
-
-	Special operations radiomen (the only ones who call an airstrike; line
-	radiomen call artillery instead) bring in air cover: a radioman who knows of
-	an enemy aircraft that is up, of reported enemy armor, or who sees an enemy
-	soldier (marked for the F-4s to strike first), while none of his side's
-	F-4s is up, checked every
-	AIR_CALL_CHECK seconds, calls an F-4 Phantom AIR_CALL_CHANCE of the time, at
-	most every AIR_CALL_COOLDOWN seconds per radioman. It comes in AIR_CALL_HEIGHT
-	studs over him, AIR_CALL_OFFSET studs off, and leaves after AIR_CALL_TIME
-	seconds unless shot down first. The F-4 is the one in
-	ServerStorage.BloxianVehicles (the Vehicle Spawner's folder).
+	Special operations radiomen relay enemy players: one they are stalking goes out to every
+	special operations radioman on the side, at most every RELAY_INTERVAL seconds
+	per player, and each of their squads hears it and stalks him.
 ]]
 
 local sof = {}
@@ -42,21 +31,34 @@ local sof = {}
 local SOF_SPREAD = 0.3
 local SUPPRESSED_HEARING = 0.35
 local RECON_DETECTION = 400
+--Observation post: with a line to a player this far out he goes prone and watches.
+local OBSERVE_MIN = 120
+local OBSERVE_MAX = 250
 local REPORT_RANGE = 1500
-local REPORT_INTERVAL = 10
-local RAIDER_COVER_MAX = 3
-local RAIDER_HIDE = 0.3
-local RAIDER_GRENADE_COOLDOWN = 5
-local AIR_CALL_CHECK = 2
-local AIR_CALL_CHANCE = 0.35
-local AIR_CALL_COOLDOWN = 60
-local AIR_CALL_HEIGHT = 650
-local AIR_CALL_OFFSET = 800
-local AIR_CALL_TIME = 40
+local RELAY_INTERVAL = 5
+--They close on an enemy sniper to this many studs before firing on him.
+local SNIPER_RANGE = 150
+--Least seconds between radio reports from one unit.
+local RADIO_INTERVAL = 8
+--Facing: 1 is looking straight at him, 0 side-on, below that turned away.
+local ENGAGE_CLOSE = 30
+local ENGAGE_RANGE = 60
+local ENGAGE_FACING = 0
+local ENGAGE_TIME = 5
+--Seconds after a hit or a round fired at the unit that any enemy in sight keeps it engaged.
+local COMPROMISED_TIME = 20
+--A player's round fired at him: passing this close, this far from the gun at most.
+local FIRED_AT_RADIUS = 12
+local FIRED_AT_RANGE = 500
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local modules = script.Parent
 local core = require(modules.CoreModule)
+local status = require(modules.Status)
 local chatter = require(modules.ChatterModule)
+local threat = require(modules.ThreatModule)
 local log = require(modules.Troubleshoot).log
 
 local marine = modules.Parent.Parent
@@ -64,16 +66,14 @@ local mySettings = marine.Settings
 local teamValue = mySettings.Team
 local unitValue = mySettings:FindFirstChild("Unit")
 
-sof.UNITS = {["Special Recon"] = true, Raider = true}
+sof.UNITS = {["Special Recon"] = true}
 sof.SPREAD = SOF_SPREAD
+sof.SNIPER_RANGE = SNIPER_RANGE
+sof.OBSERVE_MIN = OBSERVE_MIN
 
---His kind ("Special Recon" or "Raider"), or nil for everyone else.
+--His kind ("Special Recon"), or nil for everyone else.
 sof.kind = unitValue and sof.UNITS[unitValue.Value] and unitValue.Value or nil
 sof.recon = sof.kind == "Special Recon"
-sof.raider = sof.kind == "Raider"
-sof.coverMax = sof.raider and RAIDER_COVER_MAX or nil
-sof.hideScale = sof.raider and RAIDER_HIDE or 1
-sof.grenadeCooldown = sof.raider and RAIDER_GRENADE_COOLDOWN or nil
 
 --Another model's kind, or nil.
 function sof.kindOf(model)
@@ -92,19 +92,22 @@ if sof.recon and detection and detection.Value < RECON_DETECTION then
 	detection.Value = RECON_DETECTION
 end
 
---Read by F4 jets: spotted[root] = {team, at (server time)}.
-_G.BloxianSpotted = _G.BloxianSpotted or setmetatable({},{__mode = "k"})
-local spotted = _G.BloxianSpotted
-local reportedAt = setmetatable({},{__mode = "k"})
+_G.BloxianSofRadioed = _G.BloxianSofRadioed or setmetatable({},{__mode = "k"})
+local radioedAt = _G.BloxianSofRadioed
 
---Recon: an enemy in sight goes out to his side.
+--Whether he holds an observation post on a player this far off.
+function sof.observes(distance,sight)
+	return sight and distance >= OBSERVE_MIN and distance <= OBSERVE_MAX
+end
+
+--Recon: an enemy he is stalking goes out to his side.
 function sof.report(target)
-	if not sof.recon or not target or not target.Parent or not core.checkSight(target) then return end
+	if not sof.recon or not target or not target.Parent then return end
 	local now = os.clock()
-	if now - (reportedAt[target] or -math.huge) < REPORT_INTERVAL then return end
-	reportedAt[target] = now
-	spotted[target] = {team = teamValue.Value, at = workspace:GetServerTimeNow()}
-	chatter.callout("reconReport",nil,0.7)
+	local unit = marine:GetAttribute("SquadId") or marine
+	if now - (radioedAt[unit] or -math.huge) < RADIO_INTERVAL then return end
+	radioedAt[unit] = now
+	chatter.radio("reconReport",target)
 	log("target","recon: reported "..target.Parent.Name)
 
 	local myRoot = marine.HumanoidRootPart
@@ -117,92 +120,112 @@ function sof.report(target)
 	end
 end
 
---The F-4 template: the model in ServerStorage.BloxianVehicles that flies itself with a Jet script.
-local function jetTemplate()
-	local folder = game:GetService("ServerStorage"):FindFirstChild("BloxianVehicles")
-	for _,model in ipairs(folder and folder:GetChildren() or {}) do
-		if model:IsA("Model") and model:FindFirstChild("Jet") then
-			return model
+--Radioman: an enemy player he is stalking goes to every special operations radioman on
+--his side, and from them to their squads.
+local relayedAt = setmetatable({},{__mode = "k"})
+function sof.relay(target)
+	if not sof.kind or marine:GetAttribute("Role") ~= "Radioman" or not target or not target.Parent
+		or not Players:GetPlayerFromCharacter(target.Parent) then
+		return
+	end
+	local now = os.clock()
+	if now - (relayedAt[target] or -math.huge) < RELAY_INTERVAL then return end
+	relayedAt[target] = now
+
+	local radio = _G.BloxianRadio or {}
+	local squads = {}
+	for other,entry in pairs(radio) do
+		if sof.kindOf(other) and other:GetAttribute("Role") == "Radioman" and entry.human.Health > 0
+			and entry.team.Value == teamValue.Value then
+			squads[entry.squadId] = true
 		end
 	end
-	return nil
+	for _,entry in pairs(radio) do
+		if entry.allyShot and squads[entry.squadId] and entry.root.Parent and entry.human.Health > 0
+			and entry.team.Value == teamValue.Value then
+			task.spawn(entry.allyShot,target,"contactRelay")
+		end
+	end
+	log("target","radio: relayed "..target.Parent.Name)
 end
 
-local roleValue = mySettings:FindFirstChild("Role")
-local airCheckAt,airCalledAt = -math.huge,-math.huge
+--Whether target is a sniper, Bloxian or player, to be closed on before firing.
+function sof.closesOn(target)
+	return target.Parent:GetAttribute("Unit") == "Sniper" or threat.of(target) == "long"
+end
 
---Whether an F-4 of his side is flying.
-local function friendlyJetUp()
-	for _,jet in ipairs(game:GetService("CollectionService"):GetTagged("BloxianJet")) do
-		local settings = jet:FindFirstChild("Settings")
-		local team = settings and settings:FindFirstChild("Team")
-		local side = team and team.Value ~= "" and team.Value or "Friendly"
-		if side == teamValue.Value and jet:IsDescendantOf(workspace) and not jet:GetAttribute("ShotDown") then
+--Whether his unit may fight target: when it last was shot or faced, by unit.
+_G.BloxianSofEngaged = _G.BloxianSofEngaged or setmetatable({},{__mode = "k"})
+local engagedAt = _G.BloxianSofEngaged
+_G.BloxianSofCompromised = _G.BloxianSofCompromised or setmetatable({},{__mode = "k"})
+local compromisedAt = _G.BloxianSofCompromised
+function sof.engaged(target)
+	local now = os.clock()
+	local unit = marine:GetAttribute("SquadId") or marine
+	local at = math.max(engagedAt[unit] or -math.huge,status:get("lastHit"))
+	if ((_G.BloxianSuppressed or {})[marine] or 0) > now then
+		at = now
+	end
+	compromisedAt[unit] = math.max(compromisedAt[unit] or -math.huge,status:get("lastHit"),at)
+	if target and target.Parent then
+		local toMe = (marine.HumanoidRootPart.Position - target.Position)*Vector3.new(1,0,1)
+		if sof.closesOn(target) then
+			return toMe.Magnitude <= SNIPER_RANGE and core.checkSight(target)
+		end
+		if sof.kindOf(target.Parent) and core.checkSight(target) then
 			return true
 		end
+		local facing = toMe.Magnitude <= ENGAGE_RANGE and target.CFrame.LookVector:Dot(toMe.Unit) >= ENGAGE_FACING
+		if (toMe.Magnitude <= ENGAGE_CLOSE or facing or now - compromisedAt[unit] < COMPROMISED_TIME) and core.checkSight(target) then
+			at = now
+		end
 	end
-	return false
+	engagedAt[unit] = at
+	return now - at < ENGAGE_TIME
 end
 
---Recon radioman: craft (an enemy aircraft's root from TacticsModule, or a part
---of enemy armor, whose model is model) in sight may bring in a Phantom.
-function sof.callAir(craft,model,call)
-	local now = os.clock()
-	if not sof.kind or not craft or not roleValue or roleValue.Value ~= "Radioman"
-		or now - airCheckAt < AIR_CALL_CHECK or now - airCalledAt < AIR_CALL_COOLDOWN or friendlyJetUp() then
+--A player's round from from toward to (client values, only ever a trigger): if it
+--passes close to him his unit engages, and he turns on the shooter.
+local function firedAt(player,from,to)
+	local character = player.Character
+	local human = character and character:FindFirstChildOfClass("Humanoid")
+	local shooter = human and human.Health > 0 and human.RootPart
+	if not shooter or core.isAlly(character) or typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" or (to - from).Magnitude < 1 then
 		return
 	end
-	airCheckAt = now
-	model = model or craft.Parent
-	if math.random() >= AIR_CALL_CHANCE then
-		return false
-	end
-	local template = jetTemplate()
-	if not template then
-		log("target","recon: no F-4 in ServerStorage.BloxianVehicles to call")
-		return false
-	end
-	airCalledAt = now
-
-	local myRoot = marine.HumanoidRootPart
-	local angle = math.random()*math.pi*2
-	local at = myRoot.Position + Vector3.new(math.cos(angle)*AIR_CALL_OFFSET,AIR_CALL_HEIGHT,math.sin(angle)*AIR_CALL_OFFSET)
-	local jet = template:Clone()
-	local settings = jet:FindFirstChild("Settings")
-	local team = settings and settings:FindFirstChild("Team")
-	if team then
-		team.Value = teamValue.Value
-	end
-	jet:SetAttribute("Lifetime",AIR_CALL_TIME)
-	jet:SetAttribute("NoRespawn",true)
-	jet:SetAttribute("SpawnedBy",marine:GetAttribute("SpawnedBy"))
-	jet:AddTag("VehicleSpawned")
-	jet:PivotTo(CFrame.lookAt(at,Vector3.new(craft.Position.X,at.Y,craft.Position.Z)))
-	jet.Parent = workspace
-	chatter.callout(call or "airCall",nil,1)
-	log("target","recon: called in an F-4 against "..model.Name)
-	return true
-end
-
---Radioman: an enemy soldier in sight is marked for the F-4s (struck first, like
---a recon report), and may bring one in.
-function sof.callStrike(target)
-	if not sof.kind or not roleValue or roleValue.Value ~= "Radioman" or not target or not target.Parent
-		or not core.checkSight(target) then
+	local line = (to - from).Unit
+	local offset = marine.HumanoidRootPart.Position - from
+	local along = offset:Dot(line)
+	if along < 0 or along > FIRED_AT_RANGE or (offset - line*along).Magnitude > FIRED_AT_RADIUS then
 		return
 	end
-	local root = target.Parent:FindFirstChild("HumanoidRootPart") or target
-	spotted[root] = {team = teamValue.Value, at = workspace:GetServerTimeNow()}
-	sof.callAir(target,target.Parent,"groundAirCall")
+	engagedAt[marine:GetAttribute("SquadId") or marine] = os.clock()
+	core.markSeen(shooter)
+	local current = status:get("currentTarget")
+	if not (current and current.Parent and core.checkSight(current)) then
+		status:set("currentTarget",shooter)
+	end
+	log("target","fired at, engaging")
 end
 
---Enemy armor (car, aimed at part) seen and reported (JavelinModule): recon
---marks it for the F-4s, and a special operations radioman may bring one in.
-function sof.markArmor(car,part)
-	if sof.recon then
-		spotted[car.PrimaryPart or part] = {team = teamValue.Value, at = workspace:GetServerTimeNow()}
-	end
-	sof.callAir(part,car,"armorAirCall")
+--TREK guns tell the server every shot: RayRemote for hitscan, ProjectileRemote otherwise.
+if sof.kind then
+	task.spawn(function()
+		local services = ReplicatedStorage:WaitForChild("TREK_SERVICES",30)
+		local remotes = services and services:WaitForChild("TREK_Remotes",30)
+		local ray = remotes and remotes:WaitForChild("RayRemote",30)
+		local projectile = remotes and remotes:WaitForChild("ProjectileRemote",30)
+		if ray then
+			ray.OnServerEvent:Connect(firedAt)
+		end
+		if projectile then
+			projectile.OnServerEvent:Connect(function(player,_,from,direction)
+				if typeof(from) == "Vector3" and typeof(direction) == "Vector3" then
+					firedAt(player,from,from + direction)
+				end
+			end)
+		end
+	end)
 end
 
 return sof

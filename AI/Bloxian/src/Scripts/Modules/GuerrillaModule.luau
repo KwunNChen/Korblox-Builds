@@ -2,6 +2,16 @@
 	A soldier with no squadmates nearby, or the last man left of a squad, fights
 	like a guerrilla.
 
+	Special operations always stalk, in or out of a squad, but only fight when
+	sof.engaged says so: no strike up close or out of patience. They hop from
+	cover to cover, buildings before anything thinner, and stay outside STALK_RING
+	of the player, backing off when he comes closer. With a line to him in
+	observation range they stop, go prone and watch. Engaged, they break contact:
+	away from him, cover to cover, shooting on the way, until the unit is no longer
+	engaged. With no sight of him for HUNT_AFTER seconds they work toward him,
+	ring or not, in short hops between cover until they have it. A sniper gets the
+	same from the start. They don't search or hit and run.
+
 	He picks the closest player he knows about (seen in the last STALK_MEMORY
 	seconds, or close enough to hear) and heads for the nearest ambush spot: a
 	clear shot at the player from somewhere the player is not looking. He moves
@@ -25,6 +35,8 @@ local status = require(modules.Status)
 local movement = require(modules.MovementModule)
 local tactics = require(modules.TacticsModule)
 local squad = require(modules.SquadModule)
+local sof = require(modules.SofModule)
+local chatter = require(modules.ChatterModule)
 local weapon = require(modules.WeaponProfiles).current
 local log = require(modules.Troubleshoot).log
 
@@ -35,9 +47,38 @@ local myRoot = marine.HumanoidRootPart
 local guerrillaValue = marine.Settings:FindFirstChild("Guerrilla")
 
 --How far away a player can be and still get stalked, and how long after
---last seeing him he keeps hunting.
+--last seeing him he keeps hunting. SOF_STALK_RANGE is the range for special operations.
 local STALK_RANGE = 300
+local SOF_STALK_RANGE = 800
+--Special operations sense a player this close through anything and start stalking him.
+local SOF_DETECT_RADIUS = 300
+
+--Special operations: how far out they stay, how far one hop may go (rings round
+--him) and directions per ring, seconds between hops, the longest a hop may take,
+--how many studs of range being behind the player is worth, how far to back off
+--with no cover to go to, and the closest to the player a run for cover may end.
+local STALK_RING = sof.OBSERVE_MIN
+local COVER_HOPS = {15, 25, 35, 50, 75, 100, 140}
+local COVER_HOP_DIRECTIONS = 8
+local COVER_HOLD_MIN = 2
+local COVER_HOLD_MAX = 4
+local COVER_HOP_TIME = 8
+local BEHIND_WEIGHT = 20
+local BACK_OFF = 25
+local COVER_MIN_DISTANCE = 30
+--Seconds without sight of the player before special operations go looking for him,
+--how much a stud of hop costs against a stud gained on him (higher: shorter hops),
+--and how far one leg goes with no cover to hop to.
+local HUNT_AFTER = 8
+local COVER_HOP_COST = 1.5
+local HUNT_STEP = 50
 local STALK_MEMORY = 60
+--Breaking contact, each hop ends at least this many studs further from the player.
+local BREAK_GAIN = 15
+--Seconds of prone each tick on an observation post keeps him down.
+local OBSERVE_PRONE = 1
+--Seconds a radio call about a player sends special operations toward him.
+local RADIO_CALL_TIME = 20
 
 --Seconds of stalking one player before he gives up sneaking and goes straight in.
 local STALK_PATIENCE = 40
@@ -132,6 +173,7 @@ end
 local huntStarted = nil
 
 local function reset(reason)
+	status:set("closingIn",false)
 	if state then
 		log("guerrilla","off ("..tostring(reason)..")")
 		setStealth(false)
@@ -147,25 +189,57 @@ local function quarryAlive(root)
 	return human ~= nil and human.Health > 0
 end
 
+local stalkRange = sof.kind and SOF_STALK_RANGE or STALK_RANGE
+
+local function sensed(root)
+	return core.aware(root) or sof.kind ~= nil and (root.Position - myRoot.Position).Magnitude <= SOF_DETECT_RADIUS
+end
+
+--The player a radio call is sending him to, if any.
+local function radioed()
+	local target = status:get("radioTarget")
+	return target and os.clock() - status:get("radioAt") < RADIO_CALL_TIME and quarryAlive(target)
+		and Players:GetPlayerFromCharacter(target.Parent) and not core.isAlly(target.Parent) and target or nil
+end
+
+--Special operations: an enemy sniper heard firing, hunted like a player.
+local heardSniper = nil
+function guerrilla.hear(root)
+	heardSniper = root
+end
+
 --The closest player, kept until he dies or gets well out of range.
 local function pickQuarry()
+	local target = status:get("currentTarget")
+	if sof.kind and target and target.Parent and sof.closesOn(target) and quarryAlive(target) and not core.isAlly(target.Parent) then
+		return target
+	end
+	local called = radioed()
+	if called then
+		return called
+	end
+
 	if quarry and quarryAlive(quarry) and not core.isAlly(quarry.Parent)
-		and (core.knows(quarry,STALK_MEMORY) or core.aware(quarry))
-		and (quarry.Position - myRoot.Position).Magnitude <= STALK_RANGE*1.2 then
+		and (core.knows(quarry,STALK_MEMORY) or sensed(quarry))
+		and (quarry.Position - myRoot.Position).Magnitude <= stalkRange*1.2 then
 		return quarry
 	end
 
-	local best,bestDist = nil,STALK_RANGE
+	local best,bestDist = nil,stalkRange
 	for _,player in ipairs(Players:GetPlayers()) do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if root and quarryAlive(root) and not core.isAlly(character)
-			and (core.knows(root,STALK_MEMORY) or core.aware(root) or core.checkSight(root)) then
+			and (core.knows(root,STALK_MEMORY) or sensed(root) or core.checkSight(root)) then
 			local dist = (root.Position - myRoot.Position).Magnitude
 			if dist < bestDist then
 				best,bestDist = root,dist
 			end
 		end
+	end
+	if heardSniper and quarryAlive(heardSniper) and core.knows(heardSniper,STALK_MEMORY)
+		and (heardSniper.Position - myRoot.Position).Magnitude < bestDist then
+		best = heardSniper
 	end
 	return best
 end
@@ -370,7 +444,10 @@ end
 local function blown()
 	local inRange = (quarry.Position - myRoot.Position).Magnitude <= weapon.range
 	if inRange and healthFraction() >= FALL_BACK_HEALTH and core.checkSight(quarry) then
-		setState("strike",strikeTime(),"spotted, fighting back")
+		if sof.kind then
+			chatter.callout("breakContact",nil,0.6)
+		end
+		setState("strike",strikeTime(),sof.kind and "compromised, breaking contact" or "spotted, fighting back")
 	elseif healthFraction() < FALL_BACK_HEALTH then
 		setState("fade",nil,"spotted and hurt, falling back")
 	else
@@ -379,9 +456,159 @@ local function blown()
 	end
 end
 
+--The next spot behind a building in reach, as near the ring and the player's back
+--as it can get; inside the ring, only one further out than he is. Exposed, the
+--nearest one instead. Advancing, a short hop that gains on the player. Breaking
+--contact, the nearest one further from him. With no building, any hidden spot.
+--nil if there is none.
+local function nextCover(exposed,advancing,breaking)
+	local qPos = quarry.Position
+	local myPos = myRoot.Position
+	local myDist = flat(qPos - myPos).Magnitude
+	local look = flat(quarry.CFrame.LookVector)
+	local spin = math.random()*math.pi*2
+	local spots = {}
+	for _,ring in ipairs(COVER_HOPS) do
+		for i = 1,COVER_HOP_DIRECTIONS do
+			local angle = spin + i/COVER_HOP_DIRECTIONS*math.pi*2
+			local pos = myPos + Vector3.new(math.cos(angle)*ring,0,math.sin(angle)*ring)
+			local offset = flat(pos - qPos)
+			local dist = offset.Magnitude
+			if breaking then
+				if dist >= myDist + BREAK_GAIN then
+					spots[#spots+1] = {pos = pos, score = ring}
+				end
+			elseif advancing then
+				if dist < myDist - 5 then
+					spots[#spots+1] = {pos = pos, score = ring*COVER_HOP_COST - (myDist - dist)}
+				end
+			elseif exposed and dist >= COVER_MIN_DISTANCE then
+				spots[#spots+1] = {pos = pos, score = ring}
+			elseif not exposed and dist >= math.min(STALK_RING,myDist + 5) then
+				spots[#spots+1] = {pos = pos, score = math.abs(dist - STALK_RING) + look:Dot(offset.Unit)*BEHIND_WEIGHT}
+			end
+		end
+	end
+	table.sort(spots,function(a,b) return a.score < b.score end)
+	local fallback = nil
+	for _,spot in ipairs(spots) do
+		local pos = tactics.floor(spot.pos)
+		if pos and tactics.hardCover(pos,quarry) then
+			if tactics.roomAt(pos) then
+				return pos
+			end
+		elseif pos and not fallback and tactics.isHidden(pos,quarry) and tactics.roomAt(pos) then
+			fallback = pos
+		end
+	end
+	return fallback
+end
+
+local nextPlan = 0
+local lastPlan = -math.huge
+local diving = false
+local hunting = false
+local lastSawQuarry = -math.huge
+
+--With no cover to hop to: a leg in the open toward the player, or to him up close.
+local function huntLeg()
+	local toward = flat(quarry.Position - myRoot.Position)
+	if toward.Magnitude > HUNT_STEP then
+		return tactics.ground(myRoot.Position + toward.Unit*HUNT_STEP) or quarry.Position
+	end
+	return quarry.Position
+end
+
+--One tick of cover to cover: walking a hop, holding in cover, or picking the next.
+--The player inside the ring or a clear line to him cuts the hold short, and on a
+--clear line he runs.
+local function stalkCover(now)
+	local closing = sof.closesOn(quarry)
+	status:set("closingIn",closing)
+	local sight = core.checkSight(quarry)
+	if closing and sight and (quarry.Position - myRoot.Position).Magnitude <= sof.SNIPER_RANGE then
+		status:set("closingIn",false)
+		currentStep = nil
+		movement.stop()
+		return
+	end
+
+	if sight then
+		lastSawQuarry = now
+		if hunting then
+			hunting = false
+			currentStep = nil
+			movement.stop()
+		end
+	elseif now - math.max(lastSawQuarry,huntStarted) > HUNT_AFTER or radioed() == quarry then
+		hunting = true
+	end
+
+	--Compromised he gets away from the player. Unseen with a line to him, he watches.
+	local breaking = state == "strike" and not closing
+	local distance = flat(quarry.Position - myRoot.Position).Magnitude
+	if state == "stalk" and not closing and sof.observes(distance,sight) and not sof.engaged(quarry) then
+		log("guerrilla","eyes on, holding the observation post",3)
+		currentStep = nil
+		myHuman.WalkSpeed = 16
+		movement.stop()
+		status:set("proneUntil",now + OBSERVE_PRONE)
+		return
+	end
+	local advancing = not breaking and (closing or hunting)
+
+	if currentStep then
+		if flat(currentStep - myRoot.Position).Magnitude > 4 and now < stepUntil then
+			if diving then
+				myHuman.WalkSpeed = FADE_SPEED
+			end
+			return
+		end
+		currentStep = nil
+		myHuman.WalkSpeed = 16
+		movement.stop()
+		nextPlan = now + COVER_HOLD_MIN + math.random()*(COVER_HOLD_MAX - COVER_HOLD_MIN)
+	end
+
+	if now - lastPlan < 1 then
+		return
+	end
+	lastPlan = now
+	local away = flat(myRoot.Position - quarry.Position)
+	local inside = away.Magnitude < STALK_RING
+	local exposed = not tactics.isHidden(myRoot.Position,quarry)
+	if now < nextPlan and not exposed and not breaking and not closing and (advancing or not inside) then
+		return
+	end
+	nextPlan = now + COVER_HOLD_MIN
+
+	local spot = nextCover(exposed,advancing,breaking) or advancing and huntLeg()
+		or (inside or breaking) and away.Magnitude > 1 and tactics.ground(myRoot.Position + away.Unit*BACK_OFF) or nil
+	if spot then
+		currentStep = spot
+		stepStarted = now
+		stepUntil = now + COVER_HOP_TIME
+		diving = exposed or breaking or closing
+		myHuman.WalkSpeed = diving and FADE_SPEED or 16
+		movement.navigate(spot)
+	else
+		lastPlan = now + COVER_HOLD_MIN
+	end
+end
+
+--Whether his cover is blown. Special operations go on sneaking until engaged with a
+--shot, and badly hurt they keep to cover.
+local function noticed(since)
+	if sof.kind then
+		return healthFraction() >= FALL_BACK_HEALTH and sof.engaged(quarry) and core.checkSight(quarry)
+			and (quarry.Position - myRoot.Position).Magnitude <= weapon.range
+	end
+	return shotSince(since) or quarrySees(myRoot.Position)
+end
+
 --Runs the guerrilla for this tick. True when he is steering the soldier.
 function guerrilla.update()
-	if (guerrillaValue and not guerrillaValue.Value) or not squad.isAlone() or tactics.holdsBack() then
+	if not sof.kind and ((guerrillaValue and not guerrillaValue.Value) or not squad.isAlone() or tactics.holdsBack()) then
 		reset("not alone, turned off, or a sniper team")
 		return false
 	end
@@ -389,7 +616,7 @@ function guerrilla.update()
 	local newQuarry = pickQuarry()
 	if not newQuarry then
 		--Lost him mid-hunt: check where he was last seen before giving up.
-		if quarry and state and state ~= "search" then
+		if not sof.kind and quarry and state and state ~= "search" then
 			searchPoint = core.lastKnown(quarry)
 			if searchPoint then
 				setState("search",SEARCH_TIME,"lost him, checking his last known spot")
@@ -443,18 +670,20 @@ function guerrilla.update()
 
 	if state == "stalk" then
 		setStealth(true)
+		sof.report(quarry)
+		sof.relay(quarry)
 		--A leg planned before he last left stalking is stale.
 		if stepStarted < stateSince then
 			currentStep = nil
 		end
 
-		if shotSince(stateSince) or quarrySees(myRoot.Position) then
+		if noticed(stateSince) then
 			blown()
 			return true
 		end
 
 		--Out of patience: no more sneaking, straight at him until he has a shot.
-		if huntStarted and now - huntStarted > STALK_PATIENCE then
+		if not sof.kind and huntStarted and now - huntStarted > STALK_PATIENCE then
 			setStealth(false)
 			if core.checkSight(quarry) then
 				setState("strike",strikeTime(),"done sneaking, going straight at him")
@@ -465,15 +694,20 @@ function guerrilla.update()
 		end
 
 		--Right on top of him: no more sneaking, go and fight.
-		if (quarry.Position - myRoot.Position).Magnitude <= CLOSE_QUARTERS then
+		if not sof.kind and (quarry.Position - myRoot.Position).Magnitude <= CLOSE_QUARTERS then
 			setState("strike",strikeTime(),"close quarters, going in")
 			return true
 		end
 
 		--Any clear shot while the player has not seen him is an ambush. Getting
 		--behind him is only how he moves when he has no shot yet.
-		if (quarry.Position - myRoot.Position).Magnitude <= STRIKE_RANGE and core.checkSight(quarry) then
+		if not sof.kind and (quarry.Position - myRoot.Position).Magnitude <= STRIKE_RANGE and core.checkSight(quarry) then
 			setState("strike",strikeTime(),behindQuarry() and "behind him with a shot" or "caught him off guard")
+			return true
+		end
+
+		if sof.kind then
+			stalkCover(now)
 			return true
 		end
 
@@ -532,8 +766,10 @@ function guerrilla.update()
 
 		--Stand and shoot. Without a clear shot: up close, walk round whatever is
 		--in the way straight to him; further out, edge toward him until the
-		--rifle clears the corner.
-		if core.checkShot(quarry) then
+		--rifle clears the corner. Special operations shoot on the way to cover.
+		if sof.kind then
+			stalkCover(now)
+		elseif core.checkShot(quarry) then
 			movement.stop()
 		elseif close then
 			movement.navigate(quarry.Position)
@@ -550,9 +786,11 @@ function guerrilla.update()
 		if core.checkSight(quarry) or close or lastShotAngle < stateSince then
 			lastShotAngle = now
 		end
-		if healthFraction() < FALL_BACK_HEALTH and shotSince(now - 2) then
+		if sof.kind and (not sof.engaged(quarry) or healthFraction() < FALL_BACK_HEALTH) then
+			setState("stalk",nil,"back to stalking")
+		elseif healthFraction() < FALL_BACK_HEALTH and shotSince(now - 2) then
 			setState("fade",nil,"hurt and taking fire, falling back")
-		elseif now >= stateUntil and not close then
+		elseif not sof.kind and now >= stateUntil and not close then
 			setState("fade",nil,"hit and run, relocating")
 		elseif now - lastShotAngle > LOST_ANGLE_TIME then
 			setState("stalk",nil,"lost the angle, finding a new one")
@@ -577,7 +815,7 @@ function guerrilla.update()
 		movement.stop()
 
 		--A moment's grace first, so hiding and being spotted cannot flip back and forth.
-		if now - stateSince > 0.5 and (shotSince(stateSince) or quarrySees(myRoot.Position)) then
+		if now - stateSince > 0.5 and noticed(stateSince) then
 			blown()
 		elseif now >= stateUntil then
 			setState("stalk")
