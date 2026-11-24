@@ -20,3 +20,4 @@ TREK/Voicelines/reference/
 
 # Docs are kept locally, not published.
 *.md
+!README.md
