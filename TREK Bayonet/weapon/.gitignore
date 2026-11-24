@@ -3,4 +3,3 @@
 # must not be published -- same reason TREK Voicelines gitignores reference/.
 *
 !.gitignore
-!README.md

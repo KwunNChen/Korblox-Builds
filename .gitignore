@@ -17,3 +17,7 @@ Thumbs.db
 # compatibility against, never published. Regenerate it from the place file if
 # you need it on another machine.
 TREK Voicelines/reference/
+
+# Docs are kept locally, not published.
+README.md
+*.md
