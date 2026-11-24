@@ -46,6 +46,7 @@ own games can go ahead and utilize the assets I built!
 
 | | Model file | What it is | Needs |
 |---|---|---|---|
+| [Admin Terminal](Tools/Admin%20Terminal) | - (Luau source only) | Password-locked admin console opened with `/admin` in chat: Tab autofill, history, server-run commands | The server half lives inside a TowerRun-style script |
 | [Chat Voices](Tools/Chat%20Voices) | `ChatVoices.rbxm` | Roleplay chat: talk blips from the speaker's head and messages formatted like a novel | - |
 | [Dark Magic](Tools/Dark%20Magic) | `DarkMagic.rbxm` | Spell tool: Uniform, Melt, Raise, Soul Rip, Shadow Step and Hex | R6 |
 
@@ -102,6 +103,22 @@ require(game:FindFirstChild("KorbloxInstall",true))()
 
 It puts Bloxian, the spawner tool, the Vehicle Spawner, every vehicle and Random
 Arty where they belong. Run it again with a newer file to update.
+
+### Admin Terminal - source only
+
+| From | Move | Into |
+|---|---|---|
+| `src/client/AdminConsole.client.luau` | `AdminConsole` (LocalScript) | SPS |
+| `excerpt/TowerRun_AdminConsole.luau` | paste into your round script | ServerScriptService |
+
+The server half is not standalone: it uses the round script's own locals (bosses,
+floors, the enemy tag), so adapt those names to your game. Replace `<REDACTED>`
+with your own password before using it. `/admin <password>` opens it, and 5 wrong
+tries lock a player out for the session.
+
+Commands: `help`, `wipe` (kill every enemy, skip the wave), `boss <name | clear>`,
+`map <name | clear>`, `status`, `close`. The client gets this list from the
+server, so autofill follows whatever commands you add.
 
 ### Chat Voices - `ChatVoices.rbxm`
 
