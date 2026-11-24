@@ -1,0 +1,25 @@
+{
+  "name": "F4 Phantom",
+  "tree": {
+    "$path": "src/Base.rbxm",
+    "$properties": {
+      "ModelStreamingMode": "Persistent"
+    },
+    "$attributes": {
+      "Aircraft": true,
+      "Uncrewed": true
+    },
+    "Jet": {
+      "$path": "src/Jet.server.luau"
+    },
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "AirDefense": {
+      "$path": "../Shared/AirDefense.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
+    }
+  }
+}

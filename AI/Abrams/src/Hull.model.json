@@ -1,0 +1,44 @@
+{
+  "className": "Part",
+  "properties": {
+    "Anchored": true,
+    "CanCollide": false,
+    "CanTouch": false,
+    "CanQuery": false,
+    "CastShadow": false,
+    "Transparency": 1,
+    "Size": [15.2, 7.5, 33.2],
+    "CFrame": {
+      "CFrame": {
+        "position": [100.7, 3.75, -120.4],
+        "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+      }
+    }
+  },
+  "children": [
+    {
+      "name": "FrontDoor",
+      "className": "Attachment",
+      "properties": {
+        "CFrame": {
+          "CFrame": {
+            "position": [-8.5, -2, -8],
+            "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+          }
+        }
+      }
+    },
+    {
+      "name": "SideDoor",
+      "className": "Attachment",
+      "properties": {
+        "CFrame": {
+          "CFrame": {
+            "position": [8.5, -2, 1],
+            "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+          }
+        }
+      }
+    }
+  ]
+}

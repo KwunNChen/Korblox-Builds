@@ -1,0 +1,71 @@
+{
+  "name": "Warthog",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "Warthog": {
+        "$className": "Model",
+        "$properties": {
+          "ModelMeshCFrame": [
+            70.5808334350586,
+            16.24410629272461,
+            32.58604431152344,
+            1.0000009536743164,
+            2.428613197239775e-17,
+            1.862647591721611e-09,
+            2.428613197239775e-17,
+            0.999997615814209,
+            2.9802315282267955e-08,
+            1.862647591721611e-09,
+            2.9802315282267955e-08,
+            1.0000019073486328
+          ],
+          "SerializedOverrides": {
+            "BinaryString": ""
+          },
+          "SourceAssetId": 9762899450.0,
+          "Tags": [
+            "MarineVehicle"
+          ],
+          "WorldPivotData": {
+            "OptionalCFrame": {
+              "position": [
+                94.88302,
+                4.4876003,
+                -92.41664
+              ],
+              "orientation": [
+                [
+                  -1.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  1.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  -1.0
+                ]
+              ]
+            }
+          }
+        },
+        "$attributes": {
+          "Driver": false,
+          "Gunner": false,
+          "Passenger": false,
+          "PathFailures": {
+            "Float32": 0.0
+          }
+        },
+        "$path": "src"
+      }
+    }
+  }
+}

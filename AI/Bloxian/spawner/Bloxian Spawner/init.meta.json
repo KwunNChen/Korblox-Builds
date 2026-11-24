@@ -1,0 +1,8 @@
+{
+  "className": "Tool",
+  "properties": {
+    "RequiresHandle": false,
+    "CanBeDropped": false,
+    "ToolTip": "Click the ground to spawn Bloxians"
+  }
+}

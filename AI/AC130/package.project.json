@@ -1,0 +1,29 @@
+{
+  "name": "AC130",
+  "tree": {
+    "$path": "src/Base.rbxm",
+    "$properties": {
+      "ModelStreamingMode": "Persistent"
+    },
+    "$attributes": {
+      "Aircraft": true,
+      "Uncrewed": true,
+      "NeedsTeam": true
+    },
+    "Settings": {
+      "$className": "Configuration",
+      "Team": {
+        "$className": "StringValue"
+      }
+    },
+    "Gunship": {
+      "$path": "src/Gunship.server.luau"
+    },
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
+    }
+  }
+}

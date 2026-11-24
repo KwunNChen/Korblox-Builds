@@ -1,0 +1,30 @@
+{
+  "name": "Dark Magic",
+  "tree": {
+    "$path": "src/server/DarkMagic.server.luau",
+    "Korblox Dark Magic": {
+      "$className": "Tool",
+      "$properties": {
+        "RequiresHandle": false,
+        "CanBeDropped": false
+      },
+      "$attributes": {
+        "DarkMagic": true
+      },
+      "Client": {
+        "$path": "src/client/DarkMagicClient.client.luau"
+      }
+    },
+    "Dark Magic Soul": {
+      "$path": "src/client/SoulControl.client.luau"
+    },
+    "Animations": {
+      "$className": "Folder",
+      "DM_Uniform": { "$path": "anims/DM_Uniform.rbxm" },
+      "DM_Melt": { "$path": "anims/DM_Melt.rbxm" },
+      "DM_Raise": { "$path": "anims/DM_Raise.rbxm" },
+      "DM_SoulRip": { "$path": "anims/DM_SoulRip.rbxm" },
+      "DM_ShadowStep": { "$path": "anims/DM_ShadowStep.rbxm" }
+    }
+  }
+}

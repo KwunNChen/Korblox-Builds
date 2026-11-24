@@ -1,0 +1,34 @@
+{
+  "name": "Abrams",
+  "tree": {
+    "$className": "Model",
+    "$properties": {
+      "ModelStreamingMode": {
+        "Enum": 1
+      }
+    },
+    "$attributes": {
+      "Driver": false,
+      "Gunner": false,
+      "EngageDistance": 70,
+      "HalfWidth": 8,
+      "AgentRadius": 8,
+      "SmallArmsScale": 0.05,
+      "SpotRange": 600,
+      "FireRange": 150
+    },
+    "$path": "src",
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "Effects": {
+      "$path": "../Shared/Effects.server.luau"
+    },
+    "Spearhead": {
+      "$path": "../Shared/Spearhead.server.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
+    }
+  }
+}

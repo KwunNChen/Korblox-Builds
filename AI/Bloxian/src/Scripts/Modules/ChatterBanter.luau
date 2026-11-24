@@ -1,0 +1,60 @@
+--[[
+	Idle small talk between two soldiers standing near each other.
+
+	Each thread is written as a whole, so every answer fits what came before.
+	The first soldier says turn 1, the second turn 2, then back and forth. A
+	thread can be 2 to 4 turns. If either soldier spots an enemy the thread
+	stops where it is.
+]]
+
+return {
+	{"Quiet out here.", "Too quiet.", "Stop saying that."},
+	{"You hear that?", "Just the wind.", "Are you sure?", "No."},
+	{"Cold rations again...", "Better than nothing.", "Is it though?", "Barely."},
+	{"Think we get relieved soon?", "Not a chance.", "Why do you always say that?", "Because I've met the army."},
+	{"Did you see that?", "See what?", "Never mind, it's gone.", "I hate when you do that."},
+	{"My feet are killing me.", "Walk it off.", "I've been walking it off for six hours.", "Walk it off harder."},
+	{"Do you ever wonder who's winning?", "Not on my pay grade.", "Mine either.", "Then why do we keep asking?"},
+	{"If we win, do we get a day off?", "If we win, they send us somewhere worse."},
+	{"What's your favorite food?", "Anything not out of a can.", "So, nothing we have.", "Exactly."},
+	{"Do you ever feel like we're just standing here?", "That's the job.", "It's a weird job.", "It pays on time."},
+	{"Do you ever think about quitting?", "Every day. Then I remember the pension.", "We have a pension?", "Don't ask."},
+	{"Why do we always get the night shift?", "It's always the night shift."},
+	{"Is it just me, or is it getting colder?", "It's just you. You're scared.", "I'm not scared.", "Then why are you standing so close?"},
+	{"Do you think there's a point to all this?", "There's a paycheck.", "That's it?", "That's the point."},
+	{"What's your plan after the war?", "Sleep.", "For how long?", "As long as it takes."},
+	{"I miss the smell of fresh bread.", "I miss anything that isn't canned.", "Cheese. I miss cheese.", "Now you've done it."},
+	{"What's the first thing you'll do when we get leave?", "Eat a real meal.", "Boring.", "Then you tell me yours."},
+	{"What's the worst thing about this job?", "The mornings.", "You mean the middle of the night?", "Ugh, yes."},
+	{"Do you believe in luck?", "I believe in ammunition.", "That's practical.", "Practical keeps you alive."},
+	{"What did you do before this?", "Delivered mail.", "Was it better?", "The dogs were worse."},
+	{"My boots have a hole in them.", "Welcome to the club.", "Did you tell the quartermaster?", "He laughed."},
+	{"Think the enemy knows we're here?", "Probably.", "Should we be worried?", "Only if they're good."},
+	{"Sometimes I forget what day it is.", "Today's the same as yesterday.", "And tomorrow.", "Right. Thanks."},
+	{"Does my rifle look dirty to you?", "It looks like every other rifle.", "That's what I'm afraid of.", "Clean it, then."},
+	{"Why are we guarding this?", "No idea.", "Do we even know what it is?", "Nope. Don't ask."},
+	{"I heard a rumor about a promotion.", "Whose?", "Mine, I hope.", "Don't hold your breath."},
+	{"I keep hearing footsteps.", "It's your own.", "Mine are quieter.", "Then it's your imagination."},
+	{"My knee hurts when it rains.", "It's not raining.", "It's going to.", "Look at the sky. Not a cloud."},
+	{"Seriously though, who's winning?", "We are.", "How do you know?", "Because I'm still here."},
+	{"I've got a good feeling about today.", "You always say that.", "And I'm sometimes right.", "Never."},
+	{"Have you noticed we're always outnumbered?", "I try not to count.", "Maybe that's the secret.", "Don't count, don't worry."},
+	{"Do you think anyone actually reads our reports?", "No.", "Then why write them?", "So someone can ignore them."},
+	{"I wonder if the enemy has the same problems.", "Like what?", "Boredom. Bad food. Sore feet.", "Probably."},
+	{"Do you think we'll ever get new gear?", "Not this year."},
+	{"What's the plan?", "Stand here.", "And then?", "Stand here some more."},
+	{"Don't you ever get tired of this?", "Every day.", "Then why keep going?", "Who else would do it?"},
+	{"I wonder what the others are doing.", "Probably the same thing.", "Standing around?", "Standing around."},
+	{"Ever notice how the stars look different out here?", "They're the same stars.", "They look bigger.", "You're just tired."},
+	{"My gun jammed once.", "That's why you clean it.", "I did clean it.", "Not enough."},
+	{"Do you think it's possible to be too brave?", "Yes.", "Really?", "Dead people tend to be very brave."},
+	{"I lost my compass.", "Look around.", "It's gone.", "Then use the sun."},
+	{"What's something you're proud of?", "Surviving.", "That's it?", "It's a lot, actually."},
+	{"If we get out of this, I'm buying you a drink.", "Only one?", "Two.", "Deal."},
+	{"I'm feeling lucky today.", "Don't push it.", "Why not?", "Because that's how you get shot."},
+	{"I think I'm getting the hang of this.", "You've been here a week.", "And I'm still alive.", "That's the hang of it."},
+	{"I miss rain.", "Rain's the worst.", "Not the smell.", "Okay, the smell is good."},
+	{"Do you think the sergeant's mad at me?", "He's always mad at you.", "More than usual?", "Hard to tell."},
+	{"Do you ever write home?", "Every week.", "What do you say?", "That everything's fine."},
+	{"I miss when things were simple.", "When was that?", "Never.", "Right."},
+}

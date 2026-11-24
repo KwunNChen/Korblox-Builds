@@ -1,0 +1,45 @@
+{
+  "className": "Part",
+  "properties": {
+    "Anchored": true,
+    "CanCollide": false,
+    "CanTouch": false,
+    "CanQuery": false,
+    "CastShadow": false,
+    "Massless": true,
+    "Transparency": 1,
+    "Size": [1, 1, 1],
+    "CFrame": {
+      "CFrame": {
+        "position": [100.8, 7.94, -127],
+        "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+      }
+    }
+  },
+  "children": [
+    {
+      "name": "MainGun",
+      "className": "Attachment",
+      "properties": {
+        "CFrame": {
+          "CFrame": {
+            "position": [0, 0, -17.6],
+            "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+          }
+        }
+      }
+    },
+    {
+      "name": "Tip",
+      "className": "Attachment",
+      "properties": {
+        "CFrame": {
+          "CFrame": {
+            "position": [0.01, 2.02, -9.7],
+            "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+          }
+        }
+      }
+    }
+  ]
+}

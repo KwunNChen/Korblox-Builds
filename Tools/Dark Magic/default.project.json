@@ -1,0 +1,48 @@
+{
+  "name": "DarkMagic",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Dark Magic": {
+        "$className": "RemoteEvent"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "Dark Magic": {
+        "$path": "src/server/DarkMagic.server.luau"
+      }
+    },
+    "StarterPack": {
+      "$className": "StarterPack",
+      "$ignoreUnknownInstances": true,
+      "Korblox Dark Magic": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false,
+          "CanBeDropped": false
+        },
+        "$attributes": {
+          "DarkMagic": true
+        },
+        "Client": {
+          "$path": "src/client/DarkMagicClient.client.luau"
+        }
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "Dark Magic Soul": {
+          "$path": "src/client/SoulControl.client.luau"
+        },
+        "$ignoreUnknownInstances": true
+      }
+    }
+  }
+}

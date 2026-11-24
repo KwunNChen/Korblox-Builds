@@ -1,0 +1,39 @@
+{
+  "name": "Apache",
+  "tree": {
+    "$path": "src/Base.rbxm",
+    "$properties": {
+      "ModelStreamingMode": {
+        "Enum": 1
+      }
+    },
+    "$attributes": {
+      "Aircraft": true,
+      "Driver": false,
+      "Gunner": false,
+      "EngageDistance": 110,
+      "HalfWidth": 9,
+      "AgentRadius": 10,
+      "SmallArmsScale": 0.3,
+      "SpotRange": 600
+    },
+    "Heli": {
+      "$path": "src/Heli.server.luau"
+    },
+    "Effects": {
+      "$path": "../Shared/Effects.server.luau"
+    },
+    "Spearhead": {
+      "$path": "../Shared/Spearhead.server.luau"
+    },
+    "Rotors": {
+      "$path": "src/Rotors.server.luau"
+    },
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
+    }
+  }
+}

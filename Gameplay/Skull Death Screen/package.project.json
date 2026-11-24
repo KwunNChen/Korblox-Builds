@@ -1,0 +1,34 @@
+{
+  "name": "KorbloxSkullDeathScreen",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "ReplicatedStorage": {
+      "$className": "Folder",
+
+      "SkullDeathScreen": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "$className": "Folder",
+
+      "SkullDeathScreen": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+
+      "SkullDeathScreen": {
+        "$path": "src/client"
+      }
+    }
+  }
+}

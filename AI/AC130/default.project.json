@@ -1,0 +1,16 @@
+{
+  "name": "AC130",
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "BloxianVehicles": {
+        "$className": "Folder",
+        "AC130": {
+          "$path": "package.project.json"
+        }
+      }
+    }
+  }
+}
