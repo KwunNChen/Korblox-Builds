@@ -2,35 +2,35 @@
 	SkiConfig
 	Every tunable number for the ski system.
 
-	Split in two: GEAR builds the skis and poles and decides where they sit on
-	the body, MOVEMENT (further down) is everything SkiPhysics reads.
+	Split in two: gear builds the skis and poles and decides where they sit on
+	the body, movement (further down) is everything SkiPhysics reads.
 ]]
 
 local SkiConfig = {}
 
 -- ############################################################
 -- #
--- #   PUT YOUR SOUND IDS HERE
+-- #   Put your sound IDS here
 -- #
 -- ############################################################
 --
--- Skiing is SILENT until you fill these in, and that's deliberate: Roblox audio
+-- Skiing is silent until you fill these in, and that's deliberate: Roblox audio
 -- is private to whichever place owns it, so an id copied from another game
 -- plays as silence with no error and nothing in Output. Shipping a real id
 -- would just look broken.
 --
 -- To get one: View > Toolbox > Audio, search, right click, Copy Asset ID.
 -- Paste it over the placeholder. Bare numbers and full rbxassetid:// URLs both
--- work. Anything still saying PUT... is treated as empty and skipped, so fill
+-- work. Anything still saying put... is treated as empty and skipped, so fill
 -- in as many or as few as you like.
 --
 -- If you only do one, do GlideSoundId.
 
--- Skis running over snow. Follows your speed. The workhorse -- pick something
+-- Skis running over snow. Follows your speed. The workhorse, pick something
 -- that loops without an audible seam.
 SkiConfig.GlideSoundId = "rbxassetid://9125408271"
 
--- The edges biting. Follows SIDEWAYS speed, so it arrives when you turn rather
+-- The edges biting. Follows sideways speed, so it arrives when you turn rather
 -- than droning all the way down. Wants to be a harsher scrape than the glide.
 SkiConfig.CarveSoundId = "rbxassetid://9113597285"
 
@@ -42,13 +42,13 @@ SkiConfig.JumpSoundId = "rbxassetid://135162567109750"
 SkiConfig.LandSoundId = "rbxassetid://82342043168584"
 SkiConfig.CrashSoundId = "rbxassetid://91358197736651"
 
--- Volumes, pitch and smoothing for the above live further down under SOUND.
+-- Volumes, pitch and smoothing for the above live further down under sound.
 -- Two other things take ids you may want to fill in eventually: SkiMeshId /
 -- PoleMeshId to use your own models, and Animations to replace the built-in
 -- procedural poses.
 
 -- ============================================================
--- EQUIPPING
+-- Equipping
 -- ============================================================
 
 SkiConfig.ToolName = "Skis"
@@ -63,11 +63,11 @@ SkiConfig.GiveOnSpawn = true
 SkiConfig.WalkSpeedMultiplier = 0.55
 
 -- ============================================================
--- SKI SHAPE
+-- Ski shape
 -- ============================================================
 
 -- Total length, tip to tail. An R6 character is about 5 studs tall, so this is
--- deliberately close to "as tall as you are" the way real skis are.
+-- close to "as tall as you are" the way real skis are.
 SkiConfig.SkiLength = 5.4
 
 -- Sidecut: wide at the tip and tail, narrow underfoot. This is what stops them
@@ -85,7 +85,7 @@ SkiConfig.SkiTipSegments = 2
 
 -- Camber: the middle of the ski sits this far proud of the ends. Real skis do
 -- this and it is most of why they look sprung rather than flat. Subtle on
--- purpose -- 0 is a flat ski.
+-- purpose, 0 is a flat ski.
 SkiConfig.SkiCamber = 0.05
 
 -- White painted wood: the material carries the grain, the colour paints over it.
@@ -96,9 +96,9 @@ SkiConfig.SkiMaterial = Enum.Material.Wood
 	The binding, built the way a real one is: a toe piece and a heel piece with
 	the boot clamped between them, rather than one block wrapping the leg.
 
-	They sit just fore and aft of the leg on purpose. R6's leg is a stud deep,
+	They sit just fore and aft of the leg. R6's leg is a stud deep,
 	so anything within half a stud of the boot centre is buried inside it and
-	invisible -- BindingSpacing is what pushes these two clear of it. That is
+	invisible. BindingSpacing is what pushes these two clear of it. That is
 	also why they can be genuinely small: they don't need to be oversized to be
 	seen, they just need to be somewhere you can see them.
 ]]
@@ -112,10 +112,10 @@ SkiConfig.BindingHeelSize = Vector3.new(0.5, 0.24, 0.3)
 SkiConfig.BindingSpacing = 0.56
 
 -- ============================================================
--- POLE SHAPE
+-- Pole shape
 -- ============================================================
 
--- Shaft length BELOW the grip, not the whole pole. An R6 hand sits about 2
+-- Shaft length below the grip, not the whole pole. An R6 hand sits about 2
 -- studs off the ground, so much more than this and the poles bury themselves.
 SkiConfig.PoleLength = 1.85
 SkiConfig.PoleThickness = 0.11
@@ -134,18 +134,18 @@ SkiConfig.PoleBasketThickness = 0.06
 SkiConfig.PoleBasketHeight = 0.45
 
 -- ============================================================
--- WHERE THE GEAR SITS
+-- Where the gear sits
 -- ============================================================
 --
 -- These are the numbers to nudge if something is floating, clipping, or facing
 -- the wrong way. R6 legs and arms are 2 studs tall, so their far end is 1 stud
--- below centre -- that is where the 1.0s come from.
+-- below centre, that is where the 1.0s come from.
 
 -- Skis on your feet. X spreads them apart, Y drops them to the sole, Z shifts
 -- them fore and aft (positive is backwards, so more ski sits in front of the
--- boot -- which is how a real ski is mounted).
+-- boot, which is how a real ski is mounted).
 --
--- The Y puts the ski's BASE level with the ground, which means its top surface
+-- The Y puts the ski's base level with the ground, which means its top surface
 -- sits slightly inside the leg. That is deliberate: the alternative is resting
 -- the ski on the sole, which buries it. Nothing controls standing height yet,
 -- so this is the honest compromise until movement goes in.
@@ -162,7 +162,7 @@ SkiConfig.PoleHandTilt = 0.18
 	How far the pole tips trail behind you while riding, in radians.
 
 	The poles are welded to the arms, so without this they swing wherever the
-	arms go -- and the ski stance puts the hands right out in front, which
+	arms go, and the ski stance puts the hands right out in front, which
 	pointed the poles forward like lances. The pose cancels the arm's swing and
 	applies this instead, so the hands stay forward while the tips stay back
 	where a skier actually holds them.
@@ -187,14 +187,14 @@ SkiConfig.PoleAirAngle = 1.35
 -- How the skis ride when they're on your back:
 --
 --   "AFrame"    up your spine with the tips leaning together above your head
---               and the tails open below -- an upside-down V. The real carry.
+--               and the tails open below: an upside-down V. The real carry.
 --   "Diagonal"  strapped together as a pair, slung corner to corner
 --   "Vertical"  dead straight and parallel
 --   "Crossed"   an X. Nobody carries skis this way, but it's here.
 SkiConfig.SkiCarryStyle = "AFrame"
 
 -- Where the bundle sits. X shifts it across your back, Y up and down, Z how far
--- it stands off you -- just enough to clear the torso and the sling.
+-- it stands off you, just enough to clear the torso and the sling.
 SkiConfig.SkiBackOffset = Vector3.new(0, 0.1, 0.72)
 
 -- How far the whole bundle tips backwards, in radians, so the tops lean away
@@ -202,23 +202,23 @@ SkiConfig.SkiBackOffset = Vector3.new(0, 0.1, 0.72)
 -- Applies to every carry style. 0 stands them dead upright.
 SkiConfig.SkiBackLean = 0.2
 
--- AFRAME: how far each ski leans in, in radians. The sideways offset needed to
+-- Aframe: how far each ski leans in, in radians. The sideways offset needed to
 -- make the tips actually meet is worked out from this, so this is the only
--- number you need -- bigger is a wider stance at the tails.
+-- number you need, bigger is a wider stance at the tails.
 SkiConfig.SkiApexAngle = 0.26
 
--- AFRAME: gap left between the two tips at the top, so they lean together
+-- Aframe: gap left between the two tips at the top, so they lean together
 -- without visibly intersecting.
 SkiConfig.SkiApexGap = 0.28
 
--- DIAGONAL: lean away from vertical, radians. About 0.62 puts the tips over one
+-- Diagonal: lean away from vertical, radians. About 0.62 puts the tips over one
 -- shoulder and the tails past the opposite hip.
 SkiConfig.SkiCarryAngle = 0.62
 
--- DIAGONAL and VERTICAL: gap between the two skis.
+-- Diagonal and vertical: gap between the two skis.
 SkiConfig.SkiCarrySpread = 0.2
 
--- CROSSED: how far each ski tips to open the X.
+-- Crossed: how far each ski tips to open the X.
 SkiConfig.SkiBackTilt = 0.36
 
 -- Poles stowed on your back, outboard of the skis.
@@ -226,11 +226,11 @@ SkiConfig.PoleBackOffset = Vector3.new(0.85, 0.1, 0.62)
 SkiConfig.PoleBackTilt = 0.12
 
 -- ============================================================
--- CARRY STRAP
+-- Carry strap
 -- ============================================================
 --
 -- A sling over one shoulder plus a pair of bands cinched round the skis. Both
--- only appear while the skis are on your back -- you take the strap off to ski,
+-- only appear while the skis are on your back: you take the strap off to ski,
 -- same as you would in real life.
 
 SkiConfig.EnableStrap = true
@@ -254,7 +254,7 @@ SkiConfig.StrapCinchWidth = 0.17
 SkiConfig.StrapCinchSpacing = 0.95
 
 -- ============================================================
--- USING YOUR OWN MESH INSTEAD
+-- Using your own mesh instead
 -- ============================================================
 --
 -- Leave empty and the skis above are built from parts. Put an uploaded MeshId
@@ -274,7 +274,7 @@ SkiConfig.PoleMeshOffset = Vector3.new(0, 0, 0)
 SkiConfig.PoleMeshRotation = Vector3.new(0, 0, 0)
 
 -- ============================================================
--- DEBUG
+-- Debug
 -- ============================================================
 
 -- Prints equip, stow and build events to Output.
@@ -282,15 +282,15 @@ SkiConfig.DebugLog = true
 
 -- ============================================================
 -- ============================================================
--- MOVEMENT
+-- Movement
 -- ============================================================
 -- ============================================================
 --
--- IF YOU ONLY TUNE ONE NUMBER, MAKE IT LateralDrag. The ratio between it and
+-- If you only tune one number, make it LateralDrag. The ratio between it and
 -- ForwardDrag is the entire difference between skiing and sliding on soap.
 
 -- ============================================================
--- GROUND TRACKING
+-- Ground tracking
 -- ============================================================
 
 -- How high the root part rides above the ground while sliding.
@@ -304,8 +304,8 @@ SkiConfig.HoverHeight = 3.0
 --[[
 	A deliberate gap between the ski bases and the snow, on top of HoverHeight.
 
-	HoverHeight puts the skis EXACTLY on the ground, which leaves no room for
-	error -- and the hover spring always has some. Ride down a slope onto the
+	HoverHeight puts the skis exactly on the ground, which leaves no room for
+	error, and the hover spring always has some. Ride down a slope onto the
 	flat and the spring is still catching up when the ground levels out, so the
 	skis dip through it for a moment.
 
@@ -314,19 +314,19 @@ SkiConfig.HoverHeight = 3.0
 	visibly hover over it. Raise it if you clip, lower it if they float, and
 	expect to be working in hundredths rather than tenths.
 
-	It is measured from the LOWEST part of the ski, camber included, so changing
+	It is measured from the lowest part of the ski, camber included, so changing
 	SkiCamber does not quietly eat into it.
 ]]
 SkiConfig.GroundClearance = 0.04
 
 -- How far past HoverHeight we still look for ground. This is the spring's
--- reach, NOT the point at which you count as landed -- touching down uses a
+-- reach, not the point at which you count as landed, touching down uses a
 -- much tighter test, or you would "land" while still metres up.
 SkiConfig.ProbeMargin = 2.5
 
 -- Hover spring. A spring rather than a hard snap, because snapping reads as
 -- teleporting over bumps. Critical damping is 2*sqrt(stiffness), so these are
--- very slightly springy on purpose.
+-- very slightly springy.
 SkiConfig.HoverStiffness = 170
 SkiConfig.HoverDamping = 25
 
@@ -339,7 +339,7 @@ SkiConfig.NormalSmoothing = 0.08
 SkiConfig.MaxGroundAngle = 75
 
 -- ============================================================
--- WALKING AND SLIDING
+-- Walking and sliding
 -- ============================================================
 
 -- Downhill pull (studs/sec^2) needed before walking turns into sliding.
@@ -347,28 +347,28 @@ SkiConfig.MaxGroundAngle = 75
 -- walkable.
 SkiConfig.SlideEnterAccel = 14
 
--- Sliding stops when the pull drops below this AND you are slower than
+-- Sliding stops when the pull drops below this and you are slower than
 -- SlideExitSpeed. Both matter: speed alone would drop you out of the slide
 -- every time you slowed for a turn, slope alone would strand you sliding across
--- a flat run-out. Keep both under SlideEnterAccel so there is a dead band --
+-- a flat run-out. Keep both under SlideEnterAccel so there is a dead band,
 -- without the gap you flicker between the two states on any borderline ground.
 SkiConfig.SlideExitAccel = 9
 SkiConfig.SlideExitSpeed = 6
 
 -- ============================================================
--- THE RIDE
+-- The ride
 -- ============================================================
 
 --[[
-	Along-ski drag, per second, and NOT per-material -- it applies everywhere.
+	Along-ski drag, per second, and not per-material: it applies everywhere.
 
-	Kept tiny on purpose. At 90 studs/sec this used to be 0.35, which worked out
-	at 31 studs/sec^2 of braking against snow's 8 -- so the surface you were on
+	Kept tiny. At 90 studs/sec this used to be 0.35, which worked out
+	at 31 studs/sec^2 of braking against snow's 8, so the surface you were on
 	barely mattered and nothing ever really glided. Dropping it to 0.05 hands
 	that job to SurfaceFriction below, where it belongs: snow now runs away from
 	you and mud still stops you dead.
 
-	Raise it if EVERY surface feels too slippery. If it's only one surface that's
+	Raise it if every surface feels too slippery. If it's only one surface that's
 	wrong, that's SurfaceFriction, not this.
 ]]
 SkiConfig.ForwardDrag = 0.05
@@ -383,15 +383,15 @@ SkiConfig.MaxSpeed = 260
 	Coulomb friction by material, for Terrain voxels and BaseParts alike.
 
 	Deceleration works out as mu * gravity * cos(slope), so these bite hardest on
-	the flat and ease off as it steepens -- which is the behaviour you want.
+	the flat and ease off as it steepens, which is the behaviour you want.
 
-	SNOW AND ICE ARE DELIBERATELY ALMOST FRICTIONLESS. Snow at 0.005 is about
+	Snow and ice are almost frictionless. Snow at 0.005 is about
 	1 stud/sec^2 of drag, so you keep basically everything you earn and a long
 	flat run-out barely slows you at all.
 
 	Consequence worth knowing: you will not coast to a stop on snow any more.
 	From full speed on the flat, friction alone takes well over a minute to stop
-	you. Braking is how you stop now -- that is what it's for. If you want to
+	you. Braking is how you stop now, that is what it's for. If you want to
 	glide back to a halt on your own, snow around 0.03 does it.
 ]]
 SkiConfig.SurfaceFriction = {
@@ -417,7 +417,7 @@ SkiConfig.SurfaceFriction = {
 	[Enum.Material.Mud] = 0.30,
 }
 
--- Anything not listed above. Middling on purpose -- an unlisted material is
+-- Anything not listed above. Middling: an unlisted material is
 -- usually not something you meant to ski on.
 SkiConfig.DefaultFriction = 0.08
 SkiConfig.FrictionAttribute = "SkiFriction"
@@ -428,7 +428,7 @@ SkiConfig.TurnRate = 4.6
 -- How fast turning tightens up as you speed up. Effective rate is
 -- TurnRate / (1 + speed * TurnSpeedFalloff).
 --
--- This used to be 0.012, which at 150 studs/sec left you 1.1 rad/sec -- over
+-- This used to be 0.012, which at 150 studs/sec left you 1.1 rad/sec, over
 -- five seconds to turn all the way round, which is why it felt like steering a
 -- ship. At 0.006 the same speed gives 2.4. Push it back up if fast runs start
 -- feeling twitchy rather than committing.
@@ -439,10 +439,10 @@ SkiConfig.BrakeLateralDrag = 30
 SkiConfig.BrakeHoldSpeed = 3
 
 -- ============================================================
--- JUMPING AND AIR
+-- Jumping and air
 -- ============================================================
 
--- Launch speed added along the GROUND NORMAL rather than straight up, so
+-- Launch speed added along the ground normal rather than straight up, so
 -- jumping off a lip throws you along the slope the way it should.
 SkiConfig.JumpImpulse = 62
 SkiConfig.JumpCooldown = 0.25
@@ -455,7 +455,7 @@ SkiConfig.CoyoteTime = 0.12
 	Settling-in time after strapping the skis on. For this long you cannot jump
 	and cannot wipe out.
 
-	Both halves are needed. Strapping in while jump is queued -- or simply held
+	Both halves are needed. Strapping in while jump is queued, or held
 	-- fired you straight into the air on the first frame of the sim, and a
 	launch you never asked for tends to end in a landing you can't save. Blocking
 	the jump stops the common case; suspending crashes covers whatever else the
@@ -468,7 +468,7 @@ SkiConfig.AirYawRate = 3.4
 SkiConfig.AirDriftAccel = 18
 
 -- ============================================================
--- LANDING AND CRASHING
+-- Landing and crashing
 -- ============================================================
 --
 -- A landing is scored on two things, and whichever is worse wins: whether the
@@ -478,7 +478,7 @@ SkiConfig.AirDriftAccel = 18
 -- Land within this many degrees of straight and you keep all your speed.
 SkiConfig.LandingCleanAngle = 25
 
--- Past this and you eat it. Between the two, speed is scrubbed in proportion --
+-- Past this and you eat it. Between the two, speed is scrubbed in proportion,
 -- a scrappy landing costs you, it doesn't end you.
 SkiConfig.LandingCrashAngle = 65
 
@@ -493,7 +493,7 @@ SkiConfig.CrashImpactSpeed = 165
 SkiConfig.CrashSpeedKeep = 0.15
 
 -- How long you're on the floor. The character properly ragdolls for this long
--- -- R6's joints are swapped for ball sockets and the limbs go limp.
+--, R6's joints are swapped for ball sockets and the limbs go limp.
 SkiConfig.CrashDuration = 1.8
 
 -- Spin thrown in at the moment of the wipeout, radians/sec, so you tumble
@@ -505,43 +505,43 @@ SkiConfig.CrashTumble = 9
 	down it still does.
 
 	The window is the point of it. Unequipping while airborne is obviously daft
-	and lands you on your face, but without a window you could simply wait for
-	the frame you touch down and take them off there instead -- landing a jump
+	and lands you on your face, but without a window you could wait for
+	the frame you touch down and take them off there instead, landing a jump
 	you had no business landing, with no scrub and no scoring, because the skis
 	came off before the landing was judged. The window makes that the same
 	mistake as the first one.
 
-	Kept short deliberately. Long enough to close the gap, short enough that
+	Kept short. Long enough to close the gap, short enough that
 	taking them off at the bottom of a run is never a surprise.
 ]]
 SkiConfig.UnequipCrashWindow = 0.05
 
 -- ============================================================
--- POSES
+-- Poses
 -- ============================================================
 
 -- Seconds of blend between poses. A time constant, not a duration.
 SkiConfig.PoseSmoothing = 0.12
 
 --[[
-	CARVING.
+	Carving.
 
 	A turn is not one lean. Real carving is four things happening at once, and
 	each of these is one of them:
 
-	  MaxEdgeAngle      how far the SKIS roll onto their edges. This is the big
+	  MaxEdgeAngle      how far the skis roll onto their edges. This is the big
 	                    one and it carries the whole look of a carve.
 
-	  MaxLegTip         how far the LEGS lean over. SMALL, and it has to be.
+	  MaxLegTip         how far the legs lean over. small, and it has to be.
 
-	  MaxLeanAngle      how far the TORSO inclines. Also small, and less than
+	  MaxLeanAngle      how far the torso inclines. Also small, and less than
 	                    the legs, which is what gives the bent-at-the-hip shape
 	                    a real skier has.
 
-	WHY MaxLegTip CANNOT BE BIG, even though a real skier's legs go right over:
+	Why MaxLegTip cannot be big, even though a real skier's legs go right over:
 	R6 has no knee and no ankle. Tipping the leg pivots the whole thing about the
 	hip, so the foot swings through an arc instead of staying planted. At 0.7 rad
-	on a two-stud leg that is over a stud sideways, and the boot simply walks off
+	on a two-stud leg that is over a stud sideways, and the boot walks off
 	the ski. A real leg absorbs all of that in the joints below the hip.
 
 	So the skis carry the edge angle and the legs only suggest it. Raise MaxLegTip
@@ -556,7 +556,7 @@ SkiConfig.PoseSmoothing = 0.12
 	                    legs turn underneath it. The thing that makes a skier
 	                    look like a skier rather than a plank pivoting.
 
-	If a turn looks right but MIRRORED, don't touch any of the four -- flip
+	If a turn looks right but mirrored, don't touch any of the four, flip
 	CarveDirection instead. It negates all of them together.
 ]]
 SkiConfig.CarveDirection = 1
@@ -570,7 +570,7 @@ SkiConfig.MaxCounterTwist = 0.45
 SkiConfig.LeanSmoothing = 0.14
 
 --[[
-	POLE PLANTS.
+	Pole plants.
 
 	A skier taps the snow with the inside pole as each turn starts. It's the
 	rhythm you recognise a skier by from a distance, more than the turns
@@ -581,13 +581,13 @@ SkiConfig.LeanSmoothing = 0.14
 	the values that replicates, other players plant poles too without any extra
 	work.
 
-	PolePlantLean is how committed a turn has to be before it earns a plant --
+	PolePlantLean is how committed a turn has to be before it earns a plant,
 	raise it and only proper carves get one. The cooldown stops a wobble at speed
 	turning into frantic tapping.
 ]]
 SkiConfig.EnablePolePlants = true
 
--- Deliberately low. A plant should feel like part of how you turn, not a rare
+-- Low. A plant should feel like part of how you turn, not a rare
 -- flourish, so anything that reads as a real turn earns one.
 SkiConfig.PolePlantLean = 0.18
 SkiConfig.PolePlantCooldown = 0.3
@@ -595,7 +595,7 @@ SkiConfig.PolePlantCooldown = 0.3
 -- How long the whole plant takes, and how far the arm reaches. The reach is
 -- radians added to the shoulder, so it stacks on whatever pose is running.
 --
--- Most of the duration is spent HELD at full reach rather than travelling, so
+-- Most of the duration is spent held at full reach rather than travelling, so
 -- the tip sits in the snow while the turn comes round it. Raise the reach if
 -- the pole still looks like it's waving past rather than planting.
 SkiConfig.PolePlantDuration = 0.55
@@ -603,29 +603,29 @@ SkiConfig.PolePlantReach = 1.75
 
 -- There is no TuckHoverDrop any more. R6 has no knee, so every crouch is the
 -- legs angled forward from the hip, and how far that lowers you falls out of
--- the geometry -- see the hip values in SkiPose. Want a deeper tuck? Raise the
+-- the geometry. See the hip values in SkiPose. Want a deeper tuck? Raise the
 -- hip angle in the Tuck pose and the ride height follows on its own.
 
 --[[
 	Leave a slot empty to use the built-in procedural pose. Drop in an R6
 	animation id and that slot switches over instead, no other file changes.
 
-	Fill these in ONE AT A TIME as they arrive rather than waiting for all five.
-	An empty slot costs nothing -- the procedural pose it replaces is already
+	Fill these in one at a time as they arrive rather than waiting for all five.
+	An empty slot costs nothing: the procedural pose it replaces is already
 	there and already working.
 
-	Worth knowing: the procedural poses are LOCAL TO YOU. Joint changes made on
+	Worth knowing: the procedural poses are local to you. Joint changes made on
 	the client don't replicate, so other players see you riding unposed. Real
 	animations go through the Animator and do replicate, which is the reason to
 	fill these in eventually rather than living with the procedural ones.
 
-	WALKING IS THE ODD ONE OUT and works completely differently from the other
-	five. Riding/Braking/Tuck/Air are all things the SIM drives -- PlatformStand
+	Walking is the odd one out and works completely differently from the other
+	five. Riding/Braking/Tuck/Air are all things the sim drives. PlatformStand
 	is true and something has to pose the character, so those go through a
 	custom Animator track. Walking is the ordinary Humanoid walk with skis
 	welded on: PlatformStand is false and the character's own Animate script is
-	already doing the posing. So Walking doesn't add a competing system -- it
-	swaps which animation THAT system plays, via SkiShared.setWalkAnimation. Same
+	already doing the posing. So Walking doesn't add a competing system: it
+	swaps which animation that system plays, via SkiShared.setWalkAnimation. Same
 	place to paste an id, wired up underneath in a completely different way.
 ]]
 SkiConfig.Animations = {
@@ -638,18 +638,18 @@ SkiConfig.Animations = {
 }
 
 -- ============================================================
--- EFFECTS
+-- Effects
 -- ============================================================
 --
 -- All of this is local to you. Particles and camera changes made on the client
--- don't replicate, same as the poses -- so you see your own spray and not other
+-- don't replicate, same as the poses, so you see your own spray and not other
 -- people's. Making it shared means replicating scrub speed per player, which is
 -- a lot of traffic for something cosmetic.
 
 SkiConfig.EnableSpray = true
 
 --[[
-	Spray is driven by SIDEWAYS speed across the skis, not by how fast you're
+	Spray is driven by sideways speed across the skis, not by how fast you're
 	going. That is the honest measure: a dead-straight schuss at full tilt throws
 	almost nothing, and a hard carve throws a wall of it even at moderate speed.
 	Drive it off total speed instead and it just blasts constantly.
@@ -679,17 +679,17 @@ SkiConfig.LandingPuffSpeed = 45
 SkiConfig.LandingPuffCount = 30
 
 -- Camera stretch with speed. The cheapest thing there is for making fast feel
--- fast -- degrees added to the field of view at MaxSpeed, scaled by how fast
+-- fast, degrees added to the field of view at MaxSpeed, scaled by how fast
 -- you're actually going.
 SkiConfig.EnableSpeedFov = true
 SkiConfig.MaxFovBoost = 20
 SkiConfig.FovSmoothing = 0.35
 
 --[[
-	TRACKS LEFT IN THE SNOW.
+	Tracks left in the snow.
 
-	A ribbon drawn behind each ski. Unlike the spray, this runs off SPEED rather
-	than sideways scrub -- you leave a track wherever you go, not only where you
+	A ribbon drawn behind each ski. Unlike the spray, this runs off speed rather
+	than sideways scrub: you leave a track wherever you go, not only where you
 	turn. It cuts on rock for the same reason the spray does.
 
 	TrailLifetime is the one to watch. It's how many seconds a track lingers, and
@@ -704,12 +704,12 @@ SkiConfig.TrailColor = Color3.fromRGB(214, 228, 244)
 SkiConfig.TrailTransparency = 0.55
 
 --[[
-	WIND RUSH: streaks flying past the camera once you're properly moving.
+	Wind rush: streaks flying past the camera once you're properly moving.
 
-	The particles are stationary. They don't fly past you, you fly past THEM --
+	The particles are stationary. They don't fly past you, you fly past them,
 	which is why the effect scales itself honestly and needs no velocity maths.
 
-	Nothing happens below WindRushSpeed, on purpose. If it's always on it stops
+	Nothing happens below WindRushSpeed. If it's always on it stops
 	meaning anything, and the whole job of this effect is telling you when you've
 	crossed from fast into too fast.
 ]]
@@ -720,15 +720,15 @@ SkiConfig.WindRushTexture = "rbxasset://textures/particles/sparkles_main.dds"
 SkiConfig.WindRushColor = Color3.fromRGB(226, 240, 255)
 
 -- The number on screen. Local player only, and only while you're actually
--- sliding -- it has nothing to say while you're stood still.
+-- sliding: it has nothing to say while you're stood still.
 SkiConfig.EnableSpeedHud = true
 
 -- ============================================================
--- SOUND
+-- Sound
 -- ============================================================
 --
--- THE IDS THEMSELVES ARE AT THE VERY TOP OF THIS FILE, under "PUT YOUR SOUND
--- IDS HERE". Only the mixing lives down here.
+-- The IDS themselves are at the very top of this file, under "put your sound
+-- IDS here". Only the mixing lives down here.
 
 SkiConfig.EnableSound = true
 
@@ -745,12 +745,12 @@ SkiConfig.GlidePitchFast = 1.4
 SkiConfig.WindPitchSlow = 0.8
 SkiConfig.WindPitchFast = 1.25
 
--- Seconds of smoothing on volume and pitch. A time constant, not a duration --
+-- Seconds of smoothing on volume and pitch. A time constant, not a duration,
 -- without it every loop steps audibly as speed changes.
 SkiConfig.SoundSmoothing = 0.25
 
 -- ============================================================
--- CONTROLS
+-- Controls
 -- ============================================================
 
 -- Steering reads Humanoid.MoveDirection, so it already follows rebound keys,
@@ -763,17 +763,17 @@ SkiConfig.BrakeButton = Enum.KeyCode.ButtonL2
 SkiConfig.TuckButton = Enum.KeyCode.ButtonR2
 
 -- ============================================================
--- SHOWING OTHER PLAYERS
+-- Showing other players
 -- ============================================================
 --
 -- Poses, spray and sound are all built on the client, and none of that
--- replicates. So a skier is only posed, spraying and audible on their OWN
+-- replicates. So a skier is only posed, spraying and audible on their own
 -- screen unless the numbers driving those things are sent round.
 --
 -- Each client publishes five values; the server writes them as character
 -- attributes, which do replicate; everyone else renders from those.
 
--- How often those values go up, in seconds. This is not a physics rate -- the
+-- How often those values go up, in seconds. This is not a physics rate: the
 -- pose and the sound both smooth toward whatever they last heard, so ten times
 -- a second is plenty.
 SkiConfig.StateBroadcastRate = 0.1
@@ -790,7 +790,7 @@ SkiConfig.ScrubEpsilon = 1.5
 SkiConfig.LeanEpsilon = 0.05
 
 --[[
-	HOW FAR AWAY ANOTHER SKIER IS STILL WORTH DRAWING.
+	How far away another skier is still worth drawing.
 
 	Rendering someone else costs the same whether they fill your screen or are a
 	speck across the valley: six joint writes a frame, two emitters, two trails
@@ -800,7 +800,7 @@ SkiConfig.LeanEpsilon = 0.05
 	Two tiers, both measured from the camera.
 
 	  RemotePoseDistance   past this, stop posing them. Poses are the per-frame
-	                       cost AND the first thing to stop being legible: you
+	                       cost and the first thing to stop being legible: you
 	                       cannot tell a carve from a tuck on someone a hundred
 	                       studs away, but their spray and their tracks still
 	                       read fine.
@@ -813,12 +813,12 @@ SkiConfig.RemotePoseDistance = 140
 SkiConfig.RemoteCullDistance = 420
 
 -- ============================================================
--- EQUIP ZONES
+-- Equip zones
 -- ============================================================
 
 -- Tag any part with this (CollectionService, or the Tags section of the
 -- Properties panel) and touching it straps the skis on. Give the part an
--- attribute "SkiZoneRemoves" = true to make it take them off instead -- one tag
+-- attribute "SkiZoneRemoves" = true to make it take them off instead: one tag
 -- at the top of the run, one at the bottom.
 SkiConfig.ZoneTag = "SkiZone"
 SkiConfig.ZoneRemovesAttribute = "SkiZoneRemoves"

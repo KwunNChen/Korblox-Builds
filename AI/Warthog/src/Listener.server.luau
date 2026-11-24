@@ -91,45 +91,11 @@ engineSound.RollOffMaxDistance = 250
 engineSound.Parent = body
 
 --Tells the Effects script on each client where to draw the blast when it is destroyed.
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
+
 local vehicleFx = Instance.new("RemoteEvent")
 vehicleFx.Name = "VehicleFx"
 vehicleFx.Parent = car
-
---The crew are not hurt while inside: nothing gets to them until they get out or
---the car goes up, which kills them. A hidden ForceField stops anything that uses
---TakeDamage, damage that sets Health directly is undone, and the InVehicle
---attribute tells the Random Arty barrages to pass them over.
-local protected = {}
-
-local function protect(human)
-	local character = human.Parent
-	if protected[human] or not character then return end
-	local shield = Instance.new("ForceField")
-	shield.Name = "VehicleArmor"
-	shield.Visible = false
-	shield.Parent = character
-	character:SetAttribute("InVehicle",true)
-	local kept = human.Health
-	local guard = human.HealthChanged:Connect(function(health)
-		if health >= kept then
-			kept = health
-		elseif health > 0 then
-			human.Health = kept
-		end
-	end)
-	protected[human] = {shield = shield,guard = guard}
-end
-
-local function unprotect(human)
-	local entry = protected[human]
-	if not entry then return end
-	protected[human] = nil
-	entry.guard:Disconnect()
-	entry.shield:Destroy()
-	if human.Parent then
-		human.Parent:SetAttribute("InVehicle",nil)
-	end
-end
 
 for _,crewSeat in ipairs(car:GetDescendants()) do
 	if crewSeat:IsA("Seat") or crewSeat:IsA("VehicleSeat") then
@@ -138,13 +104,13 @@ for _,crewSeat in ipairs(car:GetDescendants()) do
 			local leaving = inside
 			inside = crewSeat.Occupant
 			if inside then
-				protect(inside)
+				kit.protect(inside)
 			end
 			if leaving and leaving ~= inside then
 				--Moving seats (the gunner taking the wheel) is not leaving.
 				task.delay(0.1,function()
 					if not (leaving.SeatPart and leaving.SeatPart:IsDescendantOf(car)) then
-						unprotect(leaving)
+						kit.unprotect(leaving)
 					end
 				end)
 			end
@@ -356,34 +322,11 @@ local RAM_DAMAGE = 4
 local RAM_COOLDOWN = 0.75
 
 local players = game:GetService("Players")
-local teams = game:GetService("Teams")
 local debris = game:GetService("Debris")
 local lastRammed = setmetatable({},{__mode = "k"})
 
---A player's team name, or the Team value an NPC carries. nil for no side.
-local function sideOf(model)
-	local player = players:GetPlayerFromCharacter(model)
-	if player then
-		return not player.Neutral and player.Team and player.Team.Name or nil
-	end
-	local settings = model:FindFirstChild("Settings")
-	local tag = model:FindFirstChild("Team") or (settings and settings:FindFirstChild("Team"))
-	if tag and tag.Value ~= "" then
-		return tag.Value
-	end
-	return nil
-end
-
---Whether an NPC leaves this player alone: Hostile never does, one on a Roblox
---team's name fights other teams, and any other follows its AttackPlayers.
-local function sparesPlayer(npcModel,npcSide,player)
-	if npcSide == "Hostile" then return false end
-	local robloxTeam = npcSide and teams:FindFirstChild(npcSide)
-	if robloxTeam and robloxTeam:IsA("Team") and player.Team and not player.Neutral then return false end
-	local settings = npcModel:FindFirstChild("Settings")
-	local attackPlayers = settings and settings:FindFirstChild("AttackPlayers")
-	return attackPlayers ~= nil and not attackPlayers.Value
-end
+local sides = require(script.Parent:WaitForChild("Sides"))
+local sideOf,sparesPlayer = sides.sideOf,sides.sparesPlayer
 
 local function ram(driver,victim)
 	local victimModel = victim.Parent
@@ -503,7 +446,7 @@ while true do
 		--Nobody inside lives through it, and the bodies come out of their seats.
 		for _,part in ipairs(car:GetDescendants()) do
 			if (part:IsA("Seat") or part:IsA("VehicleSeat")) and part.Occupant then
-				unprotect(part.Occupant)
+				kit.unprotect(part.Occupant)
 				part.Occupant.Health = 0
 				local weld = part:FindFirstChild("SeatWeld")
 				if weld then

@@ -4,7 +4,7 @@
 
 	Built with Instance.new rather than cloned from a staged model. Every vanilla
 	TREK effect clones a `Particle` instance parented inside its own module, and
-	this deliberately does not: the entire look answers to GasConfig.Visual, so
+	this does not: the entire look answers to GasConfig.Visual, so
 	tuning the gas never means opening Studio and hunting for an emitter.
 
 	Created on the server and parented into the world, so every client sees the
@@ -77,7 +77,7 @@ end
 --[[
 	Spawn a cloud at `position`.
 
-	The anchor part is invisible, non-collidable and unqueryable -- it exists
+	The anchor part is invisible, non-collidable and unqueryable: it exists
 	only to carry attachments. It is parented into IgnoreList because TREK's
 	explosion sweep excludes that folder, so a later blast in the same area does
 	not try to damage the cloud.
@@ -124,7 +124,7 @@ function GasVisuals.create(position: Vector3, config): Handle
 		The hiss.
 
 		Parented to the anchor part rather than played globally, which is what
-		makes it positional -- gas is the one thing here that can hurt you from
+		makes it positional, gas is the one thing here that can hurt you from
 		outside your field of view, so being able to hear roughly where it is
 		matters.
 
@@ -149,6 +149,9 @@ function GasVisuals.create(position: Vector3, config): Handle
 		sound = created
 	end
 
+	-- Tagged with its reach, so NPCs that know the tag (Korblox's Bloxians) can get out.
+	anchor:SetAttribute("Radius", config.CloudRadius)
+	anchor:AddTag("GasCloud")
 	anchor.Parent = workspace:FindFirstChild("IgnoreList") or workspace
 
 	local self = setmetatable({
@@ -200,6 +203,7 @@ function GasVisuals:destroy()
 		return
 	end
 	self._dead = true
+	self._anchor:RemoveTag("GasCloud")
 
 	for _, emitter in ipairs(self._emitters) do
 		emitter.Enabled = false

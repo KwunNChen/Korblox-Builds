@@ -28,7 +28,6 @@ local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local debris = game:GetService("Debris")
 local collectionService = game:GetService("CollectionService")
-local serverStorage = game:GetService("ServerStorage")
 
 --Driving: top speed forward and in reverse (studs/s), how fast it gets there
 --(studs/s gained each second), turn rate at full lock (degrees/s), and the
@@ -76,16 +75,13 @@ local ROCKET_HELI_DAMAGE = 1200
 
 --Flares, the same ones the Phantom's missiles meet, are the shared AirDefense module.
 
---How big a rocket's burst is next to a shell's impact (Random Arty's
---ArtilleryBlast), and the size of the plain explosion used without it.
+--How big a rocket's burst is next to a shell's impact (Random Arty's ArtilleryBlast).
 local ROCKET_BLAST_SCALE = 0.6
-local BLAST_RADIUS = 22
 
---Sounds: each rocket's launch (the Javelin's), the engine loop (pitched with
---speed while someone drives) and the blast used without Random Arty.
+--Sounds: each rocket's launch (the Javelin's) and the engine loop (pitched with
+--speed while someone drives).
 local LAUNCH_SOUND = "rbxassetid://112204190873336"
 local ENGINE_SOUND = "rbxassetid://17485939810"
-local BLAST_SOUND = "rbxassetid://73652976704676"
 local LAUNCH_VOLUME = 2
 local ENGINE_VOLUME = 1
 local ENGINE_PITCH = {1.1, 1.5}
@@ -107,6 +103,7 @@ local WRECK_VEHICLE_DAMAGE = 200
 
 local sides = require(script.Parent:WaitForChild("Sides"))
 local airDefense = require(script.Parent:WaitForChild("AirDefense"))
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
 local FRIENDLY = sides.FRIENDLY
 local JET_TAG = sides.JET_TAG
 local GUNSHIP_TAG = sides.GUNSHIP_TAG
@@ -259,41 +256,6 @@ local seats = {
 	{seat = gunnerSeat, door = hull.SideDoor, action = "Run the launcher"},
 }
 
---The crew are not hurt while inside, the same as in the Abrams: a hidden
---ForceField, damage that sets Health directly undone, and the InVehicle
---attribute for the Random Arty barrages.
-local protected = {}
-
-local function protect(human)
-	local character = human.Parent
-	if protected[human] or not character then return end
-	local shield = Instance.new("ForceField")
-	shield.Name = "VehicleArmor"
-	shield.Visible = false
-	shield.Parent = character
-	character:SetAttribute("InVehicle",true)
-	local kept = human.Health
-	local guard = human.HealthChanged:Connect(function(health)
-		if health >= kept then
-			kept = health
-		elseif health > 0 then
-			human.Health = kept
-		end
-	end)
-	protected[human] = {shield = shield,guard = guard}
-end
-
-local function unprotect(human)
-	local entry = protected[human]
-	if not entry then return end
-	protected[human] = nil
-	entry.guard:Disconnect()
-	entry.shield:Destroy()
-	if human.Parent then
-		human.Parent:SetAttribute("InVehicle",nil)
-	end
-end
-
 --Both seats sit inside the cab, where nobody can walk up to them. Players get
 --in through a prompt at each door, and anyone leaving is put down outside it.
 for _,entry in ipairs(seats) do
@@ -318,13 +280,13 @@ for _,entry in ipairs(seats) do
 		local leaving = inside
 		inside = entry.seat.Occupant
 		if inside then
-			protect(inside)
+			kit.protect(inside)
 		end
 		if not leaving or leaving == inside then return end
 		--Moving seats (the gunner taking the wheel) is not leaving.
 		task.delay(0.1,function()
 			if leaving.SeatPart and leaving.SeatPart:IsDescendantOf(truck) then return end
-			unprotect(leaving)
+			kit.unprotect(leaving)
 			local root = leaving.RootPart
 			if leaving.SeatPart or not root or not root.Parent then return end
 			local door = entry.door.WorldPosition
@@ -336,52 +298,6 @@ for _,entry in ipairs(seats) do
 end
 
 ---------------------------------------------------------------- sides
-
-local sideOf,sparesPlayer = sides.sideOf,sides.sparesPlayer
-
---Never the crew or the attacker's own side, and an NPC spares the players it
---would not shoot.
-local function canHurt(attacker,victim)
-	local victimModel = victim.Parent
-	if not victimModel or victim.Health <= 0 or victimModel:IsDescendantOf(truck) then return false end
-	if victim.SeatPart and victim.SeatPart:IsDescendantOf(truck) then return false end
-	if not attacker then return true end
-	if attacker == victimModel then return false end
-	local attackerSide = sideOf(attacker)
-	if attackerSide and attackerSide == sideOf(victimModel) then return false end
-	local victimPlayer = players:GetPlayerFromCharacter(victimModel)
-	if not players:GetPlayerFromCharacter(attacker) and victimPlayer and sparesPlayer(attacker,attackerSide,victimPlayer) then
-		return false
-	end
-	return true
-end
-
-local function hurt(attacker,victim,damage,counter)
-	--Kill credit for a player, the way Roblox weapons tag it.
-	local player = attacker and players:GetPlayerFromCharacter(attacker)
-	if player then
-		local creator = Instance.new("ObjectValue")
-		creator.Name = "creator"
-		creator.Value = player
-		creator.Parent = victim
-		debris:AddItem(creator,2)
-	end
-	victim:TakeDamage(damage)
-	--A Bloxian crew watches these to know they got one.
-	if victim.Health <= 0 and counter then
-		truck:SetAttribute(counter,(truck:GetAttribute(counter) or 0) + 1)
-	end
-end
-
---A live character (not a vehicle that happens to have a Humanoid).
-local function personOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	local victim = model and model:FindFirstChildOfClass("Humanoid")
-	if victim and victim.RootPart and not model:IsDescendantOf(truck) then
-		return victim
-	end
-	return nil
-end
 
 --The side the launcher fights for: whoever sits at it. A Bloxian's blank team
 --is Hostile; a player is on his Roblox team, else Friendly.
@@ -402,35 +318,6 @@ local hurtAircraft = airDefense.hurtAircraft
 
 ---------------------------------------------------------------- rockets
 
---Random Arty's shell impact when it is installed (ServerStorage.ArtilleryBlast),
---else a plain explosion and boom. scale: 1 is a shell's impact.
-local function blastFx(position,scale)
-	local artilleryBlast = serverStorage:FindFirstChild("ArtilleryBlast")
-	if artilleryBlast then
-		artilleryBlast:Fire(position,scale or 1)
-		return
-	end
-	local explosion = Instance.new("Explosion")
-	explosion.Position = position
-	explosion.BlastRadius = BLAST_RADIUS*(scale or 1)
-	explosion.BlastPressure = 0
-	explosion.DestroyJointRadiusPercent = 0
-	explosion.ExplosionType = Enum.ExplosionType.NoCraters
-	explosion.Parent = workspace
-
-	local holder = Instance.new("Attachment")
-	holder.WorldPosition = position
-	holder.Parent = workspace.Terrain
-	local sound = Instance.new("Sound")
-	sound.SoundId = BLAST_SOUND
-	sound.Volume = 2
-	sound.RollOffMinDistance = 30
-	sound.RollOffMaxDistance = 2000
-	sound.Parent = holder
-	sound:Play()
-	debris:AddItem(holder,6)
-end
-
 local plainPart,addTrail = airDefense.plainPart,airDefense.addTrail
 
 --One rocket off the rails at target, steering for it once clear. The target
@@ -447,6 +334,7 @@ local function launchRocket(target)
 	flame.Brightness = 3
 	flame.Parent = rocket
 	rocket.Parent = workspace
+	debris:AddItem(rocket,ROCKET_LIFE + 1)
 
 	local bang = launchSound:Clone()
 	bang.Parent = trunnion
@@ -455,6 +343,8 @@ local function launchRocket(target)
 	vehicleFx:FireAllClients("muzzle",CFrame.lookAt(rocket.Position,rocket.Position + launch.LookVector))
 
 	target:SetAttribute("MissileInbound",(target:GetAttribute("MissileInbound") or 0) + 1)
+	--The count above only comes back down from this script: past this, readers ignore it.
+	target:SetAttribute("MissileInboundUntil",math.max(target:GetAttribute("MissileInboundUntil") or 0,workspace:GetServerTimeNow() + ROCKET_LIFE + 1))
 	target:SetAttribute("ThreatAt",launch.Position)
 	airDefense.velocityOf(target)
 	local chasing = nil --a chaff cloud it was pulled onto
@@ -486,7 +376,7 @@ local function launchRocket(target)
 			end
 			--Through the flares: it goes off on one instead of the aircraft.
 			if airDefense.touchedFlare(target,rocket.Position,"radar") then
-				blastFx(rocket.Position,ROCKET_BLAST_SCALE)
+				kit.blastFx(rocket.Position,ROCKET_BLAST_SCALE)
 				finish()
 				return
 			end
@@ -494,7 +384,7 @@ local function launchRocket(target)
 				if not chasing then
 					hurtAircraft(target,ROCKET_PLANE_DAMAGE,ROCKET_HELI_DAMAGE)
 				end
-				blastFx(rocket.Position,ROCKET_BLAST_SCALE)
+				kit.blastFx(rocket.Position,ROCKET_BLAST_SCALE)
 				finish()
 				return
 			end
@@ -508,7 +398,7 @@ local function launchRocket(target)
 		local position = rocket.Position + forward*ROCKET_SPEED*dt
 		rocket.CFrame = CFrame.lookAt(position,position + forward)
 		if age > ROCKET_LIFE then
-			blastFx(position,ROCKET_BLAST_SCALE)
+			kit.blastFx(position,ROCKET_BLAST_SCALE)
 			finish()
 		end
 	end)
@@ -612,7 +502,8 @@ task.spawn(function()
 		end
 		if target then
 			truck:SetAttribute("AATarget",target.Name)
-			local inbound = target:GetAttribute("MissileInbound") or 0
+			local inbound = workspace:GetServerTimeNow() < (target:GetAttribute("MissileInboundUntil") or 0)
+				and target:GetAttribute("MissileInbound") or 0
 			if rocketsLeft > 0 and os.clock() >= nextSalvo and inbound < MAX_INBOUND then
 				nextSalvo = os.clock() + SALVO_INTERVAL
 				task.spawn(salvo,target)
@@ -635,7 +526,7 @@ local function cast(fn)
 	for _ = 1,4 do
 		local result = fn()
 		if not result then return nil end
-		local person = personOf(result.Instance)
+		local person = kit.personOf(truck,result.Instance)
 		if not person then return result end
 		castParams:AddToFilter(person.Parent)
 	end
@@ -762,14 +653,14 @@ local function crush()
 	local now = os.clock()
 	local seen = {}
 	for _,part in ipairs(workspace:GetPartBoundsInBox(hull.CFrame,hull.Size + Vector3.new(2,0,2),crushParams)) do
-		local victim = personOf(part)
+		local victim = kit.personOf(truck,part)
 		if victim and not seen[victim] then
 			seen[victim] = true
 			local offset = flat(victim.RootPart.Position - hull.Position)
 			local closing = offset.Magnitude > 0.1 and velocity:Dot(offset.Unit) or 0
-			if closing >= CRUSH_MIN_SPEED and now - (lastCrushed[victim] or 0) > CRUSH_COOLDOWN and canHurt(driver.Parent,victim) then
+			if closing >= CRUSH_MIN_SPEED and now - (lastCrushed[victim] or 0) > CRUSH_COOLDOWN and kit.canHurt(truck,driver.Parent,victim) then
 				lastCrushed[victim] = now
-				hurt(driver.Parent,victim,CRUSH_BASE_DAMAGE + (closing - CRUSH_MIN_SPEED)*CRUSH_DAMAGE,"Roadkills")
+				kit.hurt(truck,driver.Parent,victim,CRUSH_BASE_DAMAGE + (closing - CRUSH_MIN_SPEED)*CRUSH_DAMAGE,"Roadkills")
 			end
 		end
 	end
@@ -785,31 +676,19 @@ local function respawn()
 	truck:Destroy()
 end
 
---The vehicle (tagged BloxianVehicle or MarineVehicle) a part belongs to, other than this one.
-local function vehicleOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	while model do
-		if model ~= truck and (model:HasTag("BloxianVehicle") or model:HasTag("MarineVehicle")) then
-			return model
-		end
-		model = model:FindFirstAncestorOfClass("Model")
-	end
-	return nil
-end
-
 --Its own blast going up hurts everyone near it, and any vehicle.
 local function wreckBlast(at)
 	local damaged = {}
 	for _,part in ipairs(workspace:GetPartBoundsInRadius(at,WRECK_RADIUS)) do
-		local victim = personOf(part)
+		local victim = kit.personOf(truck,part)
 		if victim and not damaged[victim] then
 			damaged[victim] = true
-			if canHurt(nil,victim) then
+			if kit.canHurt(truck,nil,victim) then
 				local share = math.clamp((victim.RootPart.Position - at).Magnitude/WRECK_RADIUS,0,1)
-				hurt(nil,victim,WRECK_DAMAGE + (WRECK_EDGE_DAMAGE - WRECK_DAMAGE)*share)
+				kit.hurt(truck,nil,victim,WRECK_DAMAGE + (WRECK_EDGE_DAMAGE - WRECK_DAMAGE)*share)
 			end
 		end
-		local car = not victim and vehicleOf(part)
+		local car = not victim and kit.vehicleOf(truck,part)
 		if car and not damaged[car] then
 			damaged[car] = true
 			local carHuman = car:FindFirstChildOfClass("Humanoid")
@@ -892,7 +771,7 @@ local function destroyed()
 	--Nobody inside lives through it.
 	for _,seat in ipairs({driverSeat,gunnerSeat}) do
 		if seat.Occupant then
-			unprotect(seat.Occupant)
+			kit.unprotect(seat.Occupant)
 			seat.Occupant.Health = 0
 		end
 	end
@@ -900,7 +779,6 @@ local function destroyed()
 	wreckBlast(hull.Position)
 	char()
 	burn(hull,14)
-	burn(turretRing,8)
 	task.spawn(tossLauncher)
 
 	--The bodies come out of their seats a moment later.

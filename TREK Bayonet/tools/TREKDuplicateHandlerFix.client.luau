@@ -1,26 +1,26 @@
 --[[
-	TREK DUPLICATE HANDLER GUARD
+	TREK duplicate handler guard
 
-	LocalScript. Put it in StarterPlayerScripts. Not part of the bayonet -- it
+	LocalScript. Put it in StarterPlayerScripts. Not part of the bayonet: it
 	lives here because this is where it got written.
 
 	--------------------------------------------------------------------------
-	THE SYMPTOM
+	The symptom
 	--------------------------------------------------------------------------
 
 	Sprint sometimes does nothing. No error, no message.
 
 	--------------------------------------------------------------------------
-	WHY
+	Why
 	--------------------------------------------------------------------------
 
 	MovementHandler connects UserInputService.InputBegan, and on the sprint key
-	calls controls.sprint(), whose operative line is a TOGGLE:
+	calls controls.sprint(), whose operative line is a toggle:
 
 		controls.sprintstate.Value = not controls.sprintstate.Value
 
 	Run that script twice and one keypress flips SprintEnabled on and straight
-	back off. Sprint is dead, silently, because nothing errored -- a toggle is
+	back off. Sprint is dead, silently, because nothing errored: a toggle is
 	the one primitive that fails invisibly under duplication.
 
 	The startup log shows it happening:
@@ -38,7 +38,7 @@
 	One surviving connection means sprint works. Two means it does not.
 
 	--------------------------------------------------------------------------
-	WHICH COPY IS THE REAL ONE
+	Which copy is the real one
 	--------------------------------------------------------------------------
 
 	The character's. TREK's own Gun handler says so:
@@ -47,15 +47,15 @@
 		local controls = require(chr:WaitForChild('OneLifeScripts')
 			:WaitForChild('ControlsModule'))
 
-	It expects OneLifeScripts as a child of the CHARACTER. So a MovementHandler
-	running from PlayerGui -- which is where ForceClientInstall puts its copies
+	It expects OneLifeScripts as a child of the character. So a MovementHandler
+	running from PlayerGui, which is where ForceClientInstall puts its copies
 	-- is the stray, and it is also the copy whose siblings are erroring.
 
 	This disables strays before they run and leaves the character's copy alone.
 	If nothing is duplicated it does nothing and says nothing.
 
 	--------------------------------------------------------------------------
-	CONFIDENCE
+	Confidence
 	--------------------------------------------------------------------------
 
 	The double-load is certain: it is in the log twice. The claim that the
@@ -95,7 +95,7 @@ local function consider(inst: Instance)
 	end
 
 	-- The character's copy is the legitimate one. Anything else under the
-	-- player -- PlayerGui, Backpack, PlayerScripts -- is a stray install.
+	-- player, PlayerGui, Backpack, PlayerScripts, is a stray install.
 	local chr = player.Character
 	if chr and inst:IsDescendantOf(chr) then
 		return

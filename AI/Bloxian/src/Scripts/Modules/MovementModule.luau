@@ -65,6 +65,8 @@ end
 --DETOUR_LENGTH_COST of a stud in view. At most EXPOSURE_SAMPLES points of a
 --route are checked.
 local DETOUR_MIN = 40
+--Fewer path turns than this left in the shared budget (a fight with many moving): the direct route.
+local DETOUR_BUDGET = PATHS_PER_SECOND/4
 local EXPOSED_SHARE = 0.4
 local DETOUR_OFFSET = 30
 local DETOUR_LENGTH_COST = 0.3
@@ -117,7 +119,8 @@ end
 local function saferRoute(pathObject,waypoints,goal)
 	local target = status:get("currentTarget")
 	--Running from artillery, the shortest way out beats a covered one.
-	if not target or not target.Parent or #waypoints < 2 or status:get("evacuating") then return waypoints end
+	if not target or not target.Parent or #waypoints < 2 or status:get("evacuating")
+		or pathBudget.tokens < DETOUR_BUDGET then return waypoints end
 	local length = pathLength(waypoints)
 	local share = exposedShare(waypoints,target)
 	if length < DETOUR_MIN or share <= EXPOSED_SHARE then return waypoints end

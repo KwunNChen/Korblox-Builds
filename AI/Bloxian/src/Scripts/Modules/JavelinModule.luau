@@ -1,5 +1,5 @@
 --[[
-	The AT team's Javelin.
+	The at team's Javelin.
 
 	The Rocketeer carries a launcher slung on his back and his carbine for
 	everything else. When an enemy-crewed vehicle is in sight and in range, he
@@ -10,7 +10,7 @@
 
 	In a team on its own, with nothing in sight he hunts; a team a squad brought
 	stays with that squad instead (SpecialTeamModule). Every other soldier who sees an enemy
-	vehicle calls it out ("Armor! Get AT on it!") and reports it to his side;
+	vehicle calls it out ("Armor! Get at on it!") and reports it to his side;
 	the Rocketeer takes the nearest fresh report within HUNT_RANGE, says he is
 	moving, and walks toward it until he can see it. With nothing reported he
 	patrols around where he was put down. He stands still while reloading.
@@ -87,6 +87,8 @@ local LOCK_TIME = 1.5
 local RELOAD_WITH_LOADER = 15
 local RELOAD_ALONE = 30
 local LOADER_RANGE = 12
+--The same, for an at team in a squad: its loader moves in the wedge, up to a squad's leash away.
+local SQUAD_LOADER_RANGE = 30
 
 --Missile speed in studs per second, and how high the top-attack climb goes:
 --CLIMB of the distance, between MIN_CLIMB and MAX_CLIMB studs.
@@ -329,12 +331,16 @@ local function explode(position,hitCar)
 end
 
 --Lets a vehicle know a missile is on its way (MissileInbound, from ThreatAt) so
---its crew can pop smoke. Aircraft have flares of their own.
+--its crew can pop smoke. Aircraft have flares of their own. The count only comes
+--back down from this soldier's script, so it is stale after MissileInboundUntil:
+--WARN_TIME covers the lock and the longest flight.
+local WARN_TIME = 15
 local function warnCar(car,change)
 	if not car or not car.Parent or car:HasTag(AIRCRAFT_TAG) then return end
 	car:SetAttribute("MissileInbound",math.max((car:GetAttribute("MissileInbound") or 0) + change,0))
 	if change > 0 then
 		car:SetAttribute("ThreatAt",myRoot.Position)
+		car:SetAttribute("MissileInboundUntil",math.max(car:GetAttribute("MissileInboundUntil") or 0,workspace:GetServerTimeNow() + WARN_TIME))
 	end
 end
 
@@ -344,6 +350,7 @@ local function flyMissile(start,aimPart,car)
 	warnCar(car,1)
 	local missile = makePart("JavelinMissile",Vector3.new(1.4,0.3,0.3),CFrame.new(start),OLIVE,Enum.PartType.Cylinder,workspace)
 	missile.Anchored = true
+	Debris:AddItem(missile,13)
 	local tail = Instance.new("Attachment")
 	tail.Position = Vector3.new(0.7,0.12,0)
 	tail.Parent = missile
@@ -756,7 +763,8 @@ local function runRocketeer()
 				end)
 
 				local loader = specialTeam.partner("Loader")
-				local nearby = loader and (loader.root.Position - myRoot.Position).Magnitude <= LOADER_RANGE
+				local reach = marine:GetAttribute("AttachedTo") and SQUAD_LOADER_RANGE or LOADER_RANGE
+				local nearby = loader and (loader.root.Position - myRoot.Position).Magnitude <= reach
 				local reload = nearby and RELOAD_WITH_LOADER or RELOAD_ALONE
 				log("attack","Javelin: reloading ("..reload.." s)")
 				task.delay(reload,function()

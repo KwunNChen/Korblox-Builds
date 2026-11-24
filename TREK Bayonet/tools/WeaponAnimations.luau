@@ -1,10 +1,10 @@
 --[[
 	Creates the bayonet fire mode's animation instances on a weapon.
 
-	NOT a lune script. Paste it into the Studio COMMAND BAR in EDIT MODE.
+	Not a lune script. Paste it into the Studio command bar in edit mode.
 
 	--------------------------------------------------------------------------
-	WHY THIS EXISTS
+	Why this exists
 	--------------------------------------------------------------------------
 
 	TREK Custom Bullets picks animations by mode prefix:
@@ -12,8 +12,8 @@
 		determineAnim:  animations[tostring(currentMode) .. anim] or animations[anim]
 
 	So an Animation named "2Recoil" plays on a bayonet swing while "Recoil"
-	still plays when the rifle fires. The lookup is by NAME, and the instances
-	live inside the weapon's config module, which is place content -- it is not
+	still plays when the rifle fires. The lookup is by name, and the instances
+	live inside the weapon's config module, which is place content: it is not
 	in this repo and not synced by Rojo.
 
 	That makes the ids easy to lose. Keeping them here means the animation setup
@@ -21,22 +21,22 @@
 	and never written down.
 
 	--------------------------------------------------------------------------
-	AFTER RUNNING IT
+	After running it
 	--------------------------------------------------------------------------
 
-	Save the place and RESTART the playtest. SetUpGuns caches every weapon
+	Save the place and restart the playtest. SetUpGuns caches every weapon
 	module at server start, so an edit to Workspace."Installer " never reaches a
 	session that is already running.
 
-	TO ITERATE WITHOUT RESTARTING, edit the RUNTIME copy instead:
+	To iterate without restarting, edit the runtime copy instead:
 
 		ReplicatedStorage.TREK_SERVICES.GunConfigs.<weapon>.Animations
 
-	then unequip and re-equip. loadAnimations re-reads that folder on EVERY
+	then unequip and re-equip. loadAnimations re-reads that folder on every
 	equip: its `if animsLoaded then return end` guard is dead, because nothing in
 	the handler ever assigns animsLoaded, and onUnEquip calls clearAnimations.
 
-	Copy whatever works back into ANIMATIONS above -- the runtime copy is thrown
+	Copy whatever works back into ANIMATIONS above: the runtime copy is thrown
 	away when the session ends.
 ]]
 
@@ -48,16 +48,16 @@ local ANIMATIONS = {
 	--
 	-- Third id for this pose. The first two came out wrong because the gun was
 	-- not attached to the editing rig at all, so neither had an AnimPart track
-	-- -- and with TREK's identity toolAnim joint, no track means the whole
+	--, and with TREK's identity toolAnim joint, no track means the whole
 	-- weapon parks at the torso origin. It reads as "upside down" but nothing
-	-- was rotated; the gun simply had no pose to sit in.
+	-- was rotated; the gun had no pose to sit in.
 	["2Idle"] = 84114589119244,
 
 	--[[
-		The sprinting pose, and deliberately the SAME asset as the idle.
+		The sprinting pose, and the same asset as the idle.
 
 		Verified by reading the published sequence: its tracks are AnimPart,
-		Bolt, HumanoidRootPart, Left Arm, Right Arm and Torso -- no legs. An
+		Bolt, HumanoidRootPart, Left Arm, Right Arm and Torso: no legs. An
 		animation only overrides the joints it keyframes, so the legs stay on
 		whatever the Animate script is running and you get the bayonet stance
 		on top of a normal run.
@@ -65,7 +65,7 @@ local ANIMATIONS = {
 		Had it carried leg poses they would freeze mid-stride, and the fix would
 		be tools/StripLegTracks.luau followed by a republish.
 
-		Sharing the asset ALSO shares its AnimationPriority, and that turned out to
+		Sharing the asset also shares its AnimationPriority, and that turned out to
 		matter more than the leg tracks did. 2Idle is Action; TREK's global Run is
 		Movement, as is the Patrol asset that vanilla SprintHold points at. Equal
 		priorities blend by weight, so rifle mode averaged its pose with Run and
@@ -74,22 +74,22 @@ local ANIMATIONS = {
 
 		src/WeaponPosePriority.client.luau now raises weapon poses to Action at
 		runtime, so a replacement asset published at Movement will still behave. Do
-		not rely on that to be careless -- publish poses at Action anyway.
+		not rely on that to be careless, publish poses at Action anyway.
 	]]
 	["2SprintHold"] = 84114589119244,
 }
 
 --[[
-	The weapon is found by PATH, because nothing else about it is unique.
+	The weapon is found by path, because nothing else about it is unique.
 
 	Two heuristics were tried and both wrote the animations into the wrong
 	module, silently:
 
-	  * last ModuleScript in Workspace whose name contains "KR" and "61" --
+	  * last ModuleScript in Workspace whose name contains "KR" and "61",
 	    fine while exactly one copy exists, wrong the moment there are two.
 
-	  * the module carrying a known Idle animation id -- except TREK weapons
-	    SHARE animation ids. The KT-60 has the same Idle as the KR-61, so this
+	  * the module carrying a known Idle animation id, except TREK weapons
+	    Share animation ids. The KT-60 has the same Idle as the KR-61, so this
 	    configured the KT-60 instead.
 
 	Both failures look identical in game: the bayonet mode plays the rifle's
@@ -97,7 +97,7 @@ local ANIMATIONS = {
 
 	The installer's GunConfigs folder holds one module per weapon, named exactly
 	as the weapon is. That name, in that folder, is the only unique handle.
-	Mind the trailing space in "Installer " -- it is part of the instance name.
+	Mind the trailing space in "Installer ": it is part of the instance name.
 ]]
 local INSTALLER = "Installer "
 local WEAPON_NAME = 'KR-61 "Bonecrusher"'
@@ -145,9 +145,9 @@ for name, id in pairs(ANIMATIONS) do
 end
 
 --[[
-	Verify rather than assume. These instances have gone missing once already --
+	Verify rather than assume. These instances have gone missing once already:
 	an undo in another panel removes them just as happily as it removes a
-	keyframe -- and the failure is silent: the weapon plays the rifle's idle and
+	keyframe, and the failure is silent: the weapon plays the rifle's idle and
 	nothing is logged.
 ]]
 print("verifying:")

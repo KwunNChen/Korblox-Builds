@@ -6,7 +6,7 @@
 	Times the work one stab actually does: HitWindow / HitSampleInterval samples,
 	each measuring the blade and testing every nearby character's limbs.
 
-	READ THE NUMBERS WITH CARE. Two things they do not tell you:
+	Read the numbers with care. Two things they do not tell you:
 
 	  * workspace:GetPartBoundsInBox is an engine call with no equivalent here,
 	    so it is absent from these timings entirely. Its cost scales with the
@@ -18,9 +18,9 @@
 	    slower than the engine's. Every part.Position and part.CFrame read here
 	    costs orders of magnitude more than it does in Roblox, which inflates
 	    the per-part work and hides the cost of the things that were actually
-	    removed -- descendant walks and table allocations.
+	    removed, descendant walks and table allocations.
 
-	So treat this as a RATIO between two implementations on identical work, not
+	So treat this as a ratio between two implementations on identical work, not
 	as a per-stab cost. A change that does not move these numbers may still be
 	worth making, and a change that moves them a lot may be measuring lune.
 ]]
@@ -123,10 +123,10 @@ local SAMPLES = 11 -- HitWindow 0.35 / HitSampleInterval 0.03
 local STABS = 400
 
 --[[
-	THE BASELINE IS WRITTEN OUT IN FULL, on purpose.
+	The baseline is written out in full.
 
 	It would be easier to call Geometry.bladeBox and Geometry.deepestPart and
-	call that "before" -- but those are the optimised functions now, so that
+	call that "before", but those are the optimised functions now, so that
 	measures the caching alone and flatters the result. This is a transcription
 	of the code as it stood: descendants walked on every call, a fresh
 	Size.Magnitude per part, no destroyed-part check, no sphere reject, and the
@@ -245,11 +245,11 @@ end
 --[[
 	Two loads, because they are not the same problem.
 
-	TYPICAL is one person in front of you. The hitbox is about 4.5 x 5.5 x 5.6
-	studs, so one or two candidates is what a stab actually sees -- the query
+	Typical is one person in front of you. The hitbox is about 4.5 x 5.5 x 5.6
+	studs, so one or two candidates is what a stab actually sees: the query
 	cannot return characters who are not in the box.
 
-	CROWDED is six, which does not physically fit in that box but is what the
+	Crowded is six, which does not physically fit in that box but is what the
 	old six-stud report margin used to drag in, and is the shape of the load if
 	the box is ever widened.
 ]]

@@ -1,14 +1,14 @@
 --!strict
 --[[
-	WEAPON POSE PRIORITY
+	Weapon pose priority
 
 	LocalScript. Rojo puts it in StarterPlayerScripts.
 
-	Not bayonet-specific -- it fixes every TREK weapon in the place, including
+	Not bayonet-specific: it fixes every TREK weapon in the place, including
 	vanilla rifle mode. It lives here because this is where it was diagnosed.
 
 	--------------------------------------------------------------------------
-	THE BUG
+	The BUG
 	--------------------------------------------------------------------------
 
 	Sprinting plays two animations at once: TREK's global body/legs Run, and the
@@ -19,7 +19,7 @@
 		Run         Movement   1.00
 
 	Same priority, same weight. Roblox blends equal-priority tracks by weight,
-	so the arms and torso end up averaged halfway between the two poses -- the
+	so the arms and torso end up averaged halfway between the two poses: the
 	weapon reads as dropped, or as having no animation at all.
 
 	Idle is authored at Action, which is why standing still never showed this
@@ -31,14 +31,14 @@
 	accidental, not designed.
 
 	--------------------------------------------------------------------------
-	THE FIX, AND WHY IT IS THIS ONE
+	The fix, and why it is this one
 	--------------------------------------------------------------------------
 
 	AnimationTrack.Priority is writable at runtime, so a weapon pose can be
 	raised above Run without republishing anyone's animation and without editing
 	a single TREK script.
 
-	The alternative -- re-playing the track so it becomes the most recent -- is
+	The alternative, re-playing the track so it becomes the most recent, is
 	what pressing V does by accident, and it is a race: it only holds until
 	something plays Run again.
 
@@ -47,13 +47,13 @@
 	keyframes, and Run keeps the legs because SprintHold does not keyframe them.
 
 	--------------------------------------------------------------------------
-	SCOPE
+	Scope
 	--------------------------------------------------------------------------
 
 	Only tracks whose Animation instance lives in a weapon's Animations folder,
-	and only when they are BELOW Action. Raising something that was already
+	and only when they are below Action. Raising something that was already
 	going to win is pointless; raising something that was going to lose to Run
-	is the whole point. Nothing is ever lowered.
+	is what this is for. Nothing is ever lowered.
 ]]
 
 local Players = game:GetService("Players")
@@ -74,7 +74,7 @@ local DEBUG = false
 	Is this track a weapon's own pose?
 
 	The test is where the Animation instance lives, not its name. Names are not
-	reliable here -- the mode prefix means a weapon can carry SprintHold and
+	reliable here: the mode prefix means a weapon can carry SprintHold and
 	2SprintHold at once, and TREK weapons share animation ids between each
 	other, so an id-based test would match the wrong weapon.
 

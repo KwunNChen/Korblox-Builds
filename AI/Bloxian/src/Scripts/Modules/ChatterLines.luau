@@ -352,7 +352,7 @@ lines.replies.bail = {
 	"Out!", "Moving!", "Get clear!", "Run!", "Away from it!", "I'm out!",
 }
 
---A soldier who sees an enemy vehicle: armorAT when an AT team on his side can
+--A soldier who sees an enemy vehicle: armorAT when an at team on his side can
 --come for it, armor when there is none.
 lines.calls.armorAT = {
 	any = {
@@ -545,6 +545,10 @@ lines.replies.unitCall = {
 
 lines.calls.sniperHeard = {
 	any = {"Sniper! Get to cover!", "Sniper fire, get down!", "Sniper! Get behind something!"},
+}
+
+lines.calls.grenadeIncoming = {
+	any = {"Grenade! Move!", "Frag out, get clear!", "Grenade, grenade!", "Incoming frag!"},
 }
 
 lines.calls.counterSnipe = {

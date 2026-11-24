@@ -148,7 +148,7 @@ for name, fileList in pairs(animNames) do
 	configureAnimationSet(name, fileList)
 end	
 
--- ANIMATION
+-- Animation
 
 -- declarations
 local toolAnim = "None"

@@ -31,6 +31,9 @@
     },
     "Sides": {
       "$path": "../Shared/Sides.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
     }
   }
 }

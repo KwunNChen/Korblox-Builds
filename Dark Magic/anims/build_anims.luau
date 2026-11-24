@@ -1,6 +1,6 @@
 -- Builds the Dark Magic caster animations as KeyframeSequence .rbxm files, ready to upload as Animation assets.
 --   ~/.rokit/bin/lune.exe run anims/build_anims.luau      (from the Dark Magic folder)
--- Pose language and keyframe building follow fwjelaa's AnimKit (FWJ STUDIOS): {x, y, z[, px, py, pz]} degrees in
+-- Pose language and keyframe building follow fwjelaa's AnimKit (FWJ studios): {x, y, z[, px, py, pz]} degrees in
 -- the parent part's axes. +x arm forward / head up / torso back; +y turn left; +z right arm out, left arm across.
 -- The same poses were previewed in Studio (ServerStorage.Animations) before upload.
 
@@ -299,7 +299,7 @@ local function overlap(a, leadArm)
 	a:lag("Head", 3)
 end
 
--- UNIFORM: dip, sweep both arms up and back overhead, coil, then hurl forward stepping into it.
+-- Uniform: dip, sweep both arms up and back overhead, coil, then hurl forward stepping into it.
 do
 	local a = new("DM_Uniform", { length = 115, priority = "Action2" })
 	a:full(0, REST, "cubic_out")
@@ -318,7 +318,7 @@ do
 	table.insert(anims, a)
 end
 
--- MELT (HEX plays it too): hands drawn back low and coiled, palms shoved forward with a lunge,
+-- Melt (hex plays it too): hands drawn back low and coiled, palms shoved forward with a lunge,
 -- arms tremble as the fire takes the victim while the caster leans harder into it, then slumps.
 do
 	local a = new("DM_Melt", { length = 130, priority = "Action2" })
@@ -346,7 +346,7 @@ do
 	table.insert(anims, a)
 end
 
--- RAISE: wide stance, folded over the ground palms down, a straining hold, then both arms dragged up
+-- Raise: wide stance, folded over the ground palms down, a straining hold, then both arms dragged up
 -- as the dead climb out, the chest opening up to the sky.
 do
 	local a = new("DM_Raise", { length = 140, priority = "Action2" })
@@ -369,7 +369,7 @@ do
 	table.insert(anims, a)
 end
 
--- SOUL RIP: a clawed reach stepping in, straining and shaking, then a yank back to the chest that
+-- Soul rip: a clawed reach stepping in, straining and shaking, then a yank back to the chest that
 -- throws the weight onto the back foot and rocks the body.
 do
 	local a = new("DM_SoulRip", { length = 120, priority = "Action2" })
@@ -398,7 +398,7 @@ do
 	table.insert(anims, a)
 end
 
--- SHADOW STEP: arms wrapped tight across the chest, hunched low while sinking; then climbing back
+-- Shadow step: arms wrapped tight across the chest, hunched low while sinking; then climbing back
 -- out of the ground: reach up, grab the rim, haul the body over the lip with a knee coming up, stand.
 -- Timed to the server (shadowStep): sunk by ~f42, rising f54-f93.
 do

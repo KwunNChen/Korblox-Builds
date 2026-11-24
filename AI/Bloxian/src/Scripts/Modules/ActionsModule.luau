@@ -9,6 +9,7 @@ local PhysicsService = game:GetService("PhysicsService")
 --Required Modules
 local modules = script.Parent
 local status = require(modules.Status)
+local speed = require(modules.SpeedModule)
 local core = require(modules.CoreModule)
 local chatter = require(modules.ChatterModule)
 local weapon = require(modules.WeaponProfiles).current
@@ -155,7 +156,7 @@ function actions.aim()
 	status:set("weaponAimed",true)
 	myHuman.AutoRotate = false
 	bodyRotate.Enabled = true
-	myHuman.WalkSpeed = 10
+	speed.set(10)
 
 	while true do
 
@@ -170,14 +171,14 @@ function actions.aim()
 		local dist = math.max(core.checkDist(target,myTorso),1)
 		if core.checkSight(target) then
 			lastSeen = os.clock()
-			if myHuman.WalkSpeed == 16 and not status:get("closingIn") then
-				myHuman.WalkSpeed = 10
+			if speed.get() == 16 and not status:get("closingIn") then
+				speed.set(10)
 			end
 		elseif os.clock() - lastSeen > AIM_LINGER and not status:get("reloading") then
 			break
-		elseif myHuman.WalkSpeed == 10 then
+		elseif speed.get() == 10 then
 			--Nobody in sight: he runs, rifle up.
-			myHuman.WalkSpeed = 16
+			speed.set(16)
 		end
 
 		aimPos = target.Position
@@ -209,7 +210,7 @@ function actions.aim()
 
 	actions.resetHead()
 	bodyRotate.Enabled = false
-	myHuman.WalkSpeed = 16
+	speed.set(16)
 	myHuman.AutoRotate = true
 
 	--Rifle back to level: lying down it stays drawn, and would keep pointing
@@ -456,6 +457,8 @@ function actions.setStance(name,force)
 	stanceChangedAt = os.clock()
 	stance = name
 	marine:SetAttribute("Stance",name)
+	--Lying down he crawls: whatever sets his speed, he gets PRONE_SPEED of it.
+	speed.setProne(name == "prone" and PRONE_SPEED or nil)
 	--Torso, head, arms and rifle all lie on the ground prone.
 	local prone = name == "prone"
 	collectProneParts()
@@ -522,22 +525,6 @@ end
 --Prone when caught in the open with no cover (status proneUntil), or when his
 --team asks for it (status teamStance), if he can still see his target from
 --there. Up whenever he moves, rides or holds a knife, once STANCE_COOLDOWN allows.
-local function applyProneSpeed()
-	local usual = status:get("weaponAimed") and 10 or 16
-	if stance == "prone" then
-		myHuman.WalkSpeed = math.min(myHuman.WalkSpeed,usual*PRONE_SPEED)
-	elseif myHuman.WalkSpeed < usual then
-		myHuman.WalkSpeed = usual
-	end
-end
-
---Rushes, scrambles and breaking contact all set his speed: lying down, none of them count.
-myHuman:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-	if stance == "prone" then
-		applyProneSpeed()
-	end
-end)
-
 task.spawn(function()
 	while myHuman.Health > 0 and marine.Parent do
 		local want = "stand"
@@ -549,7 +536,6 @@ task.spawn(function()
 			want = keepSight(status:get("teamStance"))
 		end
 		actions.setStance(want,myHuman.Sit)
-		applyProneSpeed()
 		--Down and not aiming, keep the rifle's pivot level (the pose can leave it tipped).
 		if stance ~= "stand" and not status:get("weaponAimed") then
 			applyPose()

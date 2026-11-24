@@ -23,10 +23,10 @@ local clone = script.Parent:Clone()
 --Respawns go back where the tank was placed, not straight into Workspace.
 local homeParent = script.Parent.Parent
 
-local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local debris = game:GetService("Debris")
 local collectionService = game:GetService("CollectionService")
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
 
 --Driving: top speed forward and in reverse (studs/s), how fast it gets there
 --(studs/s gained each second) and turn rate (degrees/s).
@@ -292,42 +292,6 @@ local seats = {
 	{seat = gunnerSeat, door = hull.SideDoor, action = "Gunner's hatch"},
 }
 
---The crew are not hurt while inside: nothing gets to them until they get out or
---the tank goes up, which kills them. A hidden ForceField stops anything that uses
---TakeDamage, damage that sets Health directly is undone, and the InVehicle
---attribute tells the Random Arty barrages to pass them over.
-local protected = {}
-
-local function protect(human)
-	local character = human.Parent
-	if protected[human] or not character then return end
-	local shield = Instance.new("ForceField")
-	shield.Name = "VehicleArmor"
-	shield.Visible = false
-	shield.Parent = character
-	character:SetAttribute("InVehicle",true)
-	local kept = human.Health
-	local guard = human.HealthChanged:Connect(function(health)
-		if health >= kept then
-			kept = health
-		elseif health > 0 then
-			human.Health = kept
-		end
-	end)
-	protected[human] = {shield = shield,guard = guard}
-end
-
-local function unprotect(human)
-	local entry = protected[human]
-	if not entry then return end
-	protected[human] = nil
-	entry.guard:Disconnect()
-	entry.shield:Destroy()
-	if human.Parent then
-		human.Parent:SetAttribute("InVehicle",nil)
-	end
-end
-
 --Both seats sit inside the hull's collision, where nobody can walk up to them,
 --and someone leaving would pop out inside the tank. Players get in through a
 --prompt at each door, and anyone leaving is put down outside that door.
@@ -353,13 +317,13 @@ for _,entry in ipairs(seats) do
 		local leaving = inside
 		inside = entry.seat.Occupant
 		if inside then
-			protect(inside)
+			kit.protect(inside)
 		end
 		if not leaving or leaving == inside then return end
 		--Moving seats (the gunner taking the wheel) is not leaving.
 		task.delay(0.1,function()
 			if leaving.SeatPart and leaving.SeatPart:IsDescendantOf(tank) then return end
-			unprotect(leaving)
+			kit.unprotect(leaving)
 			local root = leaving.RootPart
 			if leaving.SeatPart or not root or not root.Parent then return end
 			local door = entry.door.WorldPosition
@@ -396,52 +360,6 @@ end)
 
 ---------------------------------------------------------------- who gets hurt
 
-local sides = require(script.Parent:WaitForChild("Sides"))
-local sideOf,sparesPlayer = sides.sideOf,sides.sparesPlayer
-
---Never the crew or the attacker's own side, and an NPC spares the players it
---would not shoot.
-local function canHurt(attacker,victim)
-	local victimModel = victim.Parent
-	if not victimModel or victim.Health <= 0 or victimModel:IsDescendantOf(tank) then return false end
-	if victim.SeatPart and victim.SeatPart:IsDescendantOf(tank) then return false end
-	if not attacker then return true end
-	if attacker == victimModel then return false end
-	local attackerSide = sideOf(attacker)
-	if attackerSide and attackerSide == sideOf(victimModel) then return false end
-	local victimPlayer = players:GetPlayerFromCharacter(victimModel)
-	if not players:GetPlayerFromCharacter(attacker) and victimPlayer and sparesPlayer(attacker,attackerSide,victimPlayer) then
-		return false
-	end
-	return true
-end
-
-local function hurt(attacker,victim,damage,counter)
-	--Kill credit for a player, the way Roblox weapons tag it.
-	local player = attacker and players:GetPlayerFromCharacter(attacker)
-	if player then
-		local creator = Instance.new("ObjectValue")
-		creator.Name = "creator"
-		creator.Value = player
-		creator.Parent = victim
-		debris:AddItem(creator,2)
-	end
-	victim:TakeDamage(damage)
-	--A Bloxian crew watches these to know they got one.
-	if victim.Health <= 0 then
-		tank:SetAttribute(counter,(tank:GetAttribute(counter) or 0) + 1)
-	end
-end
-
---A live character (not a vehicle that happens to have a Humanoid).
-local function personOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	local victim = model and model:FindFirstChildOfClass("Humanoid")
-	if victim and victim.RootPart and not model:IsDescendantOf(tank) then
-		return victim
-	end
-	return nil
-end
 
 ---------------------------------------------------------------- main gun
 
@@ -458,64 +376,26 @@ local function crew()
 	return list
 end
 
---The vehicle (tagged BloxianVehicle or MarineVehicle) a part belongs to, other than this one.
-local function vehicleOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	while model do
-		if model ~= tank and (model:HasTag("BloxianVehicle") or model:HasTag("MarineVehicle")) then
-			return model
-		end
-		model = model:FindFirstAncestorOfClass("Model")
-	end
-	return nil
-end
-
---A vehicle on the other side from the attacker: crewed by an enemy of his and no
---friend, or kept to another team. An empty one open to anyone is nobody's, so
---the gun never wrecks a vehicle someone might still take. The wreck going up
---(no attacker) hurts any vehicle near it.
-local function canHurtVehicle(attacker,car)
-	local human = car:FindFirstChildOfClass("Humanoid")
-	if not human or human.Health <= 0 then return false end
-	if not attacker then return true end
-	local enemyAboard = false
-	for _,name in ipairs({"VehicleSeat","Seat"}) do
-		local seat = car:FindFirstChild(name)
-		local occupant = seat and seat.Occupant
-		if occupant and occupant.Health > 0 then
-			if not canHurt(attacker,occupant) then
-				return false
-			end
-			enemyAboard = true
-		end
-	end
-	if enemyAboard then return true end
-	local settings = car:FindFirstChild("Settings")
-	local team = settings and settings:FindFirstChild("Team")
-	local side = sideOf(attacker)
-	return team ~= nil and team.Value ~= "" and side ~= nil and team.Value ~= side
-end
-
 --Damage is a plain radius check rather than an Explosion, which would also blow
 --a crater in terrain. What players see is drawn by Effects on each client.
 local function explode(position,attacker,kind,hitPart)
 	local damaged = {}
-	local direct = hitPart and vehicleOf(hitPart)
+	local direct = hitPart and kit.vehicleOf(tank,hitPart)
 	for _,part in ipairs(workspace:GetPartBoundsInRadius(position,BLAST_RADIUS)) do
-		local victim = personOf(part)
+		local victim = kit.personOf(tank,part)
 		if victim and not damaged[victim] then
 			damaged[victim] = true
-			if canHurt(attacker,victim) then
+			if kit.canHurt(tank,attacker,victim) then
 				local distance = (victim.RootPart.Position - position).Magnitude
 				local share = math.clamp(distance/BLAST_RADIUS,0,1)
-				hurt(attacker,victim,BLAST_DAMAGE + (BLAST_EDGE_DAMAGE - BLAST_DAMAGE)*share,"GunKills")
+				kit.hurt(tank,attacker,victim,BLAST_DAMAGE + (BLAST_EDGE_DAMAGE - BLAST_DAMAGE)*share,"GunKills")
 			end
 		end
 
-		local car = not victim and vehicleOf(part)
+		local car = not victim and kit.vehicleOf(tank,part)
 		if car and not damaged[car] then
 			damaged[car] = true
-			if canHurtVehicle(attacker,car) then
+			if kit.canHurtVehicle(tank,attacker,car) then
 				local human = car:FindFirstChildOfClass("Humanoid")
 				human:TakeDamage(SHELL_VEHICLE_DAMAGE*(car == direct and 1 or SHELL_VEHICLE_SPLASH))
 				if human.Health <= 0 then
@@ -598,7 +478,7 @@ local function cast(fn)
 	for _ = 1,4 do
 		local result = fn()
 		if not result then return nil end
-		local person = personOf(result.Instance)
+		local person = kit.personOf(tank,result.Instance)
 		if not person then return result end
 		castParams:AddToFilter(person.Parent)
 	end
@@ -637,7 +517,7 @@ local function barrelBlocked(trunnionCFrame)
 		for _ = 1,4 do
 			local result = workspace:Raycast(from,direction,barrelParams)
 			if not result then break end
-			local person = personOf(result.Instance)
+			local person = kit.personOf(tank,result.Instance)
 			if not person then return true end
 			barrelParams:AddToFilter(person.Parent)
 		end
@@ -765,14 +645,14 @@ local function crush()
 	local now = os.clock()
 	local seen = {}
 	for _,part in ipairs(workspace:GetPartBoundsInBox(hull.CFrame,hull.Size + Vector3.new(2,0,2),crushParams)) do
-		local victim = personOf(part)
+		local victim = kit.personOf(tank,part)
 		if victim and not seen[victim] then
 			seen[victim] = true
 			local offset = flat(victim.RootPart.Position - hull.Position)
 			local closing = offset.Magnitude > 0.1 and velocity:Dot(offset.Unit) or 0
-			if closing >= CRUSH_MIN_SPEED and now - (lastCrushed[victim] or 0) > CRUSH_COOLDOWN and canHurt(driver.Parent,victim) then
+			if closing >= CRUSH_MIN_SPEED and now - (lastCrushed[victim] or 0) > CRUSH_COOLDOWN and kit.canHurt(tank,driver.Parent,victim) then
 				lastCrushed[victim] = now
-				hurt(driver.Parent,victim,CRUSH_BASE_DAMAGE + (closing - CRUSH_MIN_SPEED)*CRUSH_DAMAGE,"Roadkills")
+				kit.hurt(tank,driver.Parent,victim,CRUSH_BASE_DAMAGE + (closing - CRUSH_MIN_SPEED)*CRUSH_DAMAGE,"Roadkills")
 			end
 		end
 	end
@@ -835,7 +715,7 @@ local function smokeCloud(at)
 	emitter.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,SMOKE_RADIUS*0.8),NumberSequenceKeypoint.new(1,SMOKE_RADIUS*1.6)})
 	emitter.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.15,0.1),NumberSequenceKeypoint.new(0.7,0.25),NumberSequenceKeypoint.new(1,1)})
 	emitter.Lifetime = NumberRange.new(5,8)
-	emitter.Rate = 12
+	emitter.Rate = 4
 	emitter.Speed = NumberRange.new(1,4)
 	emitter.SpreadAngle = Vector2.new(180,180)
 	emitter.Rotation = NumberRange.new(0,360)
@@ -846,7 +726,7 @@ local function smokeCloud(at)
 	emitter.Parent = cloud
 	cloud.Parent = workspace
 	collectionService:AddTag(cloud,"SmokeScreen")
-	emitter:Emit(25)
+	emitter:Emit(10)
 	--Debris, as the delay dies with this script if the tank goes first.
 	debris:AddItem(cloud,SMOKE_TIME + 9)
 	task.delay(SMOKE_TIME,function()
@@ -999,7 +879,7 @@ local function destroyed()
 	--Nobody inside lives through it.
 	for _,seat in ipairs({driverSeat,gunnerSeat}) do
 		if seat.Occupant then
-			unprotect(seat.Occupant)
+			kit.unprotect(seat.Occupant)
 			seat.Occupant.Health = 0
 		end
 	end
@@ -1015,7 +895,6 @@ local function destroyed()
 	explode(hull.Position,nil,"wreck")
 	char()
 	burn(hull,14)
-	burn(turretRing,8)
 	task.spawn(tossTurret)
 
 	--The bodies come out of their seats a moment later.

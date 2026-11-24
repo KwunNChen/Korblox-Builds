@@ -1,16 +1,16 @@
 --[[
 
-TERMINOLOGY:
-	TERMINAL: A HILL, AN OBJECTIVE, A POINT YOU CAPTURE TO INCREASE THE AMOUNT OF POINTS YOUR TEAM IS GETTING
-	TERMS: TERMINALS (SEE ABOVE)
-	ADMIN: THE ABILITY TO CONTROL THIS OBJECTIVE SYSTEM(START THE RAID, END THE RAID, CHANGE THE OBJECTIVE, ETC)
+Terminology:
+	Terminal: A hill, an objective, a point you capture to increase the amount of points your team is getting
+	Terms: Terminals (see above)
+	Admin: The ability to control this objective system(start the raid, end the raid, change the objective, etc)
 	
-SETTING UP YOUR TERMINALS:
+Setting up your terminals:
 	The folder called 'Points' houses your terminals. You can clone them to add more terminals and delete them
 	to reduce their amount.
 	Inside each terminal you have two configurable values: "Progress" and "Value"
 	
-	Progress has a MaxValue and MinValue. The MinValue HAS to be a negative number. The larger both of them are(or smaller in
+	Progress has a MaxValue and MinValue. The MinValue has to be a negative number. The larger both of them are(or smaller in
 	case of the MinValue), the longer it takes to capture that terminal.
 	
 	Value determines how much points the team owning the terminal will get every second
@@ -19,7 +19,7 @@ SETTING UP YOUR TERMINALS:
 	If the value doesn't exist, it'll try to use the X or Z sizes of the point.
 	If both sizes are under 1, it'll use a hardcoded distance of 16.
 
-CONFIGURING YOUR OBJECTIVE SYSTEM:
+Configuring your objective system:
 	The folder(displayed as a cogwheel icon as of roblox's last icons update) called 'Settings' houses all the configuration
 	for your system.
 
@@ -28,7 +28,7 @@ CONFIGURING YOUR OBJECTIVE SYSTEM:
 	this objective system. Anyone who is of the required rank in the required group will be able to start the raid,
 	end the raid, change the objective and set the raider and defender groups
 	You can also grant that power to individual users by using the UserId value. (change the value to a user's id)
-	NOTE: YOU CAN CLONE GROUPID AND USERID AS MUCH AS YOU WANT TO ADD MORE ADMIN GROUPS OR USERS
+	NOTE: You can clone GROUPID and USERID as much as you want to add more admin groups or users
 
 	
 	The "DefendingTeams", "NeutralTeams" and "RaidingTeams" folders represent team categories: defenders, raiders and neutrals
@@ -48,10 +48,10 @@ CONFIGURING YOUR OBJECTIVE SYSTEM:
 	color. In order to change the colour of the category, check the properties of the "DefendingTeams" and "RaidingTeams"
 	folders, both located in the Settings folder.
 
-ADMIN COMMANDS:
-	!begin - STARTS THE RAID
-	!end - ENDS THE RAID
-	!defenderId ID - SETS THE DEFENDING GROUP (REPLACE THE ID WITH THE ACTUAL GROUP ID)
-	!raiderId ID - SETS THE RAIDING GROUP (REPLACE THE ID WITH THE ACTUAL GROUP ID)
-	!score - SETS THE OBJECTIVE (AMOUNT OF SCORE REQUIRED TO WIN)
+Admin commands:
+	!begin - starts the raid
+	!end - ends the raid
+	!defenderId ID - sets the defending group (replace the ID with the actual group ID)
+	!raiderId ID - sets the raiding group (replace the ID with the actual group ID)
+	!score - sets the objective (amount of score required to win)
 ]]

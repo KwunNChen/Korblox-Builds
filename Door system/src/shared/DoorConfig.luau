@@ -6,14 +6,14 @@
 local DoorConfig = {}
 
 -- ============================================================
--- SETUP
+-- Setup
 -- ============================================================
 
 -- CollectionService tag that marks a door Model for this system.
 DoorConfig.DoorTag = "BlastDoor"
 
 -- Names of the two halves inside a tagged door Model. Each can be a single
--- BasePart or a Model (with any part arrangement -- PivotTo moves the whole
+-- BasePart or a Model (with any part arrangement. PivotTo moves the whole
 -- thing).
 DoorConfig.LeftPartName = "Left"
 DoorConfig.RightPartName = "Right"
@@ -27,7 +27,7 @@ DoorConfig.SlideAxis = "Z"
 DoorConfig.SlideDistance = 4
 
 -- ============================================================
--- MOTION
+-- Motion
 -- ============================================================
 
 DoorConfig.OpenTime = 4
@@ -36,7 +36,7 @@ DoorConfig.EasingStyle = Enum.EasingStyle.Quad
 DoorConfig.EasingDirection = Enum.EasingDirection.Out
 
 -- ============================================================
--- ACTIVATION
+-- Activation
 -- ============================================================
 
 -- "Proximity" | "Button" | "Both"
@@ -64,25 +64,25 @@ DoorConfig.ButtonRequiresLineOfSight = true
 DoorConfig.AutoCloseDelay = 6
 
 -- ============================================================
--- SOUND
+-- Sound
 -- ============================================================
 
 DoorConfig.EnableSound = true
 
--- Ships silent -- Roblox audio is private per place, paste your own ids in.
+-- Ships silent. Roblox audio is private per place, paste your own ids in.
 DoorConfig.OpenSoundId = "rbxassetid://113066589392010"
 DoorConfig.CloseSoundId = "rbxassetid://92664808815201"
 DoorConfig.OpenSoundVolume = 1
 DoorConfig.CloseSoundVolume = 1
 
 -- ============================================================
--- CRUSH KILL / MIST
+-- Crush kill / mist
 -- ============================================================
 
 DoorConfig.EnableCrushKill = true
 
 -- How narrow the gap between the halves has to be, in studs, before anyone
--- still standing in it dies. Raise it to kill earlier in the close -- set it
+-- still standing in it dies. Raise it to kill earlier in the close, set it
 -- to SlideDistance for "any presence at all while closing is fatal".
 DoorConfig.CrushGapThreshold = 4
 
@@ -111,7 +111,7 @@ DoorConfig.MistLifetimeMin = 0.8
 DoorConfig.MistLifetimeMax = 1.6
 DoorConfig.MistEffectLifetime = 4
 
--- Engine path, not an asset id -- see the note in ArtilleryConfig if this
+-- Engine path, not an asset id. See the note in ArtilleryConfig if this
 -- ever gets swapped out. A ParticleEmitter with no texture falls back to a
 -- white sparkle, not an empty puff.
 DoorConfig.MistTexture = "rbxasset://textures/particles/smoke_main.dds"
@@ -121,7 +121,7 @@ DoorConfig.MistSoundId = ""
 DoorConfig.MistSoundVolume = 1.2
 
 -- ============================================================
--- DEBUG
+-- Debug
 -- ============================================================
 
 DoorConfig.DebugLog = false

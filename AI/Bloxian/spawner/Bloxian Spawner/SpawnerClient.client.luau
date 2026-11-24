@@ -41,7 +41,7 @@ local OPTIONS = {
 	{key = "weapon", label = "Weapon", values = {"Random","Rifle","DMR","Carbine","LMG","Sniper"}},
 	{key = "radio", label = "Radioman", values = {"Random","Leader","None"}, names = {"Random","Leader","None"}},
 	--Each name is a preset in UniformModule.
-	{key = "uniform", label = "Uniform", values = {"Bloxia"}, columns = 1},
+	{key = "uniform", label = "Uniform", values = {"Bloxia","Korblox","KorbloxNaval"}, names = {"Bloxia","Korblox","Naval"}},
 }
 
 --Vehicles mode. The vehicle list comes from the server; send is the key the
@@ -560,7 +560,7 @@ tool.Activated:Connect(function()
 		return
 	end
 	local vehicles = vehiclesOn()
-	local options = {}
+	local OPTIONS = {}
 	for _,option in ipairs(vehicles and VEHICLE_OPTIONS or OPTIONS) do
 		options[option.send or option.key] = option.values[chosen[option.key]]
 	end

@@ -1,4 +1,4 @@
---SPEARHEAD guns damage this vehicle. Does nothing in a game without SPEARHEAD.
+--Spearhead guns damage this vehicle. Does nothing in a game without spearhead.
 --One copy, built into each vehicle package (next to a Sides).
 
 local players = game:GetService("Players")
@@ -8,7 +8,7 @@ local debris = game:GetService("Debris")
 local assets = replicatedStorage:FindFirstChild("SPH_Assets")
 if not assets then return end
 
---The folder SPEARHEAD's bullets treat as vehicles.
+--The folder spearhead's bullets treat as vehicles.
 local VEHICLE_FOLDER = "Vehicles"
 --Explosive rounds (RPG) multiply their damage by this against a vehicle, and
 --ignore its SmallArmsScale.

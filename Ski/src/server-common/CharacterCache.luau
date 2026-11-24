@@ -1,5 +1,5 @@
 -- Shared with Variable Snowstorm (WeatherRuntime, ThunderService). Ski does not
--- use this file itself -- do not delete it as dead code.
+-- use this file itself, do not delete it as dead code.
 
 local CharacterCache = {}
 

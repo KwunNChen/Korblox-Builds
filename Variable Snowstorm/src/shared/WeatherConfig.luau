@@ -9,7 +9,7 @@
 local WeatherConfig = {}
 
 -- ============================================================
--- STORM CYCLE  (server only)
+-- Storm cycle  (server only)
 -- ============================================================
 
 -- How long each phase lasts, in seconds. A random value inside the range is
@@ -21,7 +21,7 @@ WeatherConfig.PhaseDurations = {
 	Fading = NumberRange.new(40, 60),
 }
 
--- How often the server recomputes storm state. This is NOT a render loop --
+-- How often the server recomputes storm state. This is not a render loop,
 -- the client smooths between these values locally, so 4 ticks/second is plenty.
 WeatherConfig.ServerTickRate = 0.25
 
@@ -34,7 +34,7 @@ WeatherConfig.PeakWobbleAmount = 0.18
 WeatherConfig.PeakWobbleSpeed = 0.15
 
 -- ============================================================
--- WIND  (server computes, client consumes)
+-- Wind  (server computes, client consumes)
 -- ============================================================
 
 WeatherConfig.WindCalmSpeed = 6 -- studs/sec at intensity 0
@@ -48,7 +48,7 @@ WeatherConfig.WindGustAmount = 0.3 -- +/- fraction of speed a gust adds
 WeatherConfig.DriveGlobalWind = true
 
 -- ============================================================
--- SHELTER / ROOF DETECTION
+-- Shelter / roof detection
 -- ============================================================
 
 -- How far up we look for a roof. Anything higher than this is "open sky".
@@ -75,20 +75,20 @@ WeatherConfig.ShelterCheckInterval = 0.2
 WeatherConfig.ShelterSmoothing = 0.35
 
 -- Ignore parts with CanCollide off (decorative leaves, signs, effects) when
--- deciding what counts as a roof. Turn OFF if your builders make real roofs
+-- deciding what counts as a roof. Turn off if your builders make real roofs
 -- non-collidable.
 WeatherConfig.ShelterRespectCanCollide = true
 
 -- Server-side shelter check, used only by gameplay hooks. Deliberately
--- coarser and slower than the client's -- it is for damage logic, not visuals.
+-- coarser and slower than the client's: it is for damage logic, not visuals.
 WeatherConfig.ServerShelterInterval = 2
 
 -- ============================================================
--- PARTICLES  (client only)
+-- Particles  (client only)
 -- ============================================================
 
 -- Hard ceiling on live flakes at full intensity. Live count is roughly
--- Rate * average Lifetime, so MaxRate is derived from this -- tune this ONE
+-- Rate * average Lifetime, so MaxRate is derived from this, tune this one
 -- number to trade quality for framerate. Live particle count (and roughly its
 -- render cost) scales linearly with this value, so raise it in small steps.
 WeatherConfig.ParticleBudget = 1200
@@ -141,12 +141,12 @@ WeatherConfig.FlakeSizePeak = 0.55
 WeatherConfig.IntensityBuckets = 20
 
 -- ============================================================
--- LIGHTING  (client only -- applied locally, never replicated)
+-- Lighting  (client only, applied locally, never replicated)
 -- ============================================================
 
 WeatherConfig.EnableLightingEffects = true
 
-WeatherConfig.StormFogEnd = 250 -- FogEnd at full intensity -- lower reads as thicker
+WeatherConfig.StormFogEnd = 250 -- FogEnd at full intensity, lower reads as thicker
 WeatherConfig.StormFogColor = Color3.fromRGB(198, 210, 226)
 WeatherConfig.StormOutdoorAmbient = Color3.fromRGB(105, 115, 130)
 WeatherConfig.StormAtmosphereDensity = 0.65
@@ -156,7 +156,7 @@ WeatherConfig.StormAtmosphereHaze = 5.0
 WeatherConfig.LightingSmoothing = 1.5
 
 -- ============================================================
--- WIND AUDIO  (client only)
+-- Wind audio  (client only)
 -- ============================================================
 
 WeatherConfig.EnableWindAudio = true
@@ -165,7 +165,7 @@ WeatherConfig.WindSoundId = "rbxassetid://71284123166666"
 WeatherConfig.WindMaxVolume = 0.5
 
 -- Fraction of the volume removed at full shelter. 0.65 means indoors you hear
--- 35% of the outdoor volume -- present, but clearly outside.
+-- 35% of the outdoor volume, present, but clearly outside.
 WeatherConfig.WindIndoorVolumeDrop = 0.65
 
 -- Equalizer gains (dB) applied at full shelter. Cutting the highs is what makes
@@ -187,7 +187,7 @@ WeatherConfig.WindAudioSmoothing = 1.2
 WeatherConfig.WindPitchSmoothing = 0.4
 
 -- ============================================================
--- GAMEPLAY: STORM SLOWDOWN  (server only -- must be, or clients could ignore it)
+-- Gameplay: Storm slowdown  (server only, must be, or clients could ignore it)
 -- ============================================================
 
 WeatherConfig.EnableStormSlowdown = true
@@ -219,7 +219,7 @@ WeatherConfig.EnableWindAirborneDrift = true
 WeatherConfig.WindAirborneAccel = 12
 
 -- ============================================================
--- GAMEPLAY: THUNDERSTORM
+-- Gameplay: Thunderstorm
 -- ============================================================
 
 WeatherConfig.EnableThunderstorm = true
@@ -251,7 +251,7 @@ WeatherConfig.ThunderAnchorCount = 4
 WeatherConfig.ThunderAnchorRotate = 12
 
 -- How far off strikes land. Kept just inside StormFogEnd (250) so the bolt is
--- actually visible -- past that the fog erases it completely and there is no
+-- actually visible, past that the fog erases it completely and there is no
 -- lightning to see, only a flash. The top of the bolt still fades into the
 -- murk, which is what makes it read as coming down out of cloud.
 WeatherConfig.ThunderMinDistance = 110
@@ -286,7 +286,7 @@ WeatherConfig.ThunderMaxConcurrentSounds = 4
 -- renders without putting anything into Workspace.
 WeatherConfig.EnableThunderScreenFlash = true
 
--- Peak opacity of that wash. Deliberately subtle: it layers on top of the
+-- Peak opacity of that wash. Subtle: it layers on top of the
 -- global Lighting flash rather than replacing it, and a thunderstorm throws one
 -- of these every few seconds for over a minute.
 WeatherConfig.ThunderScreenFlashStrength = 0.35
@@ -329,7 +329,7 @@ WeatherConfig.ThunderHideSun = true
 -- is fully blotted at Peak either way; 0 leaves the darkening to thunder alone.
 WeatherConfig.StormDarkenAmount = 0.55
 
--- How far a full blizzard hides the sun, kept SEPARATE from how dark it gets.
+-- How far a full blizzard hides the sun, kept separate from how dark it gets.
 -- Thick cloud blots the disc completely while the scene stays grey-bright, so
 -- tying these together means lightening the storm puts the sun back in the sky.
 WeatherConfig.StormSunHideAmount = 1
@@ -340,11 +340,11 @@ WeatherConfig.ThunderFlashBrightness = 4.5
 WeatherConfig.ThunderFlashExposure = 1.1
 
 -- ============================================================
--- DEBUG
+-- Debug
 -- ============================================================
 
 -- Set 0-1 to skip the cycle and start every playtest at that intensity.
--- -1 runs the normal cycle. Needs no Command Bar -- edit, save, press Play.
+-- -1 runs the normal cycle. Needs no Command Bar, edit, save, press Play.
 WeatherConfig.DebugStartIntensity = -1
 
 return table.freeze(WeatherConfig)

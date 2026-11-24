@@ -1,19 +1,19 @@
 # TREK Bayonet
 
 A melee **fire mode** for TREK rifles. Press **V** to switch from the rifle to the blade,
-click to thrust — **at any ammo count, mid-reload, while sprinting**. TREK ships no melee
+click to thrust - **at any ammo count, mid-reload, while sprinting**. TREK ships no melee
 of any kind, so all of this is new.
 
 | | |
 |---|---|
 | **Needs** | [TREK Custom Bullets](https://devforum.roblox.com/t/shapecasthitbox-for-all-your-melee-needs-v025/3624241) installed as your gun handler, and an existing TREK 4 install |
 | **Adds** | one folder each in ReplicatedStorage and ServerScriptService, plus one module in `BulletTypes` |
-| **Touches** | nothing in TREK — it plugs into Custom Bullets' documented extension point |
+| **Touches** | nothing in TREK - it plugs into Custom Bullets' documented extension point |
 | **Works at** | 0 ammo, mid-reload, while sprinting |
 
 > **If you are coming from the G-key version, two things it insisted on are now wrong.**
 > The config block was at `[9]` *so that V could never reach it*; it is now at `[2]`
-> *because V must*. And it had no `MagCapacity` on purpose; it now needs
+> *because V must*. And it had no `MagCapacity`; it now needs
 > `MagCapacity = math.huge`. Both reversals are explained under
 > [How it works](#how-it-works).
 
@@ -50,8 +50,8 @@ runs.
 
 ### 2. Put the pack and the bayonet where the installer will find them
 
-**If TREK is built at runtime by `Workspace.Installer`** — the usual case, and the one to
-assume unless you know otherwise — nothing you place in `ReplicatedStorage.TREK_SERVICES`
+**If TREK is built at runtime by `Workspace.Installer`** - the usual case, and the one to
+assume unless you know otherwise - nothing you place in `ReplicatedStorage.TREK_SERVICES`
 survives. The installer builds that folder itself, and `TREKServerGeneral` does:
 
 ```lua
@@ -60,7 +60,7 @@ for i, service in pairs(game.ReplicatedStorage:WaitForChild('TREK_SERVICES'):Get
 
 A `TREK_SERVICES` that already exists makes that `WaitForChild` return **instantly**, so
 TREK enumerates a folder the installer has not filled yet, misses `TREK_Globals`, and the
-entire install dies at the next line. Creating that folder early — by hand or with Rojo —
+entire install dies at the next line. Creating that folder early - by hand or with Rojo -
 breaks TREK completely, and the symptom is a wall of unrelated errors.
 
 Everything local goes in as a **plugin** instead, shaped like the ones already there:
@@ -73,7 +73,7 @@ Workspace > Installer  > Plugins > TREKCustomBullets
     ServerStorage/TREKToolHandlers/Gun
 ```
 
-(Note the trailing space in `Installer ` — it is part of the instance name.)
+(Note the trailing space in `Installer ` - it is part of the instance name.)
 
 `ServerStorage.TREKToolHandlers.Gun` is **place content**, not something the installer
 recreates. Deleting it means nothing handles the Tool and your guns stop equipping
@@ -117,13 +117,13 @@ From `BayonetWeaponMode`, into the same `local configs = { ... }` table that hol
 | **`2Barrel`** | a small part in the Tool, at the blade, **with no ParticleEmitters**. Without it `currentBarrel` falls back to the rifle muzzle and every swing fires a **muzzle flash and a gunshot** on everyone else's screen. |
 | **`2Recoil`** | the thrust animation, in the weapon module's `Animations` folder. `determineAnim` prefixes the mode number, so `2Recoil` plays on a swing while `Recoil` still plays when you fire. `2Idle` and `2SprintHold` do the same for the held and charging poses. |
 
-Optionally add a **`2Fire`** sound to the weapon module — a stab or a whoosh. Without it,
+Optionally add a **`2Fire`** sound to the weapon module - a stab or a whoosh. Without it,
 `GFXRender` falls through to `module.Fire` and other players hear a gunshot when you
 swing.
 
 ### 5. Animations for the fire mode
 
-`determineAnim` picks by mode prefix — `animations["2" .. name] or animations[name]` — so
+`determineAnim` picks by mode prefix - `animations["2" .. name] or animations[name]` - so
 an Animation named `2Recoil` in the weapon module's `Animations` folder plays on a bayonet
 swing while `Recoil` still plays when the rifle fires. `2Idle` and `2SprintHold` do the
 same for the held and charging poses.
@@ -137,7 +137,7 @@ on a known `Idle` asset id hit the KT-60, since TREK weapons share animation ids
 gun at the torso origin.**
 
 TREK joins the weapon with a `Motor6D` named `toolAnim`, built by `createMotor` with
-default `C0` and `C1` — both identity. At rest, `AnimPart.CFrame == Torso.CFrame`, so the
+default `C0` and `C1` - both identity. At rest, `AnimPart.CFrame == Torso.CFrame`, so the
 gun collapses into the chest and *every* bit of its visible placement comes from the
 animation's own `AnimPart` track. In game this reads as "the gun is upside down", and no
 rotation fixes it, because there is no pose to rotate.
@@ -146,12 +146,12 @@ So before authoring anything for this weapon, **attach the gun to the editing ri
 
 | | |
 |---|---|
-| Rig | must be **R6** — an R6 animation on an R15 rig loads with zero tracks and an empty timeline |
+| Rig | must be **R6** - an R6 animation on an R15 rig loads with zero tracks and an empty timeline |
 | Joint | `Tool > AnimPart` joined to `Torso` by a `Motor6D` named `toolAnim`, `C0` and `C1` both identity |
-| Looks wrong | the gun sits *inside* the torso at rest. That is correct — it is the real rest pose |
+| Looks wrong | the gun sits *inside* the torso at rest. That is correct - it is the real rest pose |
 
 An animation that keyframes only the torso and arms lets TREK's walk keep playing
-underneath — that is how `2SprintHold` works. But it also means **no `AnimPart` track**,
+underneath - that is how `2SprintHold` works. But it also means **no `AnimPart` track**,
 which for this weapon parks the gun at the torso origin. TREK's own stab, asset
 `130508149089530`, is the reference to build from: its poses include `AnimPart`, `Bolt`
 and the rest.
@@ -163,7 +163,7 @@ game:GetObjects("rbxassetid://130508149089530")
 ```
 
 and parent the result where your Studio's **Load** menu reads from. That location varies by
-Studio version — in this project's it is `ServerStorage.RBX_ANIMSAVES.<rig name>`, **not**
+Studio version - in this project's it is `ServerStorage.RBX_ANIMSAVES.<rig name>`, **not**
 `Rig > AnimSaves`. Check which one your Studio uses before assuming; an empty Load menu
 usually means the sequence is sitting in the other one.
 
@@ -171,13 +171,13 @@ usually means the sequence is sitting in the other one.
 
 `TAmmo` is built **once**, lazily, guarded by `if not child:FindFirstChild('TAmmo')`. A
 tool carrying a `TAmmo` folder from before the `[2]` block existed never gains a `"2"`
-entry. Restart the playtest after editing the config — `SetUpGuns` caches weapon modules
+entry. Restart the playtest after editing the config - `SetUpGuns` caches weapon modules
 at server start anyway.
 
 ### Check it worked
 
 Paste [tools/CheckInstall.luau](tools/CheckInstall.luau) into the command bar. It verifies
-every requirement and names what is missing and why it matters — the installer, the pack,
+every requirement and names what is missing and why it matters - the installer, the pack,
 the handler version, both halves of the package, the `[2]` block's load-bearing fields,
 every weapon's `BulletType`, the `Bayonet` part, `2Barrel`, and the animations. Set
 `FIX = true` in it to create the pieces it can create safely.
@@ -213,11 +213,11 @@ Config.Debug                 = false  -- true = every swing reports itself
 
 **Damage, fire rate and animations are not here.** They are in the weapon's `[2]` block
 and its `Animations` folder, because the bayonet is a fire mode rather than a system
-bolted on beside one. There is no `Cooldown` setting either — the server derives its rate
+bolted on beside one. There is no `Cooldown` setting either - the server derives its rate
 limit from the same `RoundsPerMinute` the handler paces swings with, so there is one
 number to change.
 
-**The padding is measured in your frame** — level, facing where you face — so the three
+**The padding is measured in your frame** - level, facing where you face - so the three
 numbers mean the same thing at every point in the swing. The KR-61's blade is
 **0.19 × 0.53 × 1.94 studs**, a sliver against a 5-stud character, so padding is not a
 fudge factor here; it is most of the hitbox. Reach comes out around **5.1 studs**, just
@@ -260,7 +260,7 @@ saw the animation, and no amount of padding fixes that.
 if (currentMode == 1 and not config[currentMode + 1]) then return end
 ```
 
-The G-key version put the bayonet at `[9]` **so that walk would stop dead** — it was
+The G-key version put the bayonet at `[9]` **so that walk would stop dead** - it was
 triggered by its own key and only borrowed the block for its numbers. Now the bayonet is a
 fire mode, so it has to sit exactly where V lands. If you already use `[2]` for a real fire
 mode, move the bayonet to the first free index after your last one and set
@@ -269,7 +269,7 @@ mode, move the bayonet to the first free index after your last one and set
 ### Why it works at 0 ammo, and why that flipped too
 
 The old build omitted `MagCapacity`, which kept the bayonet out of the ammo system
-entirely — both ammo-store builders skip a block without one.
+entirely - both ammo-store builders skip a block without one.
 
 **That no longer works.** A fire mode goes through `shoot()`, which does:
 
@@ -280,7 +280,7 @@ tool.LocalTAmmo[mode].Ammo.Value -= 1
 unconditionally. With no `MagCapacity` there is no `LocalTAmmo` entry and every swing
 errors. So the mode now has `MagCapacity = math.huge`: `inf - 1` is still `inf`, the
 magazine never empties, `mousePress` never diverts you into a reload, and the bayonet
-swings at 0 rifle ammo — not by being outside the ammo system, but by having a magazine
+swings at 0 rifle ammo - not by being outside the ammo system, but by having a magazine
 that cannot be emptied. `useSharedClip = false` keeps it off the rifle's clip.
 
 > **It must be the number `math.huge`, not the string `'INF'`.** TREK's own infinite
@@ -313,12 +313,12 @@ passes through a torso between physics frames. That tunnelling is why this does 
 Discovery and decision are separate. `GetPartBoundsInBox` finds candidate parts and the
 code walks **up** to the owning character; the hit itself is an explicit box test on that
 character's parts. A crowded query can cost discovery but never accuracy. How deeply a rig
-nests — in a Folder, inside a Model grouping a squad — never decides whether it can be
+nests - in a Folder, inside a Model grouping a squad - never decides whether it can be
 stabbed, and nor does how it nests its own limbs.
 
-**NPCs are targets**, deliberately. Resolution does not use
+**NPCs are targets**. Resolution does not use
 `shared.S.trekFuncs.findPlrAndChar`, which bails the moment the owning model has no
-`Player` — that would make the bayonet useless against dummies and clones.
+`Player` - that would make the bayonet useless against dummies and clones.
 
 ### Sprinting through the swing
 
@@ -329,7 +329,7 @@ if controls.sprinting.Value then plrconfig.SprintEnabled.Value = false end
 ```
 
 Right for a rifle, wrong for a bayonet charge. Our `fire()` runs *after* that line, so it
-sets the flag back — only while you are genuinely still sprinting, so releasing the key
+sets the flag back - only while you are genuinely still sprinting, so releasing the key
 still stops you. No edit to the handler. Set `Config.RestoreSprint = false` to behave like
 every other fire mode.
 
@@ -368,7 +368,7 @@ never showed it and only sprinting did.
 The two fire modes behaved differently for an accidental reason: `2SprintHold` points at
 the same asset as `2Idle`, so it inherited `Action` and won, while `SprintHold` points at
 the Patrol asset, authored at `Movement`, and tied. Bayonet mode was never correct by
-design — it was correct by luck.
+design - it was correct by luck.
 
 `AnimationTrack.Priority` is writable at runtime, so `WeaponPosePriority` raises any
 weapon pose below `Action` up to `Action` as it starts. No republished asset, no TREK
@@ -378,7 +378,7 @@ The symptom to recognise: **the pose is correct if you equip while already sprin
 if you press V mid-sprint, but not if you start sprinting while equipped.** Those two
 paths play the weapon pose *after* `Run`, and for equal priorities the most recent track
 wins. Re-playing the track would also “fix” it, but only until something plays `Run`
-again — which is why the priority is raised instead.
+again - which is why the priority is raised instead.
 
 ---
 
@@ -389,17 +389,17 @@ adjust them:
 
 | | |
 |---|---|
-| **The installer's name** | `default.project.json` maps into `Workspace["Installer "]` — with a **trailing space**, because that is this place's instance name. Invisible in the Explorer, and wrong for most installs. `CheckInstall` prints the real name. |
+| **The installer's name** | `default.project.json` maps into `Workspace["Installer "]` - with a **trailing space**, because that is this place's instance name. Invisible in the Explorer, and wrong for most installs. `CheckInstall` prints the real name. |
 | **The weapon name** | `tools/WeaponAnimations.luau` and `tools/CheckInstall.luau` hold `KR-61 "Bonecrusher"`. One constant at the top of each. |
 | **The animation ids** | `2Recoil` and `2Idle` are ids published from this place's account. Yours will differ, and animations cannot be shared by id across owners. |
 
 Beyond that, `2Barrel`, `2Fire` and the animations are Studio-side work no script can do
-for you end to end — `CheckInstall` with `FIX = true` creates the first two, but the
+for you end to end - `CheckInstall` with `FIX = true` creates the first two, but the
 animations have to be authored and published by hand, against a rig with the gun attached.
 
 ## Limits
 
-`THealth` props and `TVehicle` are not valid targets — stabbing a tank does nothing. There
+`THealth` props and `TVehicle` are not valid targets - stabbing a tank does nothing. There
 is no bayonet-specific voice bark, though a bayonet kill fires the existing `Kill` bark
 from TREK Voicelines, because kill credit goes through `tagPlr` like any other.
 
@@ -407,7 +407,7 @@ from TREK Voicelines, because kill credit goes through `tagPlr` like any other.
 state, and anything the client says about its own mode is unverifiable. A modified client
 could therefore swing without switching to mode 2. The server still enforces the rate
 limit, the team checks, the blade's existence and the geometry, so the worst case is a
-melee attack available one keypress sooner than intended — the same property the G-key
+melee attack available one keypress sooner than intended - the same property the G-key
 version had.
 
 ---
@@ -422,7 +422,7 @@ lune run tools/geometrybench.luau  # guards against a performance regression
 
 `configtest` is worth running after any config edit. Every assertion in it maps to a line
 in TREK or Custom Bullets that reads a field without a nil check and throws, or writes
-something worse — a numeric `BulletType`, a missing `limbRemovalChance`, `CanReload` left
+something worse - a numeric `BulletType`, a missing `limbRemovalChance`, `CanReload` left
 true. None of those degrade gracefully.
 
 `geometrytest` includes a test asserting that `local c, d = x and f()` truncates to one
@@ -440,8 +440,8 @@ rojo build package.project.json -o TREKBayonet.rbxm
 ### Working with Rojo without breaking the place
 
 **Rojo deletes what it manages when the source goes away.** Move or rename a file that
-the project maps while a session is connected, and the instance disappears from the place
-— which is how `BayonetService` and the bullet type went missing after a tidy-up, taking
+the project maps while a session is connected, and the instance disappears from the place,
+which is how `BayonetService` and the bullet type went missing after a tidy-up, taking
 the fire mode with them.
 
 The order that avoids it:
@@ -449,14 +449,14 @@ The order that avoids it:
 1. **Disconnect** the Rojo plugin in Studio
 2. move or rename the files
 3. update `default.project.json`
-4. restart `rojo serve` — it reads the project once, at startup
+4. restart `rojo serve` - it reads the project once, at startup
 5. **Connect** again
 
 A server left running from before a project edit still holds the old mappings, so a
 reconnect alone is not enough.
 
-Shared parents — `ServerStorage`, `ServerStorage.TREKToolHandlers`, `Workspace`, the
-installer and its `Plugins` folder — carry `$ignoreUnknownInstances: true`, so Rojo leaves
+Shared parents - `ServerStorage`, `ServerStorage.TREKToolHandlers`, `Workspace`, the
+installer and its `Plugins` folder - carry `$ignoreUnknownInstances: true`, so Rojo leaves
 TREK's own content there alone instead of treating it as drift. The folders that are
 entirely ours are strict, so a rename really does clean up after itself.
 
@@ -468,16 +468,16 @@ all of them:
 | | |
 |---|---|
 | the weapon's `[2]` block | pasted into the config module in `Installer > GunConfigs` |
-| `2Recoil` / `2Idle` / `2SprintHold` | Animation instances in that module's `Animations` folder — `tools/WeaponAnimations.luau` writes them |
-| `2Barrel` | a part in the Tool, no ParticleEmitters — `CheckInstall` with `FIX = true` creates it |
-| `WeaponPosePriority` | Rojo places it, but a hand install needs it in `StarterPlayerScripts` — without it every weapon looks dropped while sprinting |
+| `2Recoil` / `2Idle` / `2SprintHold` | Animation instances in that module's `Animations` folder - `tools/WeaponAnimations.luau` writes them |
+| `2Barrel` | a part in the Tool, no ParticleEmitters - `CheckInstall` with `FIX = true` creates it |
+| `WeaponPosePriority` | Rojo places it, but a hand install needs it in `StarterPlayerScripts` - without it every weapon looks dropped while sprinting |
 | `2Fire` | optional sound in the config module, silences the gunshot on a swing |
 
 ### Keeping a tool off the back
 
 `HolsterService` decides what to sling by looking for an `AnimPart`, because
 until recently that only ever meant "TREK weapon". It is also how TREK joins
-*any* tool to the hand, so a non-weapon tool — a throwable, a carried object —
+*any* tool to the hand, so a non-weapon tool - a throwable, a carried object -
 looks exactly like a rifle from here.
 
 A tool opts out by declaring it:
@@ -493,12 +493,12 @@ a tool that isn't a weapon. Tools that declare it:
 
 - are never slung themselves
 - **don't clear the holster when drawn**, so your rifle stays visibly on your
-  back while you're holding a grenade — you didn't put it away, you just stopped
+  back while you're holding a grenade - you didn't put it away, you just stopped
   holding it
 - don't block the spawn scan, so spawning with one in hand still slings your
   rifle
 - don't consume the spawn scan's single slot, which stops at the first
-  holsterable tool it finds — one that counted would take the rifle's place and
+  holsterable tool it finds - one that counted would take the rifle's place and
   the rifle would never appear at all
 
 [TREK Gas Grenade](../TREK%20Gas%20Grenade) sets this on itself.
@@ -537,7 +537,7 @@ Paste into the Studio **command bar**:
 | `AngleWeaponPose` | pitches the weapon in a pose, for making a sprint variant of an idle |
 | `HolsterTuner` | measures the holster and moves it live |
 
-Drop into the place as their own Scripts — standalone TREK fixes, nothing to do with the bayonet:
+Drop into the place as their own Scripts - standalone TREK fixes, nothing to do with the bayonet:
 
 | | |
 |---|---|
@@ -549,4 +549,4 @@ Drop into the place as their own Scripts — standalone TREK fixes, nothing to d
 ## Credit
 
 Made by PlagueByte (pb6008 on Discord). TREK and TREK Custom Bullets are not mine and are
-not included here — this hooks into whatever install you already have.
+not included here - this hooks into whatever install you already have.

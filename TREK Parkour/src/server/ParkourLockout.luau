@@ -8,11 +8,11 @@
 	                 We claim it so any other system can tell you are busy.
 	  CanSprint      the veto TREK's vehicle seats use. While false, TREK's own
 	                 controls.sprint() refuses to turn sprinting back on.
-	  the weapon     unequipped, which is both the cost and the mechanism -- see
+	  the weapon     unequipped, which is both the cost and the mechanism. See
 	                 below.
 
 	--------------------------------------------------------------------------
-	WHY UNEQUIPPING IS NOT ONLY FLAVOUR
+	Why unequipping is not only flavour
 	--------------------------------------------------------------------------
 
 	TREK's HeadAndArmsController rewrites HumanoidRootPart.CFrame every frame
@@ -21,8 +21,8 @@
 	the top of that.
 
 	Unequipping is the supported way to stop it: TREK's gun handler calls
-	HeadArmsModule:Stop() from its own onUnEquip. We deliberately do NOT call
-	:Pause() instead -- that module is a per-client singleton with no reference
+	HeadArmsModule:Stop() from its own onUnEquip. We do not call
+	:Pause() instead, that module is a per-client singleton with no reference
 	counting, and the gun handler calls :Continue() from three places we do not
 	control, any of which would lift our pause out from under us mid-climb.
 
@@ -45,7 +45,7 @@ export type Cost = {
 
 --[[
 	What a move costs is per-move, not per-package. A mantle takes everything; a
-	vault is supposed to be seamless and takes nothing but the flag. Taking the
+	vault is supposed to be smooth and takes nothing but the flag. Taking the
 	cost as an argument rather than reading the config here is what stops a vault
 	quietly killing your sprint.
 
@@ -62,7 +62,7 @@ function ParkourLockout.apply(character: Model, humanoid: Humanoid, cost: Cost):
 		end
 
 		--[[
-			CanSprint alone only stops sprint being turned back ON. If the
+			CanSprint alone only stops sprint being turned back on. If the
 			player is sprinting right now, TREK is still acting on it, so the
 			intent flag has to be cleared too. Clearing SprintEnabled is what
 			TREK's own gun handler does when you fire.

@@ -12,6 +12,11 @@ if marine.Settings.RandomAppearance.Value then
 		waited += task.wait()
 	end
 
+	--Korblox presets paint their own skin in UniformModule.
+	if string.find(marine:GetAttribute("UniformPreset") or "","^Korblox") then
+		return
+	end
+
 	local randomSkin = BrickColor.new(skinOptions[math.random(#skinOptions)])
 	local bc = marine["Body Colors"]
 	bc.HeadColor = randomSkin

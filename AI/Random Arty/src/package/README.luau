@@ -1,8 +1,8 @@
 --[[
 
-	GIVE CREDIT TO PLAGUEBYTE!!!!! @pb6008 for any inquiries
+	Give credit to PLAGUEBYTE!!!!! @pb6008 for any inquiries
 
-	RANDOM ARTILLERY
+	Random artillery
 
 	Barrages fall on wherever the players are. You hear the guns fire, you get a
 	few seconds, then a dozen-odd shells arc in and anything caught in the open
@@ -13,7 +13,7 @@
 
 
 	========================================================
-	INSTALL
+	Install
 	========================================================
 
 	1. Drag RandomArtillery.rbxm into ServerStorage. This creates a RandomArtillery
@@ -58,7 +58,7 @@
 	ReplicatedStorage.Artillery.ArtilleryConfig.
 
 
-	WHEN YOU'RE DONE
+	When you're done
 
 	    ReplicatedStorage
 	    |-- Artillery            ArtilleryConfig, ArtilleryShared
@@ -78,7 +78,7 @@
 
 
 	========================================================
-	DAMAGE BANDS
+	Damage bands
 	========================================================
 
 	Measured from the crater to the victim's HumanoidRootPart.
@@ -86,12 +86,12 @@
 	Four spheres, each wholly inside the next. You land in exactly one, and that
 	layer decides everything.
 
-	    1  within 18    DEAD. ALWAYS. Full dismemberment
+	    1  within 18    dead. always. Full dismemberment
 	    2  within 34    damage, and limbs come off
 	    3  within 46    damage only. A kill here dies intact
 	    4  within 70    dazed for a few seconds, no damage
 
-	LAYER 1 IS PURE DISTANCE. No cover, no walls, no bunker roof: a shell that
+	Layer 1 is pure distance. No cover, no walls, no bunker roof: a shell that
 	lands on top of you is not survivable by standing behind something. Cover
 	only scales damage in layers 2 and 3.
 
@@ -99,11 +99,13 @@
 	a body tells you which layer caught them. DismemberOnAnyKill = true makes
 	every kill come apart at any range instead.
 
-	THE RADII MUST ASCEND. Out of order an inner sphere swallows an outer one and
+	The radii must ascend. Out of order an inner sphere swallows an outer one and
 	that band never happens. The server checks at startup and warns.
 
-	NPCs GET ALL OF THIS TOO, dismemberment included, on exactly the same terms
-	as players. Turn AffectNPCs off if your map has none.
+	NPCs get all of this too, dismemberment included, on exactly the same terms
+	as players. Turn AffectNPCs off if your map has none. Vehicles (tagged
+	BloxianVehicle or MarineVehicle) are not bodies: their Humanoid is only their
+	health, so they take VehicleDamage instead, falling off to nothing at DamageRadius.
 
 	If artillery seems not to kill anyone, check CoverRayLift is above zero.
 	Impact points sit exactly on the ground, so a cover ray cast from one hits
@@ -111,7 +113,7 @@
 
 
 	========================================================
-	IF THE DAMAGE FEELS RANDOM
+	If the damage feels random
 	========================================================
 
 	Turn DebugLog on. The server prints one line per victim per shell:
@@ -120,33 +122,33 @@
 	                             98 damage, survived (2 HP left)
 
 	The "flat" and "up" figures tell you straight away whether a shell that
-	LOOKED close was actually far away vertically.
+	Looked close was actually far away vertically.
 
 	That usually answers it outright. The common causes:
 
-	  LEVEL DIFFERENCE. Height counts toward the blast radius. It counts less
+	  Level difference. Height counts toward the blast radius. It counts less
 	  than ground distance (BlastVerticalScale is 0.6, so the blast is a
 	  flattened ellipsoid that reaches up and down slopes), but a big enough
 	  drop still puts you out of range. Raise it toward 1 for a true sphere.
 
 
-	  TWO SHELLS OVERLAPPING. A barrage drops a shell every 0.15-0.6 seconds.
+	  Two shells overlapping. A barrage drops a shell every 0.15-0.6 seconds.
 	  Being clipped twice in a second is not the same hit twice as hard, and
 	  from inside the game it is indistinguishable.
 
-	  A HEALTH BAR ALREADY CHEWED DOWN. Whether a falloff hit kills depends on
+	  A health bar already chewed down. Whether a falloff hit kills depends on
 	  what is left, and you cannot see other people's health.
 
-	  PARTIAL COVER. Damage scales by how much of you is behind something, so
+	  Partial cover. Damage scales by how much of you is behind something, so
 	  half a wall really is half the damage.
 
-	Three things that USED to make it random, fixed, and easy to reintroduce:
+	Three things that used to make it random, fixed, and easy to reintroduce:
 
 	  ForceField. Humanoid:TakeDamage is blocked by spawn protection, but
 	  assigning Humanoid.Health is not, so layers 2 and 3 did nothing to a
 	  fresh spawn while layer 1 killed straight through the shield. Every layer
 	  now goes through one applyDamage helper that assigns Health directly, so
-	  ARTILLERY PENETRATES SPAWN PROTECTION and every layer agrees about it. To
+	  Artillery penetrates spawn protection and every layer agrees about it. To
 	  protect a spawn, tag it ArtillerySafeZone (see below).
 
 	  MaxFalloffDamage set to exactly 100. A full health bar, so a healthy
@@ -158,7 +160,7 @@
 
 
 	========================================================
-	THIS IS R6 ONLY
+	This is R6 only
 	========================================================
 
 	Dismemberment works by destroying the Motor6Ds on an R6 character's Torso.
@@ -169,7 +171,7 @@
 
 
 	========================================================
-	TAG YOUR SPAWNS
+	Tag your spawns
 	========================================================
 
 	Nothing stops shells landing on a spawn until you say so. Select a part
@@ -180,20 +182,20 @@
 	Height is ignored, so one flat plate laid over the spawn protects everything
 	above it. Tag as many parts as you like.
 
-	THIS IS THE ONLY WAY TO PROTECT A SPAWN. A ForceField does not stop
+	This is the only way to protect a spawn. A ForceField does not stop
 	artillery (see the damage note above).
 
 
 	========================================================
-	PLAYERS UNDER A ROOF ARE NOT AIMED AT
+	Players under a roof are not aimed at
 	========================================================
 
 	A battery a kilometre away cannot see through a bunker, so anyone indoors is
 	dropped from the list the barrage's centre is picked from. Five rays go up
-	from each candidate; whatever stops one IS the roof, so bunkers, bridges,
+	from each candidate; whatever stops one is the roof, so bunkers, bridges,
 	rock overhangs and tree canopy all work with nothing tagged.
 
-	IT IS NOT A SHIELD. It only decides where the guns AIM. A shell aimed at the
+	It is not a shield. It only decides where the guns aim. A shell aimed at the
 	squad outside your door still lands outside your door, and the blast does not
 	care what you are standing under.
 
@@ -206,71 +208,71 @@
 
 
 	========================================================
-	THE ONE TEXTURE SLOT
+	The one texture slot
 	========================================================
 
-	    SmokeTexture      the cloud left hanging over the crater, AND the
+	    SmokeTexture      the cloud left hanging over the crater, and the
 	                      fallback for the flat ground dust mark
 	    DustDecalTexture  optional. Only if you want the flat ground mark to
 	                      be a different image from SmokeTexture
 
-	SmokeTexture is the only asset the system needs. DEBRIS AND THE DUST WAVE ARE
-	REAL PARTS. They depend on no image at all, so they cannot be broken by a
+	SmokeTexture is the only asset the system needs. Debris and the dust wave are
+	Real parts. They depend on no image at all, so they cannot be broken by a
 	bad id.
 
-	IT SHIPS AS AN ENGINE PATH, NOT AN ID, ON PURPOSE. An engine path cannot be
+	It ships as an engine path, not an ID. An engine path cannot be
 	moderated, cannot be a decal id by mistake, and renders on every client with
 	no upload. Ids kept going into this slot and kept coming out invisible.
 
-	NEVER LEAVE SmokeTexture EMPTY. A ParticleEmitter with no Texture falls back
-	to Roblox's default sprite, which is a WHITE SPARKLE: the glittery confetti
+	Never leave SmokeTexture empty. A ParticleEmitter with no Texture falls back
+	to Roblox's default sprite, which is a white sparkle: the glittery confetti
 	look. No amount of size or colour tuning removes it, because the sparkle
-	IS the sprite.
+	Is the sprite.
 
-	TWO FORMS ARE VALID, and mixing them is the classic mistake:
+	Two forms are valid, and mixing them is the classic mistake:
 
 	    rbxassetid://13623094740                       an uploaded image
 	    rbxasset://textures/particles/smoke_main.dds   an engine file
 
-	"rbxasset://13623094740" is NEITHER. It asks the engine for a file named
+	"rbxasset://13623094740" is neither. It asks the engine for a file named
 	after a number, finds nothing, and renders blank with no error at all.
 
-	THE OTHER TRAP: uploading an image to Roblox creates a DECAL, and a decal's
-	id is NOT the image's id. A decal id renders nothing, silently.
+	The other trap: uploading an image to Roblox creates a decal, and a decal's
+	id is not the image's id. A decal id renders nothing, silently.
 
 	To get the right one: drop the decal onto any part in Studio, then read the
 	Texture property off the Decal instance it makes. That value is the image id.
 
-	Use a GREYSCALE image. ImpactSmokeColor tints whatever you give it.
+	Use a greyscale image. ImpactSmokeColor tints whatever you give it.
 
 
 	========================================================
-	AUDIO NEEDS YOUR OWN ASSETS
+	Audio needs your own assets
 	========================================================
 
 	Roblox audio is private by default, so an id lifted from another game is
 	silent here, and nothing in Output says why. Four slots in ArtilleryConfig:
 
-	    BatteryReportSoundId   distant thump of the guns firing (THE WARNING)
+	    BatteryReportSoundId   distant thump of the guns firing (the warning)
 	    ShellWhistleSoundId    the incoming scream, looped
 	    ImpactNearSoundId      sharp crack for close shells
 	    ImpactFarSoundId       hollow crump for distant ones
 
-	View > Toolbox > Audio, right click, Copy Asset ID. Grab the AUDIO asset's
+	View > Toolbox > Audio, right click, Copy Asset ID. Grab the audio asset's
 	id, not the id of a model wrapping it. That fails silently too.
 
-	Any left empty simply does not play. The system warns once if all four are.
+	Any left empty does not play. The system warns once if all four are.
 
 	BatteryReportSoundId is the one that matters. It is the only warning a
 	player gets, and without it a barrage is an unannounced death.
 
 
 	========================================================
-	TESTING
+	Testing
 	========================================================
 
 	Barrages are 120-260 seconds apart. To drop one now, press Play, set the
-	Client/Server toggle in the toolbar to SERVER, and run:
+	Client/Server toggle in the toolbar to server, and run:
 
 	    game.ReplicatedStorage.Artillery:SetAttribute("DebugBarrageNow", true)
 
@@ -288,7 +290,7 @@
 	That runs as ordinary server code at boot, so nothing Command Bar related
 	can break it.
 
-	NATURAL TIMER NEVER FIRES, ONLY DebugBarrageNow DOES?
+	Natural timer never fires, only DebugBarrageNow does?
 
 	  This is MinPlayersForBarrage, almost always. The natural loop skips its
 	  cycle entirely below that many players online (default 4), while
@@ -296,14 +298,14 @@
 	  solo or with a couple of friends means the natural timer is never
 	  satisfied, no matter how long you wait.
 
-	  The loop logs "natural barrage skipped -- N online, MinPlayersForBarrage is
+	  The loop logs "natural barrage skipped, N online, MinPlayersForBarrage is
 	  M" every time this happens (needs DebugLog = true). If you see that, the
 	  timer is fine: the player count is what is stopping it. Set
 	  MinPlayersForBarrage = 1 while testing alone.
 
-	SEEING NO SHELLS?
+	Seeing no shells?
 
-	  1. Did the server fire any? Look for "BARRAGE INCOMING" in Output. If it
+	  1. Did the server fire any? Look for "barrage incoming" in Output. If it
 	     isn't there, the barrage never ran. Check that someone is alive, and
 	     that Enabled is true in the config.
 
@@ -316,14 +318,14 @@
 
 
 	========================================================
-	TUNING: ReplicatedStorage.Artillery.ArtilleryConfig
+	Tuning: ReplicatedStorage.Artillery.ArtilleryConfig
 	========================================================
 
 	    BarrageInterval        seconds between barrages
 	    MinPlayersForBarrage   below this online, natural timer skips its cycle.
 	                           DebugBarrageNow ignores it. 1 while testing solo
 	    ShellsPerBarrage       how many shells one barrage drops
-	    BarrageWarningLead     seconds of warning. THE mechanic: don't go low
+	    BarrageWarningLead     seconds of warning. the mechanic: don't go low
 	    ClusterRadius          how far apart players still count as a crowd
 	    SkipShelteredPlayers   players under a roof are not aimed at
 	    ShelterBlockedThreshold how enclosed you must be to count. 0.5 is 3 of 5
@@ -335,13 +337,13 @@
 	    MaxRenderedShells      shells drawn at once. Main client perf knob
 	    DebrisMatchSurface     debris made of whatever the shell hit
 	    DustDecalTexture       the dust cloud's image. Falls back to SmokeTexture
-	    DustDecalStartSize/End what it grows from and to. The gap IS the effect
+	    DustDecalStartSize/End what it grows from and to. The gap is the effect
 	    DustDecalStartHeight/End the sink: where it appears, where it settles
 	    MaxLiveDust            ceiling on clouds live across a whole barrage
 	    ChunkCount             chunks thrown per shell. Main density knob
 	    MaxLiveChunks          ceiling across every burst on screen at once
-	    ChunkSpeed             MUST start low, or there is a hole at the crater
-	    ChunkGravity           LOWER throws chunks wider. The real radius limit
+	    ChunkSpeed             must start low, or there is a hole at the crater
+	    ChunkGravity           lower throws chunks wider. The real radius limit
 	    ChunkElevation         degrees above horizontal. Low skims the ground
 	    ImpactDebrisDelay      gap between the dust and the debris
 	    ImpactSmokeDelay       gap between the dust and the smoke
@@ -363,7 +365,7 @@
 
 
 	========================================================
-	HOW IT WORKS
+	How it works
 	========================================================
 
 	No models, and no shell part ever exists on the server.
@@ -387,35 +389,35 @@
 	it glows against a dark sky for free. The whole effect is parented under
 	workspace.CurrentCamera, which never replicates.
 
-	NOTHING IS LEFT BEHIND ON IMPACT. No crater, no decal, no scorch mark. A
+	Nothing is left behind on impact. No crater, no decal, no scorch mark. A
 	shell throws the ground up and that is all, and every part it creates to do
 	that cleans itself up.
 
-	AN IMPACT IS THREE STAGES, not one burst:
+	An impact is three stages, not one burst:
 
-	    0.00s   DUST     one cloud appearing over the crater and opening out
-	    0.04s   DEBRIS   the ground thrown out
-	    0.22s   SMOKE    what is left hanging over it
+	    0.00s   dust     one cloud appearing over the crater and opening out
+	    0.04s   debris   the ground thrown out
+	    0.22s   smoke    what is left hanging over it
 
 	Firing them all on one frame is what makes an explosion read as a flat pop.
 	The gaps are ImpactDebrisDelay and ImpactSmokeDelay.
 
-	THERE IS NO EXPLOSION BALL. A brief light stays, with no visible geometry;
+	There is no explosion ball. A brief light stays, with no visible geometry;
 	EnableImpactLight = false removes that too.
 
-	THE DUST IS ONE IMAGE, not particles and not a field of geometry. Both
+	The dust is one image, not particles and not a field of geometry. Both
 	were tried, and both read as many separate pieces instead of one cloud. It
-	GROWS AND SINKS over its life rather than sitting static:
+	Grows and sinks over its life rather than sitting static:
 
-	  GROWS   from DustDecalStartSize to DustDecalEndSize. Fast at first
+	  Grows   from DustDecalStartSize to DustDecalEndSize. Fast at first
 	          (DustDecalGrowthCurve below 1), then a slow creep.
-	  SINKS   from DustDecalStartHeight down to DustDecalEndHeight, as it
+	  Sinks   from DustDecalStartHeight down to DustDecalEndHeight, as it
 	          settles onto the ground.
 
 	Plus a slow DustDecalSpin, so the mass churns instead of just scaling in
 	place. It is angled to the surface normal, so it lies flat on slopes.
 
-	THIS IS THE ONE IMPACT EFFECT LEFT THAT NEEDS AN IMAGE. Debris cannot fail;
+	This is the one impact effect left that needs an image. Debris cannot fail;
 	this can, silently: a decal id where an image id was needed renders
 	nothing. If dust never shows up, DustDecalTexture (or its fallback,
 	SmokeTexture) is why.
@@ -434,7 +436,7 @@
 
 
 	========================================================
-	SPEED MODIFIERS
+	Speed modifiers
 	========================================================
 
 	SpeedService is the only thing allowed to assign Humanoid.WalkSpeed or the

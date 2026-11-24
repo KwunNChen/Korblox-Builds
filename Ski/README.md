@@ -9,7 +9,7 @@ proper ragdoll when you do.
 
 ## Install
 
-**1. Drag `Ski.rbxm` into ServerStorage.** Always ServerStorage — scripts do not
+**1. Drag `Ski.rbxm` into ServerStorage.** Always ServerStorage - scripts do not
 execute there. Drop it into ServerScriptService or Workspace and the server
 scripts start running before the shared modules exist.
 
@@ -40,7 +40,7 @@ KorbloxSki                  <- staging folder, delete when done
 Moving a signpost itself gives you `ReplicatedStorage.ReplicatedStorage.Ski` and
 nothing finds anything.
 
-`SkiRemotes` is a convenience rather than a requirement — the server rebuilds any
+`SkiRemotes` is a convenience rather than a requirement - the server rebuilds any
 remote that is missing when it starts. Dragging it in just saves it the job.
 
 **3. Delete the empty staging folder.** `Tools/AnimationRig` is a command-bar
@@ -51,7 +51,7 @@ Press Play. After that, the only file you edit is
 
 ### Already have a `Common` folder?
 
-Random Arty and Variable Snowstorm ship one too. **Do not replace it** — open
+Random Arty and Variable Snowstorm ship one too. **Do not replace it** - open
 Ski's `Common` and drag `CharacterCache` and `SpeedService` into your existing
 folder, skipping any already there. The code is identical across all three
 packages; only the header comments differ.
@@ -81,7 +81,7 @@ thumbsticks all work without extra setup. You can also strap in by walking over
 a brick tagged `SkiZone`.
 
 Taking them off in mid-air wipes you out, and for `UnequipCrashWindow` after
-touching down it still does. The window is the point — without it you could
+touching down it still does. The window is the point - without it you could
 land anything by unequipping on the frame you hit, before the landing gets
 judged.
 
@@ -172,15 +172,15 @@ require(game.ServerStorage.KorbloxSki.Tools.AnimationRig).attach(workspace.Dummy
 and the real skis and poles appear on it, so the stance can be animated against
 the gear rather than imagined.
 
-Six looping slots, and they can arrive one at a time in any order — send
+Six looping slots, and they can arrive one at a time in any order - send
 `Walking` first, since it's the one you're in most:
 
-- **`Walking`** — wired up differently from the rest, and worth knowing why.
+- **`Walking`** - wired up differently from the rest, and worth knowing why.
   This is just the ordinary Humanoid walk with skis welded on: `PlatformStand`
   is false and the character's own `Animate` script is already posing it, so
   filling this in swaps which animation *that* plays instead of adding a
   second system next to it. Empty keeps the default walk.
-- **`Stance`, `Carve`, `Tuck`, `Brake`, `Air`** — the states the sim actually
+- **`Stance`, `Carve`, `Tuck`, `Brake`, `Air`** - the states the sim actually
   drives. Fill one in and it owns the character completely for that pose: the
   joint poses, the carve overlay, the pole plants and the ski alignment all
   stand down. Empty keeps the built-in procedural pose.

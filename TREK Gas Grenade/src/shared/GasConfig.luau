@@ -3,8 +3,8 @@
 	Every knob for the gas grenade, in one frozen table.
 
 	Two audiences read this file. The gameplay systems in this package read all
-	of it. TREK's core reads only what the shim in GunConfigs re-exports --
-	ToolType, and a mode table carrying MagCapacity -- because that is the whole
+	of it. TREK's core reads only what the shim in GunConfigs re-exports.
+	ToolType, and a mode table carrying MagCapacity, because that is the whole
 	of what `checkForGun` and `createAmmoStore` look at.
 
 	The numbers below are tuned for a gas grenade that punishes standing still
@@ -15,15 +15,15 @@
 local GasConfig = {}
 
 -- =========================================================================
--- TOOL
+-- Tool
 -- =========================================================================
 
 --[[
 	The Tool's name in the backpack, and the name of the shim module inside
-	GunConfigs. These MUST match.
+	GunConfigs. These must match.
 
 	TREK resolves a tool's config by `tool.Name` in several places, and at least
-	one of them -- the Explosion remote handler in TREKServerGeneral -- ignores
+	one of them, the Explosion remote handler in TREKServerGeneral, ignores
 	the TConfigToUse attribute entirely. Naming the module after the tool is the
 	only arrangement where every lookup path agrees. Do not set TConfigToUse on
 	this tool.
@@ -49,7 +49,7 @@ GasConfig.ToolType = "Throwable"
 	one. Point Thrown back at "ActiveGasGrenade" and the split behaviour returns
 	with no code change.
 
-	Only the NAMES differ -- the rigs do not. The held copy is welded massless
+	Only the names differ: the rigs do not. The held copy is welded massless
 	and non-collidable so it does not shove you around; the thrown copy gets a
 	collidable root so it can bounce. Both are rebuilt at runtime from whatever
 	the model contains, so the same model works as either.
@@ -80,7 +80,7 @@ GasConfig.ReservedAmmo = 0
 
 	True is what makes "throw it and you have no grenade" actually read that way.
 	Without it the Tool stays in the hotbar at zero ammo: you can still select
-	it, you still see a grenade in your hand, and pressing fire does nothing --
+	it, you still see a grenade in your hand, and pressing fire does nothing,
 	which looks broken rather than empty.
 
 	It also settles a smaller oddity. The grenade you throw is a separate model
@@ -95,8 +95,8 @@ GasConfig.DestroyWhenEmpty = true
 
 	Destroying a Tool fires Unequipped, and a slot vanishing out of the hotbar
 	mid-swing is jarring even when the animation survives it. The grenade itself
-	is taken out of your hand immediately -- it is in the air, so an empty hand is
-	the truthful thing to show -- and only the Tool lingers, long enough for the
+	is taken out of your hand immediately: it is in the air, so an empty hand is
+	the truthful thing to show, and only the Tool lingers, long enough for the
 	throw to finish reading as a throw.
 
 	Nothing can be done with the tool during this window: the ammo is already
@@ -105,14 +105,14 @@ GasConfig.DestroyWhenEmpty = true
 GasConfig.DestroyDelay = 0.4
 
 -- =========================================================================
--- THROW
+-- Throw
 -- =========================================================================
 
 --[[
 	Cooking.
 
-	The fuse starts when you press, not when you release. That is the whole point
-	of cooking -- you spend fuse time to deny the enemy time to walk away from
+	The fuse starts when you press, not when you release. That is what cooking is
+	for: you spend fuse time to deny the enemy time to walk away from
 	where it lands. It also means a careless hold kills you, which is intended.
 ]]
 
@@ -124,7 +124,7 @@ GasConfig.FuseTime = 3.5
 
 	True is the honest reading of a cooked fuse and the reason cooking is a
 	decision rather than a free upgrade. Set false and an over-cooked grenade is
-	simply thrown at the last moment instead.
+	thrown at the last moment instead.
 ]]
 GasConfig.CookKillsYou = true
 
@@ -133,7 +133,7 @@ GasConfig.CookKillsYou = true
 
 	Range and height both scale off this, so it is the knob to reach for when the
 	throw feels short rather than flat. With ThrowAngle at 38, 105 gives roughly
-	55 studs of range and a 10-stud apex -- a lob you can put over a wall.
+	55 studs of range and a 10-stud apex: a lob you can put over a wall.
 ]]
 GasConfig.ThrowPower = 105
 
@@ -148,7 +148,7 @@ GasConfig.ThrowPower = 105
 
 	This is the arc, not the range. Below about 20 the grenade skids in almost
 	flat and you cannot clear anything with it; at 45 you get maximum range for a
-	given power but a very floaty, slow lob. 38 is a proper overarm toss -- high
+	given power but a very floaty, slow lob. 38 is a proper overarm toss, high
 	enough to drop behind a wall, quick enough that the enemy does not watch it
 	travel.
 
@@ -171,8 +171,8 @@ GasConfig.ThrowCooldown = 0.6
 	an Animations folder on the config module, which is how TREK weapons do it.
 	Same reasoning as the gas particles: one id in one file beats an instance you
 	have to open Studio to inspect. The cost is that TREK Bayonet's
-	WeaponPosePriority will not see it -- that script only raises tracks whose
-	Animation instance lives in a weapon's Animations folder -- so the priority
+	WeaponPosePriority will not see it, that script only raises tracks whose
+	Animation instance lives in a weapon's Animations folder, so the priority
 	is set explicitly below instead.
 
 	Priority matters more than it looks. TREK's global Run and WalkAnim sit at
@@ -185,7 +185,7 @@ GasConfig.ThrowCooldown = 0.6
 	refuse to load at runtime.
 ]]
 GasConfig.Animation = {
-	Throw = "rbxassetid://98119005875692",
+	Throw = "rbxassetid://117851402384286",
 
 	Priority = Enum.AnimationPriority.Action,
 
@@ -207,12 +207,12 @@ GasConfig.Animation = {
 		it teleporting out of you. Tune this to the frame where the hand opens,
 		as you see it in the animation editor.
 
-		Divided by Speed at runtime, so it tracks the same FRAME rather than the
+		Divided by Speed at runtime, so it tracks the same frame rather than the
 		same number of seconds. Change Speed and the release stays where you put
 		it; leave them independent and every speed change silently desyncs the
 		throw from the hand opening.
 
-		Client-side pacing only -- the server's fuse has been burning since you
+		Client-side pacing only: the server's fuse has been burning since you
 		pressed, so this costs fuse time exactly like any other hesitation. Set
 		to 0 to throw the instant you release.
 	]]
@@ -225,11 +225,11 @@ GasConfig.Animation = {
 --[[
 	Where the grenade sits in the right hand.
 
-	The grenade is joined to the hand by its own Motor6D, NOT by TREK's toolAnim.
+	The grenade is joined to the hand by its own Motor6D, not by TREK's toolAnim.
 	TREK joins tools to the torso and relies on each weapon's animations to
 	keyframe the AnimPart track and carry the weapon into the hands. That works
 	for a rifle with a full animation set; the grenade has no idle pose, so the
-	same arrangement parks it at a fixed point beside the chest -- attached and
+	same arrangement parks it at a fixed point beside the chest, attached and
 	moving with the body, but never following the arm, which reads as floating in
 	mid air.
 
@@ -237,7 +237,7 @@ GasConfig.Animation = {
 	carried by the throw animation for free.
 
 	This is C0 on that joint, so it is measured from the hand part's centre.
-	R6 has no separate hand -- "Right Arm" is the whole limb, 1x2x1, so the grip
+	R6 has no separate hand, "Right Arm" is the whole limb, 1x2x1, so the grip
 	is a stud down from its middle. R15 has a small dedicated RightHand and
 	barely needs any offset at all.
 
@@ -245,7 +245,7 @@ GasConfig.Animation = {
 	Z is forward.
 
 	Six named numbers rather than a CFrame expression, because these are meant to
-	be tried rather than derived -- and because tools/GripTuner prints its result
+	be tried rather than derived, and because tools/GripTuner prints its result
 	in exactly this shape, so what it gives you is what you paste.
 
 	    X, Y, Z            studs. Negative Y is toward the fingers.
@@ -254,7 +254,7 @@ GasConfig.Animation = {
 	Yaw is the axis running along the limb on both rigs, so it spins the grenade
 	in the palm. Pitch and Roll tip it out of the hand.
 
-	Rotation is applied AFTER the translation, so the grenade spins about its own
+	Rotation is applied after the translation, so the grenade spins about its own
 	position in the fist rather than being swung around the wrist on an arm's
 	length of radius.
 ]]
@@ -275,7 +275,7 @@ GasConfig.BounceElasticity = 0.25
 GasConfig.BounceFriction = 0.7
 
 -- =========================================================================
--- CLOUD
+-- Cloud
 -- =========================================================================
 
 -- Studs from the grenade that count as inside the gas.
@@ -291,7 +291,7 @@ GasConfig.TickInterval = 0.4
 	Damage per tick, at the centre.
 
 	At the defaults that is 2.5 ticks/second and 35 damage/second in the thick of
-	it -- roughly three seconds to kill a full-health player who refuses to move,
+	it, roughly three seconds to kill a full-health player who refuses to move,
 	and survivable for anyone who reacts.
 ]]
 GasConfig.DamagePerTick = 14
@@ -300,7 +300,7 @@ GasConfig.DamagePerTick = 14
 	Falloff.
 
 	Full damage within FullDamageRadius, tapering linearly to zero at
-	CloudRadius. Unlike a blast, the taper is gentle on purpose: the edge of a
+	CloudRadius. Unlike a blast, the taper is gentle: the edge of a
 	gas cloud should still be unpleasant enough to push people out of it rather
 	than letting them camp the rim.
 ]]
@@ -322,7 +322,7 @@ GasConfig.FullDamageRadius = 8
 	it wants to be at least as far as a sprinting player travels in one
 	TickInterval.
 
-	At the current 0.4s tick, 24 studs covers 60 studs/second -- comfortably
+	At the current 0.4s tick, 24 studs covers 60 studs/second, comfortably
 	above anything on foot, and enough for most vehicles. Raise it if people
 	start driving through clouds unharmed; the only cost is a wider overlap
 	query, which is cheap next to the raycast that follows it.
@@ -352,7 +352,7 @@ GasConfig.AffectsEveryone = true
 	Whether someone in a vehicle seat is immune.
 
 	TREK's own explosion code already skips characters sitting in a VehicleSeat,
-	so matching that here keeps the two consistent -- being buttoned up in a
+	so matching that here keeps the two consistent, being buttoned up in a
 	vehicle protects you from gas the same way it protects you from a shell.
 ]]
 GasConfig.VehicleSeatProtects = true
@@ -361,22 +361,22 @@ GasConfig.VehicleSeatProtects = true
 	Name of the BoolValue parented to an affected Humanoid while it stands in
 	gas.
 
-	TREK marks conditions this way already -- TBleedCondition, TParalCondition --
+	TREK marks conditions this way already, TBleedCondition, TParalCondition,
 	so anything else in the game that wants to react to "this player is being
 	gassed" has somewhere to look.
 ]]
 GasConfig.ConditionName = "TGasCondition"
 
 -- =========================================================================
--- VISUALS
+-- Visuals
 -- =========================================================================
 
 --[[
 	The gas is built from ParticleEmitters in code rather than cloned from a
 	pre-authored instance.
 
-	This is a deliberate break from TREK convention -- every vanilla effect
-	clones a `Particle` model staged inside its module -- and it buys one thing:
+	This is a deliberate break from TREK convention: every vanilla effect
+	clones a `Particle` model staged inside its module, and it buys one thing:
 	the entire look is tunable from this file with no Studio round-trip.
 ]]
 
@@ -388,7 +388,7 @@ GasConfig.Visual = {
 		How much the gas lights itself, 0 to 1.
 
 		Pushed up from the 0.25 this used to hardcode, because a saturated orange
-		rendered unlit goes muddy brown the moment the cloud is in shadow -- and
+		rendered unlit goes muddy brown the moment the cloud is in shadow, and
 		the inside of a building is exactly where a gas cloud matters most. This
 		keeps it reading as the same colour indoors as in the open.
 
@@ -397,12 +397,12 @@ GasConfig.Visual = {
 	Glow = 0.08,
 
 	--[[
-		The throw arc, which is client-side UI and deliberately NOT the gas
+		The throw arc, which is client-side UI and not the gas
 		colour.
 
 		It used to inherit Colour, which was fine while the gas was green. With
 		orange gas the arc would be orange and its cook warning reddens toward
-		red -- two similar warm colours where the whole job of the warning is to
+		red, two similar warm colours where the whole job of the warning is to
 		be unmistakable. A cool arc also stops the preview reading as gas that is
 		somehow already in the air.
 	]]
@@ -422,7 +422,7 @@ GasConfig.Visual = {
 	-- How fast puffs drift outward from the centre.
 	Speed = NumberRange.new(1.5, 4),
 
-	-- Upward drift. Gas is heavier than air, so this is deliberately small.
+	-- Upward drift. Gas is heavier than air, so this is small.
 	Rise = 0.6,
 
 	-- Peak opacity of a single puff. Kept low because dozens overlap.
@@ -441,7 +441,7 @@ GasConfig.Visual = {
 	The hiss the cloud makes while it is venting.
 
 	Created on the server and parented to the cloud's anchor part, which is what
-	makes it positional -- a Sound inside a BasePart is heard from that part's
+	makes it positional: a Sound inside a BasePart is heard from that part's
 	position, so players can hear roughly where the gas is without seeing it.
 	That matters more than it sounds: gas is the one weapon in the game that
 	hurts you from outside your field of view.
@@ -458,7 +458,7 @@ GasConfig.Sound = {
 	--[[
 		Distance band, in studs.
 
-		Audible well outside CloudRadius on purpose -- the point is to warn
+		Audible well outside CloudRadius: the point is to warn
 		people who are near the gas, not only the ones already choking in it.
 	]]
 	RollOffMin = 12,
@@ -474,13 +474,13 @@ GasConfig.Sound = {
 }
 
 -- =========================================================================
--- NERVE AGENT
+-- Nerve agent
 -- =========================================================================
 
 --[[
 	What the gas actually is.
 
-	Not an irritant that hurts while you stand in it -- a nerve agent. One
+	Not an irritant that hurts while you stand in it: a nerve agent. One
 	lungful is fatal, and nothing after that first breath changes the outcome:
 	not leaving the cloud, not the cloud expiring, not a medic. The cloud is
 	where you were standing when you were killed, not the thing that killed you.
@@ -495,7 +495,7 @@ GasConfig.Nerve = {
 	--[[
 		Seconds of contact before the dose lands.
 
-		Zero is not used -- the cloud only reports on its own tick, so anything
+		Zero is not used: the cloud only reports on its own tick, so anything
 		at or below TickInterval means "one tick inside is enough", which is the
 		intent. Written as a real number rather than 0 so it stays legible as a
 		threshold rather than a special case.
@@ -524,7 +524,7 @@ GasConfig.Nerve = {
 	--[[
 		Seconds between the dose and the body going limp.
 
-		Short, because the seizure IS the tell. Long enough that the victim sees
+		Short, because the seizure is the tell. Long enough that the victim sees
 		it coming; too long and a dosed player keeps fighting as though nothing
 		happened, which undoes the whole weapon.
 	]]
@@ -545,13 +545,13 @@ GasConfig.Nerve = {
 
 		Separate from TwitchStrength because it does a different job. The twitch
 		is a repeating flutter on an already-fallen body; this is the single
-		convulsion that PUTS them down, and it wants to be violent enough to be
-		unmistakable from across the map. A body that simply sags could be
+		convulsion that puts them down, and it wants to be violent enough to be
+		unmistakable from across the map. A body that sags could be
 		someone crouching. A body that is thrown off its feet could not.
 
 		Applied to the root assembly, which the constraints then drag the limbs
 		along with. Driving each limb separately looks like it would be more
-		violent and instead makes the solver push the body through the floor --
+		violent and instead makes the solver push the body through the floor,
 		see the note on shove() in GasNerve.
 
 		For scale: the place's own RagdollDeath pushes a normal death fall at 22.
@@ -581,7 +581,7 @@ GasConfig.Nerve = {
 		Not comparable to TwitchStrength even though both are angular: this
 		drives one assembly and the twitch drives six. SkiRagdoll tumbles a
 		wipeout at 9 and RagdollDeath topples a corpse at 9, so this sits a
-		little above both rather than at the 30 it started at -- which was a
+		little above both rather than at the 30 it started at, which was a
 		limb-by-limb figure that made no sense once the shove moved to the root.
 	]]
 	CollapseSpin = 12,
@@ -591,7 +591,7 @@ GasConfig.Nerve = {
 
 		Looped, parented to the Head so it travels with the body and everyone
 		nearby hears it positionally. It starts the instant contact is
-		registered -- before the seizure, not with it -- because the sound is
+		registered, before the seizure, not with it, because the sound is
 		the first warning anyone gets that the person beside them is already
 		dead and has not noticed yet.
 	]]
@@ -608,7 +608,7 @@ GasConfig.Nerve = {
 		--[[
 			Seconds to fade out once they die.
 
-			Cut dead on the last frame it sounds like a bug -- the loop simply
+			Cut dead on the last frame it sounds like a bug: the loop simply
 			stops mid-breath. A short fade reads as the body going quiet.
 		]]
 		FadeOut = 0.6,
@@ -618,9 +618,9 @@ GasConfig.Nerve = {
 		The attribute that tells other systems to stop making this character's
 		ordinary pain noises.
 
-		Set on the CHARACTER, not the Humanoid, matching the SuppressRagdoll
+		Set on the character, not the Humanoid, matching the SuppressRagdoll
 		convention the place already uses. A generic name rather than a nerve
-		one so anything else that needs the same silence -- drowning, burning --
+		one so anything else that needs the same silence, drowning, burning,
 		can reuse it without depending on the gas.
 
 		This is needed because the drain takes health in TickInterval steps,
@@ -642,21 +642,21 @@ GasConfig.Nerve = {
 		Set on the Humanoid the moment someone is doomed, following TREK's own
 		TBleedCondition / TParalCondition convention.
 
-		This is the hook a gas mask would read later -- and the honest place for
-		anything else to find out that a player is already dead and simply has
+		This is the hook a gas mask would read later, and the honest place for
+		anything else to find out that a player is already dead and has
 		not finished falling over.
 	]]
 	ConditionAttribute = "TNerveCondition",
 }
 
 -- =========================================================================
--- DISORIENTATION
+-- Disorientation
 -- =========================================================================
 
 --[[
 	What being gassed does to your senses.
 
-	Perceptual only -- blurred, tinted vision and muffled hearing with a ring.
+	Perceptual only, blurred, tinted vision and muffled hearing with a ring.
 	Nothing here touches WalkSpeed, aim or controls, so a player caught in gas
 	can still fight their way out; they just cannot see or hear well while doing
 	it. The damage is what kills, this is what makes it frightening.
@@ -677,7 +677,7 @@ GasConfig.Disorient = {
 		Seconds of continuous exposure to reach full effect, and seconds to clear
 		once you are out.
 
-		Build shorter than fade on purpose: gas takes hold faster than it lets
+		Build shorter than fade: gas takes hold faster than it lets
 		go, so running out of the cloud is the right move but not an instant
 		reset. Stagger out and you are still blind for a moment.
 	]]
@@ -686,8 +686,8 @@ GasConfig.Disorient = {
 
 	--[[
 		The attribute the server writes and the client reads. Named rather than
-		hardcoded so anything else in the game -- a HUD, a medic system, a
-		spectator overlay -- can watch the same value.
+		hardcoded so anything else in the game: a HUD, a medic system, a
+		spectator overlay, can watch the same value.
 	]]
 	AttributeName = "GasExposure",
 
@@ -702,8 +702,8 @@ GasConfig.Disorient = {
 		scaled by exposure on top of that, so the orange arrives and leaves with
 		everything else.
 
-		That scaling is the whole point. TintColor MULTIPLIES the frame, so
-		assigning the gas colour directly -- at any exposure at all -- slams the
+		The scaling matters. TintColor multiplies the frame, so
+		assigning the gas colour directly, at any exposure at all, slams the
 		whole screen to full orange and holds it there for the entire fade while
 		the blur politely decays around it. Lerping from white is what makes it
 		decay rather than merely switch off at the end.
@@ -719,7 +719,7 @@ GasConfig.Disorient = {
 		Darkening and contrast at full exposure.
 
 		Both push the effect from "the screen has gone orange" toward "I cannot
-		see properly". Brightness goes NEGATIVE -- gas closing your eyes darkens
+		see properly". Brightness goes negative, gas closing your eyes darkens
 		the world; brightening it reads as a flashbang instead.
 	]]
 	MaxBrightness = -0.12,
@@ -727,7 +727,7 @@ GasConfig.Disorient = {
 
 	--[[
 		Ear ringing. Empty means use TREK's own staged Tinnitus sound, which is
-		what its explosions already ring with -- so gas and blasts sound like the
+		what its explosions already ring with, so gas and blasts sound like the
 		same game. Set an id here to override.
 	]]
 	Ring = "",
@@ -738,7 +738,7 @@ GasConfig.Disorient = {
 
 		Applied through an EqualizerSoundEffect on SoundService.Muffle, which is
 		the same SoundGroup TREK's own concussion muffle uses. If a place has no
-		Muffle group the muffle is skipped and everything else still works --
+		Muffle group the muffle is skipped and everything else still works,
 		checked rather than assumed, because TREK guards it the same way.
 	]]
 	MuffleGain = -46,
@@ -759,7 +759,7 @@ GasConfig.Disorient = {
 
 	Freezing only the outer table would leave GasConfig.Visual writable, and a
 	config that is immutable everywhere except one nested table is worse than one
-	that is mutable everywhere -- it invites exactly the stray write it looks like
+	that is mutable everywhere: it invites exactly the stray write it looks like
 	it is preventing.
 ]]
 table.freeze(GasConfig.Visual)

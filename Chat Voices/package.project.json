@@ -1,0 +1,26 @@
+{
+  "name": "ChatVoices",
+  "tree": {
+    "$className": "Folder",
+
+    "README": {
+      "$path": "src/package/README.luau"
+    },
+
+    "ServerScriptService": {
+      "$className": "Folder",
+
+      "ChatVoices": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayerScripts": {
+      "$className": "Folder",
+
+      "ChatVoices": {
+        "$path": "src/client"
+      }
+    }
+  }
+}

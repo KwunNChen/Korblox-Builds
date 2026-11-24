@@ -2,7 +2,7 @@
 	ArtilleryClient
 	Entry point. Owns the single render loop every shell is stepped from.
 
-	One RenderStepped connection for all shells, not one per shell -- a
+	One RenderStepped connection for all shells, not one per shell: a
 	twenty-shell barrage would otherwise churn twenty connections in the space
 	of a few seconds, every couple of minutes, forever.
 
@@ -84,7 +84,7 @@ RunService.RenderStepped:Connect(function()
 	ShellRender.step(workspace:GetServerTimeNow())
 
 	-- Debris and dust run on os.clock instead, because their motion is purely
-	-- local decoration -- nothing on the server is waiting on it, so it has no
+	-- local decoration: nothing on the server is waiting on it, so it has no
 	-- reason to be pinned to the shared clock the way a shell's impact does.
 	DebrisChunks.step()
 	DustCloud.step()

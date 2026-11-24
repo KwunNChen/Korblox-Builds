@@ -1,8 +1,8 @@
 --[[
-	ANGLE THE WEAPON IN A POSE
+	ANGLE the weapon in a pose
 
-	NOT a lune script. Paste into the Studio COMMAND BAR in EDIT MODE, with your
-	R6 rig SELECTED.
+	Not a lune script. Paste into the Studio command bar in edit mode, with your
+	R6 rig selected.
 
 	Downloads a published animation, pitches the weapon up (or down) by a fixed
 	angle, and saves the result where the Clip Editor's Load menu reads from.
@@ -12,17 +12,17 @@
 	carried higher.
 
 	--------------------------------------------------------------------------
-	WHAT IT ROTATES, AND WHAT IT DOES NOT
+	What it rotates, and what it does not
 	--------------------------------------------------------------------------
 
-	Only the AnimPart track -- the weapon itself. The arms are left alone.
+	Only the AnimPart track: the weapon itself. The arms are left alone.
 
 	At small angles that reads fine, because the hands stay visually on the
 	weapon. Past roughly 20 degrees they start to come off it, and at that point
 	the honest fix is the Clip Editor: rotate the gun, then move the arms to
 	follow. No script can pose hands convincingly.
 
-	The rotation is applied in the WEAPON'S OWN frame (post-multiplied), so it
+	The rotation is applied in the weapon's own frame (post-multiplied), so it
 	pivots the barrel about where the gun already is rather than swinging the
 	whole weapon around the torso. That keeps the grip roughly in place and
 	lifts the muzzle, which is the thing being asked for.

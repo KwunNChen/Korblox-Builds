@@ -1,28 +1,28 @@
 --[[
-	PASTE THIS INTO YOUR WEAPON MODULE.
+	Paste this into your weapon module.
 
 	This is not a script that runs. It is the block you add to the KR-61
 	Bonecrusher's config module (or any rifle you fit a bayonet to), inside the
 	same `local configs = { ... }` table that already holds [1].
 
-	It makes the bayonet a FIRE MODE. Press V in game and you switch from the
+	It makes the bayonet a fire mode. Press V in game and you switch from the
 	rifle to the blade.
 
-	Requires TREK Custom Bullets as the gun handler -- vanilla TREK has no
+	Requires TREK Custom Bullets as the gun handler, vanilla TREK has no
 	BulletType field and will ignore this entirely.
 
 	----------------------------------------------------------------------------
-	FOUR THINGS HERE ARE LOAD-BEARING. Do not "tidy" any of them.
+	Four things here are load-bearing. Do not "tidy" any of them.
 	----------------------------------------------------------------------------
 
-	1. THE INDEX IS 2, AND IT USED TO BE 9 FOR THE OPPOSITE REASON.
+	1. The index is 2, and it used to be 9 for the opposite reason.
 
 	   switchModes walks fire modes by increment:
 
 	       if (currentMode == 1 and not config[currentMode + 1]) then return end
 
-	   An earlier version of this system put the bayonet at [9] SO THAT V could
-	   never reach it -- it was triggered by its own key and only borrowed the
+	   An earlier version of this system put the bayonet at [9] so that V could
+	   never reach it: it was triggered by its own key and only borrowed the
 	   block for its numbers. The bayonet is a fire mode now, so it has to sit
 	   exactly where that walk lands.
 
@@ -30,35 +30,35 @@
 	   of the run (the first free index after your last mode) and set
 	   BayonetConfig.ConfigIndex to match. It must be reachable by incrementing.
 
-	2. BulletType MUST BE SPELLED EXACTLY "Bayonet".
+	2. BulletType must be spelled exactly "Bayonet".
 
 	   The gun handler resolves it by module name:
 
 	       local bulletType = bulletTypes[config[i].BulletType]
 	       if not(bulletType) then return end
 
-	   That `return` is at SCRIPT scope, not loop scope. A typo here does not
-	   break the bayonet -- it exits the handler before the mouse is connected,
-	   and EVERY weapon in the place stops responding. If guns suddenly do
+	   That `return` is at script scope, not loop scope. A typo here does not
+	   break the bayonet: it exits the handler before the mouse is connected,
+	   and every weapon in the place stops responding. If guns suddenly do
 	   nothing at all, this line is the first place to look.
 
-	3. MagCapacity = math.huge, AND IT MUST BE A NUMBER, NOT 'INF'.
+	3. MagCapacity = math.huge, and it must be a number, not 'INF'.
 
 	   A melee mode still goes through shoot(), which does
 
 	       tool.LocalTAmmo[mode].Ammo.Value -= 1
 
-	   unconditionally. Omitting MagCapacity -- which is how the old [9] block
-	   stayed out of the ammo system -- now means no LocalTAmmo entry and an
+	   unconditionally. Omitting MagCapacity, which is how the old [9] block
+	   stayed out of the ammo system, now means no LocalTAmmo entry and an
 	   error on every swing. Infinity works because inf - 1 is still inf: the
 	   mode never runs dry, so the bayonet swings at 0 rifle ammo without being
 	   outside the ammo system at all.
 
-	   TREK's own "infinite" sentinel is the STRING 'INF', but the client's
+	   TREK's own "infinite" sentinel is the string 'INF', but the client's
 	   ammo store assigns ReservedAmmo straight onto a DoubleConstrainedValue,
 	   which rejects a string. Use the number.
 
-	4. CanReload = false, AND IT PREVENTS A REAL BUG.
+	4. CanReload = false, and it prevents a real BUG.
 
 	   Because ReservedAmmo is math.huge rather than 'INF', TREK's reload
 	   handler misses its early return and computes
@@ -67,14 +67,14 @@
 
 	   which is NaN, and writes it into your ammo values. CanReload = false is
 	   checked in reloadSecurityChecks before any of that can be reached, so
-	   pressing R in this mode simply does nothing.
+	   pressing R in this mode does nothing.
 
 	----------------------------------------------------------------------------
-	AND ONE THING THAT IS NOT IN THIS FILE
+	And one thing that is not in this file
 	----------------------------------------------------------------------------
 
 	The animation. Name it "2Recoil" and put it in the weapon module's
-	Animations folder -- determineAnim prefixes the mode number and falls back to
+	Animations folder, determineAnim prefixes the mode number and falls back to
 	the unprefixed name, so "2Recoil" plays on a bayonet swing while "Recoil"
 	still plays when you fire the rifle. "2Idle" and "2SprintHold" do the same
 	for the held pose and the charge.
@@ -115,16 +115,16 @@ return {
 		ReloadSpeed = 1,
 		ReloadOnlyWithEmptyMag = false,
 
-		-- ===== Inert, but required to EXIST =====
+		-- ===== Inert, but required to exist =====
 		--
 		-- Two different handlers read these without a nil check.
 		--
-		-- VANILLA TREK builds a modeStuff entry for every table in the config at
+		-- Vanilla TREK builds a modeStuff entry for every table in the config at
 		-- load and does
 		--
 		--     ProjectileTypes[tabl.ProjectileName]
 		--
-		-- which throws on nil and takes the WHOLE WEAPON down -- not just this
+		-- which throws on nil and takes the whole weapon down, not just this
 		-- mode. So ProjectileName and friends stay here even though a bayonet
 		-- fires nothing, purely so a half-finished install cannot brick the gun.
 		--

@@ -47,9 +47,6 @@ local ENGAGE_FACING = 0
 local ENGAGE_TIME = 5
 --Seconds after a hit or a round fired at the unit that any enemy in sight keeps it engaged.
 local COMPROMISED_TIME = 20
---A player's round fired at him: passing this close, this far from the gun at most.
-local FIRED_AT_RADIUS = 12
-local FIRED_AT_RANGE = 500
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -82,6 +79,7 @@ function sof.kindOf(model)
 end
 
 if sof.kind then
+	chatter.useTactical()
 	local fire = marine.M4:FindFirstChild("Fire")
 	if fire then
 		fire.RollOffMaxDistance *= SUPPRESSED_HEARING
@@ -184,48 +182,18 @@ function sof.engaged(target)
 	return now - at < ENGAGE_TIME
 end
 
---A player's round from from toward to (client values, only ever a trigger): if it
---passes close to him his unit engages, and he turns on the shooter.
-local function firedAt(player,from,to)
-	local character = player.Character
-	local human = character and character:FindFirstChildOfClass("Humanoid")
-	local shooter = human and human.Health > 0 and human.RootPart
-	if not shooter or core.isAlly(character) or typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" or (to - from).Magnitude < 1 then
-		return
+--A player's round came close (CombatModule): a special operations unit counts as
+--engaged, and anyone turns on the shooter unless fighting someone he can see.
+function sof.firedAt(shooter)
+	if sof.kind then
+		engagedAt[marine:GetAttribute("SquadId") or marine] = os.clock()
 	end
-	local line = (to - from).Unit
-	local offset = marine.HumanoidRootPart.Position - from
-	local along = offset:Dot(line)
-	if along < 0 or along > FIRED_AT_RANGE or (offset - line*along).Magnitude > FIRED_AT_RADIUS then
-		return
-	end
-	engagedAt[marine:GetAttribute("SquadId") or marine] = os.clock()
 	core.markSeen(shooter)
 	local current = status:get("currentTarget")
 	if not (current and current.Parent and core.checkSight(current)) then
 		status:set("currentTarget",shooter)
 	end
 	log("target","fired at, engaging")
-end
-
---TREK guns tell the server every shot: RayRemote for hitscan, ProjectileRemote otherwise.
-if sof.kind then
-	task.spawn(function()
-		local services = ReplicatedStorage:WaitForChild("TREK_SERVICES",30)
-		local remotes = services and services:WaitForChild("TREK_Remotes",30)
-		local ray = remotes and remotes:WaitForChild("RayRemote",30)
-		local projectile = remotes and remotes:WaitForChild("ProjectileRemote",30)
-		if ray then
-			ray.OnServerEvent:Connect(firedAt)
-		end
-		if projectile then
-			projectile.OnServerEvent:Connect(function(player,_,from,direction)
-				if typeof(from) == "Vector3" and typeof(direction) == "Vector3" then
-					firedAt(player,from,from + direction)
-				end
-			end)
-		end
-	end)
 end
 
 return sof

@@ -18,7 +18,6 @@
 
 local debris = game:GetService("Debris")
 local runService = game:GetService("RunService")
-local tweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
@@ -48,20 +47,9 @@ local OVERHEAD_WAIT = 12
 --Shot down: how fast it falls (studs/s) and rolls (radians/s).
 local FALL_SPEED = 90
 local FALL_SPIN = 0.6
---Engulfed: how many of its parts burn and the biggest fire on one (studs; 30
---is Roblox's limit), and how much bigger than a shell's impact the blast is
---when it hits the ground (Random Arty's ArtilleryBlast).
-local ENGULF_PARTS = 30
-local ENGULF_MAX_FIRE = 25
+--How much bigger than a shell's impact the blast is when it hits the ground
+--(Random Arty's ArtilleryBlast).
 local CRASH_SCALE = 4
-
---The wreck left on the ground: its charred colour, how long the fires burn on
---it, how long it lies there in all, and how long it takes to fade away
---(seconds).
-local WRECK_COLOR = Color3.fromRGB(45,40,36)
-local WRECK_BURN = 6
-local WRECK_TIME = 12
-local WRECK_FADE = 3
 
 --The sound every player hears when it spawns (heard everywhere, not from the
 --plane), and its volume.
@@ -76,7 +64,9 @@ local FLASH_TIME = 0.08
 --The gun's sound for each shell (the 40 mm), played from the muzzle.
 local FIRE_SOUND = "rbxassetid://18754665604"
 
-local HOSTILE = "Hostile"
+local sides = require(script.Parent:WaitForChild("Sides"))
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
+local HOSTILE = sides.HOSTILE
 
 local gunship = script.Parent
 local root = gunship.PrimaryPart
@@ -146,91 +136,9 @@ end
 
 local falling = false
 local fallTime = 0
-local bank = 0
+local BANK = 0
 local position = orbitPoint(angle)
 local heading = orbitForward(angle)
-
---Sets the whole airframe alight: a fire on each visible part (the biggest
---ENGULF_PARTS of them, sized to the part) and black smoke off the largest.
-local function engulf(model)
-	local parts = {}
-	for _,part in ipairs(model:GetDescendants()) do
-		if part:IsA("BasePart") and part.Transparency < 1 and not part:FindFirstChild("EngulfFire") then
-			parts[#parts+1] = part
-		end
-	end
-	table.sort(parts,function(a,b)
-		return a.Size.Magnitude > b.Size.Magnitude
-	end)
-	for index = 1,math.min(#parts,ENGULF_PARTS) do
-		local part = parts[index]
-		local fire = Instance.new("Fire")
-		fire.Name = "EngulfFire"
-		fire.Size = math.clamp(math.max(part.Size.X,part.Size.Y,part.Size.Z)*0.4,4,ENGULF_MAX_FIRE)
-		fire.Heat = 20
-		fire.Color = Color3.fromRGB(255,120,30)
-		fire.SecondaryColor = Color3.fromRGB(255,220,80)
-		fire.Parent = part
-		if index <= 3 then
-			local smoke = Instance.new("Smoke")
-			smoke.Size = ENGULF_MAX_FIRE
-			smoke.RiseVelocity = 12
-			smoke.Opacity = 0.7
-			smoke.Color = Color3.fromRGB(30,30,30)
-			smoke.Parent = part
-		end
-	end
-end
-
---Lays the model down at `at` as a wreck: charred black, its fires burning out
---after WRECK_BURN, and the whole thing fading away after WRECK_TIME.
-local function wreck(model,body,at,facing)
-	model:SetAttribute("Wrecked",true)
-	for _,tag in ipairs({"BloxianJet","BloxianGunship"}) do
-		model:RemoveTag(tag)
-	end
-	local tilt = CFrame.Angles(math.rad(-6),0,math.rad(math.random(-20,20)))
-	body.CFrame = CFrame.lookAt(at,at + facing) * CFrame.new(0,model:GetExtentsSize().Y*0.2,0) * tilt
-	local visible = {}
-	for _,item in ipairs(model:GetDescendants()) do
-		if item:IsA("SurfaceAppearance") then
-			item:Destroy()
-		elseif item:IsA("BasePart") and item.Transparency < 1 then
-			visible[#visible+1] = item
-			item.Color = WRECK_COLOR
-			item.Material = Enum.Material.Slate
-			if item:IsA("MeshPart") then
-				pcall(function()
-					item.TextureID = ""
-				end)
-			end
-		end
-	end
-
-	task.delay(WRECK_BURN,function()
-		for _,item in ipairs(model:GetDescendants()) do
-			if item:IsA("Fire") then
-				item.Enabled = false
-			end
-		end
-	end)
-	task.delay(WRECK_TIME,function()
-		if not model.Parent then return end
-		for _,item in ipairs(model:GetDescendants()) do
-			if item:IsA("Smoke") then
-				item.Enabled = false
-			end
-		end
-		local fade = TweenInfo.new(WRECK_FADE)
-		for _,part in ipairs(visible) do
-			if part.Parent then
-				tweenService:Create(part,fade,{Transparency = 1}):Play()
-			end
-		end
-		task.wait(WRECK_FADE)
-		model:Destroy()
-	end)
-end
 
 local function place()
 	root.CFrame = CFrame.lookAt(position,position + heading) * CFrame.Angles(0,0,math.rad(bank))
@@ -282,7 +190,7 @@ connection = runService.Heartbeat:Connect(function(dt)
 	if gunship:GetAttribute("ShotDown") and not falling then
 		falling = true
 		gunship:SetAttribute("OnMission",false)
-		engulf(gunship)
+		kit.engulf(gunship)
 	end
 	if falling then
 		fallTime += dt
@@ -305,7 +213,7 @@ connection = runService.Heartbeat:Connect(function(dt)
 				explosion.Parent = workspace
 			end
 			connection:Disconnect()
-			wreck(gunship,root,at,heading)
+			kit.wreck(gunship,root,at,heading)
 		end
 		return
 	end
@@ -326,30 +234,24 @@ connection = runService.Heartbeat:Connect(function(dt)
 	place()
 end)
 
---Everyone alive on the ground, as {root, team}: players by their Roblox team
---and Bloxians by Settings.Team. A player on no team is only an enemy of a
---Hostile gunship; to any other he counts as a friend.
+--Everyone alive on the ground, as {root, view}: "enemy", "friend" or nil, by the
+--same side rules as the other aircraft (Shared/Sides).
 local function people()
+	local side = gunship:GetAttribute("Team")
 	local list = {}
 	for _,player in ipairs(Players:GetPlayers()) do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local human = character and character:FindFirstChildOfClass("Humanoid")
 		if root and human and human.Health > 0 then
-			local team = player.Team and not player.Neutral and player.Team.Name
-			if not team then
-				team = gunship:GetAttribute("Team") == HOSTILE and "" or gunship:GetAttribute("Team")
-			end
-			list[#list+1] = {root = root, team = team}
+			list[#list+1] = {root = root, view = sides.standing(character,side)}
 		end
 	end
 	for _,model in ipairs(CollectionService:GetTagged("Bloxian")) do
 		local root = model:FindFirstChild("HumanoidRootPart")
 		local human = model:FindFirstChildOfClass("Humanoid")
-		local settings = model:FindFirstChild("Settings")
-		local team = settings and settings:FindFirstChild("Team")
 		if root and human and human.Health > 0 and model:IsDescendantOf(workspace) then
-			list[#list+1] = {root = root, team = team and team.Value or ""}
+			list[#list+1] = {root = root, view = sides.standing(model,side)}
 		end
 	end
 	return list
@@ -358,13 +260,12 @@ end
 --Where to shell: the enemy with the most other enemies around him, with no
 --friend near. nil if there is nobody to shell.
 local function pickTarget()
-	local team = gunship:GetAttribute("Team")
 	local enemies,friends = {},{}
 	for _,person in ipairs(people()) do
 		local flat = Vector3.new(person.root.Position.X - station.X,0,person.root.Position.Z - station.Z)
-		if person.team == team then
+		if person.view == "friend" then
 			friends[#friends+1] = person.root
-		elseif flat.Magnitude <= BARRAGE_RANGE then
+		elseif person.view == "enemy" and flat.Magnitude <= BARRAGE_RANGE then
 			enemies[#enemies+1] = person.root
 		end
 	end

@@ -9,7 +9,7 @@ StarterPlayer.
 
 ## Install
 
-**1. Drag `BlastDoor.rbxm` into ServerStorage.** Always ServerStorage — scripts
+**1. Drag `BlastDoor.rbxm` into ServerStorage.** Always ServerStorage - scripts
 do not execute there. Drop it into ServerScriptService or Workspace and the
 server scripts start running before the modules they need exist.
 
@@ -35,7 +35,7 @@ KorbloxBlastDoor            <- staging folder, delete when done
 Moving a signpost itself gives you `ReplicatedStorage.ReplicatedStorage.BlastDoor`
 and nothing finds anything.
 
-**3. Delete the staging folder** — or keep it, since `Tools` is a command-bar
+**3. Delete the staging folder** - or keep it, since `Tools` is a command-bar
 helper that never runs on its own and does no harm sitting in ServerStorage.
 
 **4. Make a door.** Two parts or models named `Left` and `Right`, built touching

@@ -26,6 +26,9 @@
     },
     "Spearhead": {
       "$path": "../Shared/Spearhead.server.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
     }
   }
 }

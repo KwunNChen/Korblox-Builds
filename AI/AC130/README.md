@@ -35,7 +35,7 @@ announced. That's the only heads-up: its barrages come with no warning.
   105 mm, with no warning sound. Each shell flashes the muzzle and plays the 40 mm sound (`rbxassetid://18754665604`, `FIRE_SOUND`).
   (`FIRST_BARRAGE`, `BARRAGE_INTERVAL`, `BARRAGE_RANGE`, `CLUSTER_RADIUS`,
   `DANGER_CLOSE`, `OVERHEAD_WAIT`.)
-  - **The shells:** each one comes nearly straight down from the gunship in 0.8–1 s, one every 0.08–0.18 s (Random Arty's `GunshipShellFlightTime` and `GunshipShellSpacing`).
+  - **The shells:** each one comes nearly straight down from the gunship in 0.8-1 s, one every 0.08-0.18 s (Random Arty's `GunshipShellFlightTime` and `GunshipShellSpacing`).
   - **Where they land:** within 12 studs of the spot it picked
     (Random Arty's `GunshipScatterRadius`), not across the battery's 90-stud
     spread.

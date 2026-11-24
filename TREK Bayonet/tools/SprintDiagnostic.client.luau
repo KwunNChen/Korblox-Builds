@@ -1,11 +1,11 @@
 --[[
-	TEMPORARY DIAGNOSTIC -- delete when you have your answer.
+	Temporary diagnostic, delete when you have your answer.
 
 	Put this in a LocalScript in StarterPlayerScripts. Play, then press your
-	sprint key (F) ONCE and read Output.
+	sprint key (F) once and read Output.
 
 	--------------------------------------------------------------------------
-	THE HYPOTHESIS
+	The hypothesis
 	--------------------------------------------------------------------------
 
 	TREK's MovementHandler connects UserInputService.InputBegan and, on the
@@ -13,7 +13,7 @@
 
 		controls.sprintstate.Value = not controls.sprintstate.Value
 
-	A TOGGLE. If MovementHandler is running twice -- and the startup log shows
+	A toggle. If MovementHandler is running twice, and the startup log shows
 	"one life movement handler loaded" printed twice, once after "Studio install"
 	-- then one keypress toggles SprintEnabled twice: on, then immediately off.
 	Sprint does nothing, with no error to show for it.
@@ -28,13 +28,13 @@
 	When it survives, sprint is dead.
 
 	--------------------------------------------------------------------------
-	READING THE OUTPUT
+	Reading the output
 	--------------------------------------------------------------------------
 
 	Press F once.
 
-		TWO "[SPRINT] SprintEnabled ->" lines   = confirmed, duplicate handlers
-		ONE line                                = something else, tell me
+		Two "[sprint] SprintEnabled ->" lines   = confirmed, duplicate handlers
+		One line                                = something else, tell me
 
 	The copy count printed at startup tells you where the duplicates live.
 ]]

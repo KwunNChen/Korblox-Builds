@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Shared vocabulary and plumbing. No behaviour lives here -- this is the file
+	Shared vocabulary and plumbing. No behaviour lives here: this is the file
 	both halves agree on so they cannot drift apart.
 
 	The refusal check (blockReason) is here rather than on either side on
@@ -33,11 +33,11 @@ ParkourShared.Phase = table.freeze({
 	What each move is, as data.
 
 	This exists because "is this the mantle" was being re-derived in five
-	separate places -- the cost, the watchdog duration, the probe origin, the
-	classifier -- and every one of them was a branch that a third move would have
+	separate places: the cost, the watchdog duration, the probe origin, the
+	classifier, and every one of them was a branch that a third move would have
 	to be threaded through by hand.
 
-	The config stays flat (Vault* / Mantle* keys) on purpose: it is documented as
+	The config stays flat (Vault* / Mantle* keys): it is documented as
 	the one file a non-programmer edits, and a table of tables reads worse for
 	that person. This is the flat config gathered into a shape for code, built
 	once at load rather than per call.
@@ -66,14 +66,14 @@ ParkourShared.RemoteNames = table.freeze({ "ParkourBegin", "ParkourEnd" })
 ParkourShared.OutcomeName = "ParkourOutcome"
 
 -- ============================================================
--- LOGGING
+-- Logging
 -- ============================================================
 
 local PREFIX = "[TREKParkour] "
 
 -- One definition, because there were three identical ones and a fourth site
 -- open-coding the same DebugLog check. Anything that changes about debug output
--- -- a level, a Studio-only gate, routing somewhere other than print -- should
+--, a level, a Studio-only gate, routing somewhere other than print, should
 -- be one edit, not four.
 function ParkourShared.log(format: string, ...: any)
 	if Config.DebugLog then
@@ -93,7 +93,7 @@ end
 
 --[[
 	TREK ships a Configuration called TREK_PlrConfig on every character, holding
-	the sprint flags and one BoolValue -- UsingAbility -- that no TREK code ever
+	the sprint flags and one BoolValue, UsingAbility, that no TREK code ever
 	reads or writes. That is where "this player is mid-parkour" lives, so any
 	other system can see it without knowing this package exists.
 
@@ -111,7 +111,7 @@ function ParkourShared.boolValue(character: Model, name: string): BoolValue?
 end
 
 -- ============================================================
--- REMOTES
+-- Remotes
 -- ============================================================
 
 --[[
@@ -162,7 +162,7 @@ function ParkourShared.getRemote(name: string): RemoteEvent?
 end
 
 -- ============================================================
--- THE REFUSAL CHECK
+-- The refusal check
 -- ============================================================
 
 --[[
@@ -170,7 +170,7 @@ end
 	may. Ordered cheapest test first.
 
 	The PlatformStand and TParalCondition tests are not paranoia. TREK sets
-	PlatformStand on a player who has lost both legs and never clears it -- that
+	PlatformStand on a player who has lost both legs and never clears it, that
 	is its paralysis marker. If we started a move on such a character we would
 	restore PlatformStand to false when we finished, and cure them.
 ]]
@@ -226,7 +226,7 @@ function ParkourShared.setUsingAbility(character: Model, value: boolean)
 end
 
 -- ============================================================
--- GEOMETRY HELPERS
+-- Geometry helpers
 -- ============================================================
 
 --[[
@@ -243,7 +243,7 @@ end
 
 --[[
 	Every cast this package makes must exclude workspace.IgnoreList. It is where
-	TREK parks bullets, casings and gibs -- a ledge probe that does not exclude
+	TREK parks bullets, casings and gibs: a ledge probe that does not exclude
 	it will happily latch onto a round in flight.
 ]]
 local function ignoreFor(character: Model): { Instance }
@@ -259,7 +259,7 @@ end
 	Memoised per character, weak-keyed so a dead character takes its params with
 	it.
 
-	These were being rebuilt on every probe -- ten times a second while moving,
+	These were being rebuilt on every probe, ten times a second while moving,
 	forty with the debug tool running. Assigning FilterDescendantsInstances is
 	not a field write: it copies the array across to the engine and rebuilds the
 	filter, so the cost was real rather than theoretical.
@@ -329,11 +329,11 @@ local function flatten(vector: Vector3, fallback: Vector3): Vector3
 end
 
 --[[
-	Which way the player is actually GOING, flattened.
+	Which way the player is actually going, flattened.
 
-	This is deliberately not the look vector. While a weapon with TurnToTarget is
+	This is not the look vector. While a weapon with TurnToTarget is
 	equipped, TREK's HeadAndArmsController forces the root's yaw to wherever the
-	mouse is pointing, every frame -- so LookVector is where you are AIMING, and
+	mouse is pointing, every frame, so LookVector is where you are aiming, and
 	using it would have you vaulting the wall you are looking at rather than the
 	one you are running into.
 
@@ -343,8 +343,8 @@ end
 ]]
 function ParkourShared.travelDirection(root: BasePart, humanoid: Humanoid): Vector3
 	-- The fallback is built only when it is needed. On the vault poll it never
-	-- is -- that path only runs above MinApproachSpeed, so MoveDirection always
-	-- has magnitude -- and computing it eagerly cost a CFrame read, two Vector3
+	-- is, that path only runs above MinApproachSpeed, so MoveDirection always
+	-- has magnitude, and computing it eagerly cost a CFrame read, two Vector3
 	-- allocations and a normalise per probe for nothing.
 	local moving = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
 	if moving.Magnitude >= 1e-4 then
@@ -372,7 +372,7 @@ function ParkourShared.landPoint(facePoint: Vector3, topY: number, direction: Ve
 end
 
 -- ============================================================
--- MATHS
+-- Maths
 -- ============================================================
 
 -- Ease in and out. Linear motion up a wall reads as a lift, not a climb.

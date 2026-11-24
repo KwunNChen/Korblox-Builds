@@ -6,7 +6,7 @@
 	start twenty overlapping booms, and past about six they stop being separate
 	sounds and become mud.
 
-	The whistle is not handled here beyond being built -- it gets parented to
+	The whistle is not handled here beyond being built: it gets parented to
 	the shell part itself, so Roblox's own 3D audio does the panning and the
 	falloff, and the rise as a shell bears down on you costs nothing.
 ]]

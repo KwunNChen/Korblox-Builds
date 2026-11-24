@@ -1,4 +1,4 @@
--- VARIABLES
+-- Variables
 local main = script.Parent.Parent
 local system = main.System
 local config = main.Settings
@@ -30,7 +30,7 @@ local endMessage = {
 	['Duration'] = 5
 }
 
--- FUNCTIONS
+-- Functions
 local function begin()
 	if not system.RaidOfficial.Value then
 		for i,plr in pairs(plrs:GetPlayers()) do
@@ -134,5 +134,5 @@ local function plrAdded(plr:Player)
 	end
 end
 
--- EXECUTION
+-- Execution
 plrs.PlayerAdded:Connect(plrAdded)

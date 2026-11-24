@@ -1,12 +1,12 @@
 --!strict
 --[[
-	TREK SPAWN REPAIR
+	TREK spawn repair
 
 	Not part of the bayonet. It lives here because this is where it got written;
 	put it wherever you keep TREK fixes. Drop it in ServerScriptService.
 
 	--------------------------------------------------------------------------
-	THE BUG IT WORKS AROUND
+	The BUG it works around
 	--------------------------------------------------------------------------
 
 	TREKServerGeneral's chrAdded runs on CharacterAdded:
@@ -31,18 +31,18 @@
 	        if not chr.Torso:FindFirstChild('toolAnim') then return end
 	    gives up silently and the weapon is never jointed to the torso;
 
-	  * ChildAdded is never connected, so checkForGun never runs -- nothing
+	  * ChildAdded is never connected, so checkForGun never runs: nothing
 	    clones the ToolType handler and nothing builds TAmmo. The gun has no
 	    script and no ammo.
 
 	Hence a weapon that works most spawns and is completely inert on others.
 
 	--------------------------------------------------------------------------
-	WHAT THIS DOES
+	What this does
 	--------------------------------------------------------------------------
 
-	Waits properly for Humanoid and Torso, then fills in ONLY what is missing.
-	On a healthy spawn every check passes and it does nothing at all -- so it is
+	Waits properly for Humanoid and Torso, then fills in only what is missing.
+	On a healthy spawn every check passes and it does nothing at all, so it is
 	safe to leave in permanently, and safe even if the real cause turns out to be
 	something else.
 
@@ -70,8 +70,8 @@ end
 	TREK's createAmmoStore, reimplemented.
 
 	It is a local inside TREKServerGeneral with no export, so there is no way to
-	call the original. Kept deliberately identical, including the ReservedAmmo
-	== 'INF' string comparison, which differs from the client's == math.huge --
+	call the original. Kept identical, including the ReservedAmmo
+	== 'INF' string comparison, which differs from the client's == math.huge,
 	that asymmetry is TREK's and copying it is safer than correcting it.
 ]]
 local function createAmmoStore(tool: Instance)
@@ -157,7 +157,7 @@ local function onCharacter(chr: Model)
 		return
 	end
 
-	-- Waited for, not indexed. This is the whole point.
+	-- Waited for, not indexed. That is the actual fix.
 	local torsoName = if humanoid.RigType == Enum.HumanoidRigType.R6 then "Torso" else "UpperTorso"
 	local torso = chr:WaitForChild(torsoName, WAIT) :: BasePart?
 	if not torso then

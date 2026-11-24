@@ -44,20 +44,20 @@ end
 
 	Two completely different kinds of value are valid here:
 
-	  rbxasset://textures/particles/smoke_main.dds   an ENGINE path. Ships with
-	                                                 Studio, contains NO digits,
+	  rbxasset://textures/particles/smoke_main.dds   an engine path. Ships with
+	                                                 Studio, contains no digits,
 	                                                 and is already final.
-	  rbxassetid://13623094740                       an UPLOADED asset id.
+	  rbxassetid://13623094740                       an uploaded asset id.
 	  13623094740                                    the same, bare.
 
 	Engine paths have to be passed straight through. Running one through the
 	digit match below finds nothing, returns "", and the caller then silently
-	leaves the property unset -- which for a ParticleEmitter means falling back
+	leaves the property unset, which for a ParticleEmitter means falling back
 	to Roblox's default white sparkle. That failure is invisible in Output and
 	looks exactly like "the texture I set is being ignored", because it is.
 
 	Six digits is the floor for uploaded ids because every real one clears it,
-	while placeholder text like "PUT ID HERE" does not.
+	while placeholder text like "put ID here" does not.
 ]]
 function ArtilleryShared.assetId(value: any): string
 	if type(value) ~= "string" or value == "" then
@@ -65,10 +65,10 @@ function ArtilleryShared.assetId(value: any): string
 	end
 
 	--[[
-		An engine path, passed straight through -- but ONLY if it is a real path.
+		An engine path, passed straight through, but only if it is a real path.
 
-		"rbxasset://6286534083" is the trap: the engine-path prefix with an
-		UPLOADED id after it, which is what you get by copying the shape of the
+		"rbxasset://6286534083" is the easy mistake: the engine-path prefix with an
+		Uploaded id after it, which is what you get by copying the shape of the
 		default and pasting an id into it. rbxasset:// resolves a file that ships
 		with Studio, so a number there names nothing and the texture renders
 		blank with no error. Digits after the prefix always mean an upload, so
@@ -87,7 +87,7 @@ function ArtilleryShared.assetId(value: any): string
 end
 
 --[[
-	TRAJECTORY
+	Trajectory
 
 	Both sides run this, so a shell is described over the network by nothing but
 	its impact point, its launch point and its timing. No positions are streamed.
@@ -98,8 +98,8 @@ end
 		P = S + v*T + 0.5*a*T^2       ->      v = (P - S - 0.5*a*T^2) / T
 
 	The shell then accelerates downward for the whole flight, so it comes in
-	visibly faster than it went out. That acceleration is the entire reason this
-	is real projectile motion rather than a Bezier -- a curve travelled at
+	visibly faster than it went out. That acceleration is why this uses
+	real projectile motion and not a Bezier: a curve travelled at
 	constant speed reads as floaty no matter how nice its shape is.
 
 	ShellGravity is a look knob, not physics. It has nothing to do with

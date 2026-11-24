@@ -1,4 +1,4 @@
--- VARIABLES
+-- Variables
 local main = script.Parent.Parent
 local system = main.System
 local config = main.Settings
@@ -11,7 +11,7 @@ shared.neutral = {}
 local defenderColour = config.DefendingTeams:GetAttribute('CategoryColour')
 local raiderColour = config.RaidingTeams:GetAttribute('CategoryColour')
 
--- FUNCTIONS
+-- Functions
 local function setTeams()
 	for i,team in pairs(config.DefendingTeams:GetChildren()) do
 		if not team.Value then continue end
@@ -28,6 +28,8 @@ local function setTeams()
 end
 
 local function getPlrCategory(plr)
+	-- A player on no team counts for nobody (and must not error the capture loop).
+	if not plr.Team then return end
 	if shared.defenders[plr.Team.Name] then
 		return 'Defenders', shared.defenders[plr.Team.Name]
 	elseif shared.raiders[plr.Team.Name] then
@@ -57,17 +59,19 @@ end
 local function cap(point)
 	if point.Progress.Value == point.Progress.MaxValue then
 		
-		if system.StatDefenders.Value + (point.Value.Value) >= config.Objective.Value then 
+		if system.StatDefenders.Value + (point.Value.Value) >= config.Objective.Value then
 			system.StatDefenders.Value = config.Objective.Value
 			victory('Defenders')
+			return
 		end
 		
 		system.StatDefenders.Value += (point.Value.Value)
 	elseif point.Progress.Value == point.Progress.MinValue then
 		
-		if system.StatRaiders.Value + (point.Value.Value) >= config.Objective.Value then 
+		if system.StatRaiders.Value + (point.Value.Value) >= config.Objective.Value then
 			system.StatRaiders.Value = config.Objective.Value
 			victory('Raiders')
+			return
 		end
 		
 		system.StatRaiders.Value += (point.Value.Value)
@@ -146,6 +150,8 @@ local function handleScores()
 	if not system.RaidOfficial.Value then return end
 	
 	for i,point in pairs(points:GetChildren()) do
+		-- A victory ends the raid mid-loop: score nothing more once it has.
+		if not system.RaidOfficial.Value then return end
 		cap(point)
 	end
 end
@@ -170,7 +176,7 @@ local function handlePointNotifications(point)
 	system.Remotes.notif:FireAllClients('notif',message)
 end
 
--- EXECUTION
+-- Execution
 setTeams()
 for i,point in pairs(points:GetChildren()) do
 	point.Owner:GetPropertyChangedSignal('Value'):Connect(function() handlePointNotifications(point) end)

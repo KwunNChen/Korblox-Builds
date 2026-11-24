@@ -1,5 +1,5 @@
 --[[
-	GasGrenade -- GunConfigs shim
+	GasGrenade. GunConfigs shim
 
 	This module is what TREK's core sees. It is installed into GunConfigs, and
 	its name must match the Tool's name exactly.
@@ -12,13 +12,13 @@
 	    membership in that folder, whether or not the tool is a gun.
 
 	  - Several core paths resolve a tool's config by `tool.Name` and ignore the
-	    TConfigToUse attribute -- the Explosion remote handler in
+	    TConfigToUse attribute: the Explosion remote handler in
 	    TREKServerGeneral is the one that bites. Naming this module after the
 	    tool is the only arrangement every lookup agrees on.
 
-	THIS MODULE MUST NEVER THROW AT REQUIRE TIME. TREK requires it from inside
+	This module must never throw at require time. TREK requires it from inside
 	`checkForGun`, on the server, while a character is being assembled. An error
-	here does not fail gracefully -- it aborts the handler install and the tool
+	here does not fail gracefully: it aborts the handler install and the tool
 	silently does nothing for the rest of the round. Hence the pcall and the
 	hardcoded fallbacks: a missing package folder costs you the tuned numbers,
 	not the grenade.
@@ -66,13 +66,13 @@ return {
 		declaring one mode here is what gives the grenade a count and a working
 		reload path on the server.
 
-		ReservedAmmo is NOT optional. createAmmoStore assigns it straight into a
+		ReservedAmmo is not optional. createAmmoStore assigns it straight into a
 		DoubleConstrainedValue's MaxValue and Value with no nil check, so leaving
-		it out throws inside checkForGun -- while a character is mid-spawn, which
+		it out throws inside checkForGun, while a character is mid-spawn, which
 		is about the worst place in TREK to raise an error.
 
 		The other fields are the minimum the shared paths read without a nil
-		check. Nothing fires rays, so the ballistics values are inert -- they
+		check. Nothing fires rays, so the ballistics values are inert: they
 		exist so a stray core lookup finds a number rather than nil.
 	]]
 	[1] = {
@@ -90,7 +90,7 @@ return {
 
 		--[[
 			Explicitly false. If this were true, TREK's Explosion remote would
-			accept a client-sent position and run a blast using this config --
+			accept a client-sent position and run a blast using this config:
 			a free one-shot explosion for anyone who can fire a remote.
 		]]
 		explosiveRays = false,

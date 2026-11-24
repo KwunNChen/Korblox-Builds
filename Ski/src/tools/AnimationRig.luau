@@ -12,7 +12,7 @@
 
 
 	========================================================
-	HOW TO USE IT
+	How to use it
 	========================================================
 
 	1. Avatar tab > Rig Builder > R6 > Block Rig. A "Dummy" appears in Workspace.
@@ -35,10 +35,10 @@
 
 
 	========================================================
-	WHAT TO ANIMATE
+	What to animate
 	========================================================
 
-	Five slots, all LOOPING, and each replaces a built-in procedural pose. Fill
+	Five slots, all looping, and each replaces a built-in procedural pose. Fill
 	in as many or as few as you like; anything left empty keeps the procedural
 	one, so they can arrive one at a time.
 
@@ -47,7 +47,7 @@
 
 	    Carve    turning. Note that the game already rolls the body and the skis
 	             into the turn on its own, continuously, based on how hard you
-	             are steering -- so this wants to be about the ARMS and the
+	             are steering, so this wants to be about the arms and the
 	             upper body, not about leaning. Leaning is handled.
 
 	    Tuck     folded down small for speed.
@@ -56,13 +56,13 @@
 
 	    Air      off a jump. Hands out in front, poles up near horizontal.
 
-	TWO THINGS ABOUT THE RIG THAT WILL SAVE YOU TIME.
+	Two things about the rig that will save you time.
 
 	R6 has no knees and no ankles. A leg is one rigid piece from hip to sole, so
 	a crouch has to come from the waist and the hips. Bending a leg is not
 	available.
 
-	And tipping a leg sideways swings the FOOT through an arc, because there is
+	And tipping a leg sideways swings the foot through an arc, because there is
 	no ankle to absorb it. Past about 0.25 radians the boot leaves the ski
 	entirely. If a pose looks good but the skis have drifted out from under the
 	character, that is why.

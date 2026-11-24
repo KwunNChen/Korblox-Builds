@@ -33,6 +33,7 @@ local morale = require(modules.MoraleModule)
 local openings = require(modules.OpeningsModule)
 local threat = require(modules.ThreatModule)
 local sof = require(modules.SofModule)
+local idle = require(modules.IdleModule)
 require(modules.JavelinModule)
 
 ------Body Variables------
@@ -156,13 +157,70 @@ local function movementLogic()
 end
 
 
+--Doing nothing in a fight (IdleModule): he leaves his spot for the nearest edge
+--of the open with a shot at the enemy within UNSTICK_REACH studs, else heads
+--for where the enemy was, for up to UNSTICK_TIME seconds.
+local UNSTICK_REACH = 50
+local UNSTICK_TIME = 6
+--Squad plans where standing still is the job.
+local STILL_PLANS = {rally = true, ["break"] = true}
+
+local function unstick()
+	local target = status:get("currentTarget")
+	if target and not target.Parent then target = nil end
+	local goal = target and lastSpot(target) or status:get("investigate")
+	if not goal then return end
+	log("brain","doing nothing in a fight, moving on",1)
+	if tactics.active() then
+		tactics.release("doing nothing here")
+	end
+	chatter.advance()
+	local spot = target and tactics.findEdge(myRoot.Position,target,UNSTICK_REACH,true)
+	if spot then
+		movement.goToPosition(spot,alive,UNSTICK_TIME)
+	else
+		movement.goToPosition(goal,function()
+			return alive() and not (target and target.Parent and core.checkSight(target))
+		end,UNSTICK_TIME,true)
+	end
+end
+
+--A grenade landing within its blast: he shouts and sprints this many studs straight away from it.
+local GRENADE_RUN = 20
+local dodgeFrom,dodgeGoal = nil,nil
+
+local function dodgeGrenade()
+	local spot = combat.grenadeNear()
+	if not spot then
+		dodgeFrom = nil
+		return false
+	end
+	if spot ~= dodgeFrom then
+		dodgeFrom = spot
+		local away = Vector3.new(myRoot.Position.X - spot.X,0,myRoot.Position.Z - spot.Z)
+		if away.Magnitude < 0.5 then
+			away = -myRoot.CFrame.LookVector*Vector3.new(1,0,1)
+		end
+		dodgeGoal = myRoot.Position + away.Unit*GRENADE_RUN
+		if tactics.active() then
+			tactics.release("grenade")
+		end
+		chatter.callout("grenadeIncoming")
+	end
+	movement.navigate(dodgeGoal)
+	return true
+end
+
 local patrolHome = nil
 
 local function movementLoop()
 	while alive() do
+		local fighting = false
 		--In or heading for a vehicle first, then squad drills, lone guerrilla, plain cover.
 		if vehicle.update() then
 			log("brain","vehicle")
+		elseif dodgeGrenade() then
+			log("brain","running from a grenade")
 		elseif fireSupport.evacuate() then
 			log("brain","clearing artillery zone")
 		elseif morale.update() then
@@ -184,14 +242,18 @@ local function movementLoop()
 			log("brain","stalking")
 		elseif squad.update() then
 			log("brain","squad")
+			fighting = not STILL_PLANS[squad.plan]
 		elseif guerrilla.update() then
 			log("brain","guerrilla")
 		elseif tactics.update() then
 			log("brain","cover")
+			fighting = true
 		elseif status:get("currentTarget") then
 			log("brain","chase/fight")
 			movementLogic()
+			fighting = true
 		elseif status:get("investigate") then
+			fighting = true
 			--He senses roughly where someone is: go and look in numbers (squadmates
 			--follow in formation), otherwise watch that way.
 			if tactics.advantage() then
@@ -217,6 +279,12 @@ local function movementLoop()
 		else
 			log("brain","idle")
 			waitUnlessTarget(IDLE_PAUSE)
+		end
+		fighting = fighting and (status:get("currentTarget") ~= nil or status:get("investigate") ~= nil)
+			and not tactics.holdsBack() and not sof.kind and not specialTeam.detached(marine)
+			and not status:get("squadHoldFire") and not status:get("reloading")
+		if idle.check(fighting,os.clock(),myRoot.Position,status:get("shotsFired")) then
+			unstick()
 		end
 		task.wait(0.1)
 	end

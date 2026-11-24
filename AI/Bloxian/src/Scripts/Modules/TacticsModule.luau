@@ -3,6 +3,7 @@ local tactics = {}
 local modules = script.Parent
 local core = require(modules.CoreModule)
 local status = require(modules.Status)
+local speed = require(modules.SpeedModule)
 local movement = require(modules.MovementModule)
 local actions = require(modules.ActionsModule)
 local chatter = require(modules.ChatterModule)
@@ -172,7 +173,9 @@ end
 --A spot is thrown out if its floor is more than this far above or below his.
 local MAX_HEIGHT_CHANGE = 4
 
-local BODY_SIZE = Vector3.new(2,4,2)
+--Room a spot needs: as wide as the pathfinding agent, so nobody is sent into a
+--gap too narrow to walk or for two men to pass in.
+local BODY_SIZE = Vector3.new(4,4,4)
 local overlapParams = OverlapParams.new()
 overlapParams.FilterDescendantsInstances = {marine}
 
@@ -436,7 +439,9 @@ local function blockedFrom(from,threat)
 	if toThreat.Magnitude < 0.001 then return false end
 
 	local hit,result = core.raycast(from,toThreat.Unit*(toThreat.Magnitude + 3))
-	if hit and not result.Instance:IsDescendantOf(threat.Parent) then
+	--A body in the way is not cover: a squadmate moves off, and a round goes through him.
+	local human = hit and core.getHuman(result.Instance.Parent)
+	if hit and not result.Instance:IsDescendantOf(threat.Parent) and not (human and human.RootPart) then
 		return true,result.Distance
 	end
 	return false
@@ -633,7 +638,7 @@ local function shouldTakeCover(target,options)
 
 	--Shot, or just standing where the enemy can see him: always, however
 	--recently he left cover. He fights from cover, peeking, not in the open.
-	local underFire = now - damagedAt < 2
+	local underFire = now - damagedAt < 2 or suppressed()
 	local exposed = not tactics.isHidden(myRoot.Position,target)
 	if exposed and (underFire or core.checkSight(target) and not openings.pushing()) then
 		return true
@@ -659,11 +664,11 @@ local function offTheOpen(target,options)
 	log("cover","in the open, running for the edge")
 	claims[marine] = edge
 	chatter.cover()
-	local walkSpeed = myHuman.WalkSpeed
-	myHuman.WalkSpeed = SCRAMBLE_SPEED
+	local walkSpeed = speed.get()
+	speed.set(SCRAMBLE_SPEED)
 	movement.goToPosition(edge,options.keepGoing or stillFighting,SCRAMBLE_TIMEOUT)
-	if myHuman.WalkSpeed == SCRAMBLE_SPEED then
-		myHuman.WalkSpeed = status:get("weaponAimed") and math.min(walkSpeed,10) or walkSpeed
+	if speed.get() == SCRAMBLE_SPEED then
+		speed.set(status:get("weaponAimed") and math.min(walkSpeed,10) or walkSpeed)
 	end
 	return true
 end
@@ -704,9 +709,9 @@ local function enterCover(target,options)
 	end
 
 	--He keeps his rifle on the enemy and fires on the run; scrambling, he runs flat out.
-	local walkSpeed = myHuman.WalkSpeed
+	local walkSpeed = speed.get()
 	if scramble then
-		myHuman.WalkSpeed = SCRAMBLE_SPEED
+		speed.set(SCRAMBLE_SPEED)
 	end
 	local reached = false
 	for index,candidate in ipairs(candidates) do
@@ -725,8 +730,8 @@ local function enterCover(target,options)
 			break
 		end
 	end
-	if scramble and myHuman.WalkSpeed == SCRAMBLE_SPEED then
-		myHuman.WalkSpeed = status:get("weaponAimed") and math.min(walkSpeed,10) or walkSpeed
+	if scramble and speed.get() == SCRAMBLE_SPEED then
+		speed.set(status:get("weaponAimed") and math.min(walkSpeed,10) or walkSpeed)
 	end
 	if reached then
 		return
@@ -811,12 +816,12 @@ local function findAirThreat()
 	return best
 end
 
---Everyone but the AT team keeps out of an enemy tank's sight: an enemy vehicle
+--Everyone but the at team keeps out of an enemy tank's sight: an enemy vehicle
 --(not an aircraft) within ARMOR_DANGER studs with a line to him sends him into
 --cover from it, hidden and not peeking, ahead of any squad drill. With no cover
 --to reach he runs ARMOR_RUN studs straight away from it. He hides at most
 --ARMOR_HIDE_MAX seconds, then fights for ARMOR_FIGHT before hiding from armor
---again. The AT team and the F-4s deal with it. Checked every ARMOR_CHECK seconds.
+--again. The at team and the F-4s deal with it. Checked every ARMOR_CHECK seconds.
 local ARMOR_DANGER = 250
 local ARMOR_RUN = 60
 local AT_UNITS = {Rocketeer = true, Loader = true}
@@ -950,11 +955,10 @@ local function evadeAir(craft,now)
 	movement.navigate(evadeGoal)
 end
 
---AT teams keep hunting armor under enemy aircraft: they are the answer to them.
-local AIR_IGNORE_UNITS = {Rocketeer = true, Loader = true}
+--At teams keep hunting armor under enemy aircraft: they are the answer to them.
 
 function tactics.airCover()
-	if AIR_IGNORE_UNITS[marine:GetAttribute("Unit") or (unitValue and unitValue.Value)] then
+	if AT_UNITS[marine:GetAttribute("Unit") or (unitValue and unitValue.Value)] then
 		return false
 	end
 	local now = os.clock()
@@ -1042,7 +1046,7 @@ function tactics.update(options)
 	--Cover from an enemy he can no longer get a shot at is a place to be stuck in.
 	if core.checkSight(target) then
 		lastSight = now
-	elseif not options.noPeek and now - math.max(lastSight,coverStart) > COVER_BLIND then
+	elseif not options.noPeek and now - math.max(lastSight,coverStart) > (options.blind or COVER_BLIND) then
 		abandoned = spot.pos
 		leaveCover("lost sight of the enemy")
 		return false

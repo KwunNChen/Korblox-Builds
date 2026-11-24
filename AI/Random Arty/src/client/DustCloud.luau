@@ -1,20 +1,20 @@
 --[[
 	DustCloud
-	The dust a shell throws up: ONE flat image per crater, which grows outward
+	The dust a shell throws up: one flat image per crater, which grows outward
 	and sinks as it settles.
 
 	Not particles, and not a field of spheres either. Both were tried and both
-	were worse for the same underlying reason -- an explosion's dust reads as one
+	were worse for the same underlying reason: an explosion's dust reads as one
 	continuous mass, and anything built out of many separate pieces reads as many
 	separate pieces. A hundred sprites look thin against open ground; forty balls
 	look like forty balls. One big image that opens out and settles is the whole
 	effect, and it costs one part.
 
-	THE ANIMATION IS THE POINT. A static decal is a stain. What makes this read as
+	A static decal just looks like a stain. What makes this read as
 	dust is that it does two things at once over its life:
 
-	    GROWS   fast at first, then slower, as the cloud pushes outward
-	    SINKS   from a few studs up down to the ground, as it settles
+	    Grows   fast at first, then slower, as the cloud pushes outward
+	    Sinks   from a few studs up down to the ground, as it settles
 
 	plus a slow rotation, so the mass appears to churn rather than scale.
 
@@ -22,8 +22,8 @@
 	tweened, because size, height, spin and transparency all move on different
 	curves and four tweens per crater would be four Instances per crater.
 
-	THIS IS THE ONE EFFECT LEFT THAT NEEDS A TEXTURE. Debris is real parts and
-	cannot fail; this can, and silently -- a decal id where an image id was
+	This is the one effect left that needs a texture. Debris is real parts and
+	cannot fail; this can, and silently: a decal id where an image id was
 	needed renders nothing at all. See DustDecalTexture in the config.
 ]]
 
@@ -80,11 +80,11 @@ local function getContainer(): Folder
 end
 
 --[[
-	An orthonormal CFrame at `position` with `normal` as its LOCAL UP, so the
+	An orthonormal CFrame at `position` with `normal` as its local up, so the
 	image lies flat against whatever it landed on, slopes included.
 
-	The reference vector swaps to X when the normal is nearly vertical -- which
-	is almost always -- because crossing a near-parallel pair gives a near-zero
+	The reference vector swaps to X when the normal is nearly vertical, which
+	is almost always, because crossing a near-parallel pair gives a near-zero
 	vector and Unit throws on it.
 ]]
 local function surfacePlacement(position: Vector3, normal: Vector3): CFrame
@@ -109,7 +109,7 @@ end
 	Lays one cloud at `position`, tinted `color`, lying along `normal`.
 
 	Falls back to SmokeTexture when DustDecalTexture is empty, and draws nothing
-	at all when neither is set -- stretching Roblox's default white sparkle
+	at all when neither is set, stretching Roblox's default white sparkle
 	across ninety studs of ground is worse than no dust.
 ]]
 function DustCloud.spawn(position: Vector3, color: Color3, normal: Vector3, scale: number?)
@@ -185,7 +185,7 @@ function DustCloud.step()
 		local t = elapsed / LIFETIME
 
 		-- Growth is curved, the sink is not. Dust opens out in the first moment
-		-- and then creeps, but it settles at a steady rate -- an eased sink reads
+		-- and then creeps, but it settles at a steady rate: an eased sink reads
 		-- as the image being pulled down rather than as weight coming out of it.
 		local size = Shared.lerp(cloud.startSize, cloud.endSize, t ^ Config.DustDecalGrowthCurve)
 		local height = Shared.lerp(Config.DustDecalStartHeight, Config.DustDecalEndHeight, t)

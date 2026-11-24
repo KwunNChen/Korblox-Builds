@@ -78,7 +78,13 @@ Players with no team (`Neutral`) are left to `AttackPlayers`, so a soldier on a
 Roblox team ignores them when it is off. The team is read live, so a player who
 switches teams changes sides at once. Bullets, grenades and knives never hurt
 his own side, and Warthog and Abrams crews follow the same rules for roadkill
-and shells.
+and shells. A soldier with a blank team counts as `Hostile` to other Bloxians,
+the same as the vehicles' side rules (`Shared/Sides`).
+
+Sight, shots and cover pass through anything a body can walk through (leaves,
+trigger zones, a capture point's volume), so a bush neither hides anyone nor
+stops a round, and an enemy standing in an objective zone is seen and shot.
+They never pass through a body (`core.cast` in `CoreModule`).
 
 ## Squad chatter
 
@@ -120,7 +126,9 @@ of `ChatterModule`.
 
 ## Taking cover
 
-Soldiers no longer stand in the open and trade shots.
+Soldiers no longer stand in the open and trade shots. Only something solid counts
+as cover: a squadmate or anyone else standing in the way never does
+(`blockedFrom` in `TacticsModule`).
 
 - **When:** they run for cover whenever the enemy they're fighting can see
   them (shot at or not), and when hurt (under half health), reloading or low on ammo. Depending
@@ -144,7 +152,8 @@ Soldiers no longer stand in the open and trade shots.
 - **Finding it:** a ring of spots around the soldier is tested. A spot counts
   if a wall within 7 studs blocks the enemy's line to it, it is not walking
   toward the enemy, and a step to the side gives a clear shot. Nearest,
-  least exposed spot wins, and two soldiers will not share one. A spot with no
+  least exposed spot wins, and two soldiers will not share one. A spot needs 4 studs
+  clear round it (`BODY_SIZE`), so nobody is sent into a gap too narrow to walk. A spot with no
   side step to shoot from is only taken when he's hurt.
 - **In cover:** he ducks for about a second (0.8 to 1.6 s), reloads once the
   magazine is under 30%, then steps out and shoots for 2.5 to 4 s, and ducks back. Hurt soldiers hide longer
@@ -154,7 +163,12 @@ Soldiers no longer stand in the open and trade shots.
 - **Pinned down:** a Bloxian round passing within 4 studs of the soldier it
   was aimed at pins him for 3 s (kept server-side in `CombatModule`). He
   hides 1.5 times longer, peeks half as long, and shoots 1.5 times wider.
-  Players' guns don't pin anyone; they aren't Bloxian code.
+  Out in the open, a near miss sends him for cover the same as a hit does.
+  TREK guns tell the server every shot, so a player's round pins him the same
+  way, and one passing within 12 studs (out to 500 from the gun) turns him on
+  the shooter (`FIRED_AT_*` in `CombatModule`). Other gun systems don't pin anyone.
+- **Gas:** he runs out of a TREK gas cloud to 8 studs past its edge
+  (`GAS_MARGIN` in `FireSupportModule`), the same way he clears artillery.
 - **Aim:** his shots go twice as wide while he is moving faster than 4 studs/s,
   and for 0.6 s after he turns on a new target, so moving and surprise both
   matter (`MOVING_SPREAD`, `NEW_TARGET_SPREAD` in `CombatModule`).
@@ -163,6 +177,12 @@ Soldiers no longer stand in the open and trade shots.
   once he has lost sight of the enemy. While he can see him he stays put and
   keeps peeking.
   He calls it out ("Taking cover!", "Moving up!") and squadmates answer.
+- **Never idle:** in a fight, a soldier who has neither moved 4 studs nor fired
+  for 8 s (`IDLE_*` in `IdleModule`) leaves his spot for the nearest edge of the
+  open with a shot at the enemy within 50 studs, else heads for where the enemy
+  was, for up to 6 s (`UNSTICK_*` in `Soldier AI`). Snipers, spotters, spec ops, AT
+  teams, demoralized squads, a squad rallying or breaking contact, one holding
+  fire and one reloading are left alone.
 
 - **Aircraft:** while an enemy F-4, Apache or AC-130 is in the air (20+ studs
   off the ground) within 3000 studs, he reacts to it ("Air! Air! Hide!"), ahead
@@ -330,7 +350,7 @@ Taking cover), and
 snipers and spotters lie down on their perch. They stand up to move, ride or use
 the knife, and whenever they can't see their target from the ground. They can't
 change stance again until 3 s after the last change (`STANCE_COOLDOWN`), except
-to get in a vehicle, and move at 60% speed while prone (`PRONE_SPEED`). Their shots
+to get in a vehicle, and move at 60% of whatever speed he has while prone (`PRONE_SPEED`). Their shots
 spread a quarter as wide while prone (`PRONE_SPREAD` in `CombatModule`). Prone, a
 soldier always has his rifle in his hands: he never slings it. The poses
 are done on the joints in code (`STANCES` and `EYE` at the top of
@@ -340,8 +360,9 @@ are done on the joints in code (`STANCES` and `EYE` at the top of
 ## Squad tactics
 
 Soldiers of the same `Team` within 60 studs of each other fight as a squad,
-loosely after US Army / Ranger battle drills. The highest ranked soldier leads,
-and the squad splits into two fire teams, Alpha and Bravo.
+loosely after US Army / Ranger battle drills. The radioman leads (the spawner's
+Leader option makes the first man one), else a rifleman picked at random; an AT
+man only once no rifleman is left. The squad splits into two fire teams, Alpha and Bravo.
 
 - **Re-planning:** a squad that has been in a plain fight for 12 s gets a fresh
   plan (`REPLAN_TIME`), so a stalled fight turns into a flank, pincer or bound.
@@ -396,7 +417,7 @@ and the squad splits into two fire teams, Alpha and Bravo.
 - **Bounding overwatch:** one team rushes up to 22 studs, for at most 5 s, to the
   next cover while the other suppresses from cover, then they swap. With no cover
   ahead he rushes to the edge of the open instead, and flank points move to one
-  too. With neither he stays where he is and keeps firing. Stops at 30 studs, or after 6 bounds (`MAX_BOUNDS`), and fights.
+  too. With neither he stays where he is and keeps firing. A team that can't see the enemy from its cover for 6 s moves to a spot with a shot, or pushes on toward him (`OVERWATCH_BLIND`); "Set!" is only called once he gets there. Stops at 30 studs, or after 6 bounds (`MAX_BOUNDS`), and fights.
 - **Flank (3+ soldiers, enemy over 18 studs off):** Alpha is the base of fire. Bravo bounds round to a
   point 30 studs off the enemy's side, preferring the side he cannot see, then
   assaults. Alpha shifts fire once Bravo is close.
@@ -634,14 +655,16 @@ Each soldier throws one every 20 seconds at most, at an enemy 15-70 studs away:
 **How a throw is aimed.** He aims at the target's feet and works out real
 ballistic arcs under Roblox gravity, flattest first: flight times of 0.6, 0.8,
 1.0, 1.2 and 1.45 seconds, the last a high lob that peaks around 45 studs up.
-Each arc is traced in 14 straight pieces. An arc only counts if the first thing
+Each arc is traced in 14 straight pieces, 0.6 studs wide either side of its middle
+(`GRENADE_CLEARANCE`), starting from his chest up to his hand, so a roof or beam
+right over him counts. An arc only counts if the first thing
 it touches is within 7 studs of the aim point; one that clips a wall top, a
 ceiling or a ledge on the way is thrown out, because it would bounce off
 somewhere useless. He throws the flattest arc that clears. If none does (the
 wall is too tall, there is a roof over the target, or it needs a throw faster
 than 150 studs a second) he does not throw at all and keeps checking once a
-second. The arc is solved again from the grenade's real position the moment it
-leaves his hand. The grenade has a dead bounce and high friction, so it stops
+second. The arc is solved again from his release point the moment it leaves his hand,
+and if it no longer clears he keeps the grenade. The grenade has a dead bounce and high friction, so it stops
 where it lands instead of skipping away.
 
 The blast kills anyone within 5 studs. Out to 16 studs it takes up to 80% of
@@ -649,14 +672,26 @@ his max health, less the further away he is, so it hurts a 200 HP soldier as
 much as a 100 HP player. It never hurts the thrower's own side, and never
 anyone it has no clear line to (torso or head) from where it lies: a wall,
 floor or crate between them stops it. A soldier killed mid-throw takes the
-grenade down with him, unexploded.
+grenade down with him, unexploded. A vehicle takes 80 damage at the burst
+(less further out), cut by its armour against small arms (`GRENADE_VEHICLE_DAMAGE`):
+it scratches an Abrams and hurts a Warthog. M203 rounds are the same.
 
 Not while his squad is holding fire. Ranges and timings are `GRENADE_MIN_RANGE`,
 `GRENADE_MAX_RANGE` and `FLUSH_DELAY` in `Soldier AI`, and `GRENADE_COOLDOWN`,
 `GRENADE_RADIUS`, `GRENADE_KILL_RADIUS`, `GRENADE_WOUND`, `MAX_THROW_SPEED`,
-`THROW_FLIGHT_TIMES` and `LANDING_TOLERANCE` in `CombatModule`.
+`THROW_FLIGHT_TIMES`, `GRENADE_CLEARANCE` and `LANDING_TOLERANCE` in `CombatModule`.
+
+**Dodging:** the moment an enemy Bloxian lets go of a grenade, everyone it would
+land within 16 studs of shouts ("Grenade!"), leaves his cover and sprints 20 studs
+straight away from where it will land (`GRENADE_RUN` in `Soldier AI`). Players'
+grenades aren't seen; they aren't Bloxian code.
 
 ## Special operations
+
+Special operations only talk in clipped, tactical radio speak ("Tango, 2 o'clock,
+80.", "Dry. Cover.", "Displacing.") from their own set, `ChatterSof`, and never
+make small talk or mutter to themselves. Answering a line soldier, they use their
+own replies, not his.
 
 The `Special Operations` tab spawns a special operations unit, named with four
 random digits. Size: a **Recce** (a radioman and a rifleman) or a **Fireteam** (a
@@ -725,7 +760,7 @@ they fight for 10 s before hiding from armor again (`ARMOR_*` in
 Caught in a fight with no cover in reach and the enemy in sight, they
 drop prone and fight from the ground instead of standing in the open.
 
-The shotgun fires 8 pellets out to 50 studs (`Shotgun` in `WeaponProfiles`).
+The shotgun fires 8 pellets out to 50 studs (`Shotgun` in `WeaponProfiles`). His aim error moves the whole shot, then the pellets fan out `pelletSpread` (4°) around it. Shotgunners keep the Benelli under every uniform preset.
 
 Numbers are at the top of `Scripts/Modules/SofModule` (`SOF_SPREAD`,
 `SUPPRESSED_HEARING`, `RECON_DETECTION`, `REPORT_RANGE`, `RADIO_INTERVAL`),
@@ -799,14 +834,18 @@ and the perch search: `PERCH_RINGS`, `PERCH_MAX_CLIMB`, the `*_WEIGHT` scores,
 ## AT teams
 
 `AT team` on the spawner drops a **rocketeer** with a Javelin and a carbine,
-and a **loader** with a rifle and the spare rounds. The loader stays at the rocketeer's shoulder and guards him,
-and joins the unit as a rifleman if the rocketeer dies.
+and a **loader** with a rifle and the spare rounds. On its own the loader stays at the
+rocketeer's shoulder and guards him; if the rocketeer dies he fights on as a rifleman.
 
-The AT team a group brings stays with that group, in a fight or not, within 20 studs of
-the nearest of its men, and fires from there; it does not go off hunting. If the group
-merges or splits it takes the nearest friendly infantry unit within 150 studs (`UNIT_LEASH`,
-`REJOIN_RANGE` in `SpecialTeamModule`). An AT team spawned by itself, or one with no unit
-left, hunts and patrols on its own as below.
+The AT team a group brings is part of that squad: same squad id, counted in its
+size and strength. Both men move in its wedge, take cover, bound, flank and
+break contact with it by the same drills, and merge or split with it. The
+rocketeer only stops to fire the Javelin, wherever the squad has him; the
+squad can't move him mid-launch. It never goes off hunting. Its men only lead
+the squad once no rifleman is left. Since the loader moves in the wedge rather
+than at his shoulder, he speeds up the reload from anywhere within 30 studs
+(`SQUAD_LOADER_RANGE` in `JavelinModule`). An AT team spawned by itself hunts and patrols on
+its own as below.
 
 - **Armor first:** the rocketeer fires on enemy vehicles on the ground before
   aircraft; he only takes an Apache when there is no armor in sight and range.
@@ -840,7 +879,7 @@ left, hunts and patrols on its own as below.
   wreck an Abrams (3000). Vehicles caught in the blast take a quarter. People
   within 4 studs die; out to 14 they are badly hurt. Friendlies are never hurt.
 - Launch sound: `rbxassetid://112204190873336` (`LAUNCH_SOUND`).
-- Reload (until the next launcher): 15 s with the loader within 12 studs, 30 s alone.
+- Reload (until the next launcher): 15 s with the loader within 12 studs (30 in a squad), 30 s alone.
 - Only vehicles with an enemy aboard are fired at, never empty ones.
 - **Smoke beats it:**
   - **The warning:** the moment he starts locking on, the vehicle is told a
@@ -863,9 +902,11 @@ Everything is tunable at the top of `Scripts/Modules/JavelinModule`.
 ## Uniforms
 
 **Presets:** the panel's Uniform row picks a preset for everything you spawn
-next; soldiers already out keep what they wear. `Bloxia` is the only one, and
-soldiers placed by hand or bailing out wear it too. It dresses everyone from
-the morphs in `ServerStorage.BloxiaMorphs` (`assets/morphs`):
+next; soldiers already out keep what they wear. Soldiers placed by hand or
+bailing out wear `Bloxia`. Every preset dresses everyone from the morphs in
+`ServerStorage.BloxiaMorphs` (`assets/morphs`).
+
+**Bloxia:**
 
 | Morph | Worn by |
 | --- | --- |
@@ -873,6 +914,30 @@ the morphs in `ServerStorage.BloxiaMorphs` (`assets/morphs`):
 | `Radioman` | line radiomen (the radio is part of the morph) |
 | `Sniper` | snipers and spotters |
 | `SpecOps` | Special Recon |
+
+**Korblox:**
+
+| Morph | Worn by |
+| --- | --- |
+| `KorbloxInfantry` | everyone but line radiomen: the regulars' uniform, helmet, NVGs, rig and pack |
+| `KorbloxRadioman` | line radiomen: the irregulars' kit, with Bloxia's radio on his back in place of the pack |
+
+Korblox riflemen (Rifle, Carbine) carry the FN FAL with its bayonet
+(`assets/guns/FNFAL.rbxm`). The sniper team (snipers and spotters) and DMR
+shooters carry the KZW-A-4 bolt-action (`assets/guns/KZW-A-4.rbxm`). A gun
+preset is looked up by unit first, then by weapon, so the spotter's rifle shows
+as the KZW-A-4 too. Only the look changes; the weapon's numbers stay the same.
+
+**KorbloxNaval** (Korblox Naval Infantry, the panel's "Naval"):
+
+| Morph | Worn by |
+| --- | --- |
+| `NavalRaider` | riflemen, AT teams, pilots, vehicle crews: helmet, ski mask, scarf, flare bag |
+| `NavalRaiderVest` | line radiomen, the sniper team and Special Recon: helmet, goggles, ski mask, vest, belt |
+
+Every Naval soldier carries the naval rifle with wooden furniture
+(`assets/guns/NavalRifle.rbxm`), whatever his weapon. Only the look changes; the
+weapon's numbers stay the same. Naval radiomen have no radio on their back.
 
 Bloxia soldiers with a Rifle, Carbine or DMR carry the AR-18 with its 3x20
 optic (`assets/guns/AR18.rbxm`, `gunModels.presets` in `GunModels`). It only
@@ -886,7 +951,7 @@ to the Uniform row in `SpawnerClient`:
 ```lua
 uniform.presets = {
 	Bloxia = {{unit = "Infantry", role = "Rifleman", morph = "Infantry"}, ...},
-	Korblox = {{morph = "Korblox"}},
+	Desert = {{morph = "Desert"}},
 }
 ```
 
@@ -941,6 +1006,13 @@ at where he will be, thrown off only by the weapon's spread, so a soldier still
 swinging round no longer sprays wide. How rough "roughly" is: `AIM_ASSIST` (20°)
 in `CombatModule`, `AIM_TOLERANCE` (12°) in `VehicleModule`. Spread is the knob
 for how good they are.
+
+## Walk speed
+
+Every module sets a soldier's speed through `SpeedModule`, never on the Humanoid.
+With `ServerScriptService.Common.SpeedService` in the place (Random Arty, Ski and
+Variable Snowstorm ship it) his own speed is its base, so a storm or an artillery
+concussion slows him on top of whatever he is doing instead of being written over.
 
 ## Footsteps
 

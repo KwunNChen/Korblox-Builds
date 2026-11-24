@@ -49,7 +49,7 @@ The dogfight follows basic fighter maneuvers:
 - **High yo-yo instead of an overshoot:** within 300 studs, with the target
   more than 60° off its nose, it pulls up 150 studs and comes back down behind.
 - **Sidewinders** (the four small pylon missiles):
-  - **When it fires:** the target must be 150–1800 studs off and within 35° of
+  - **When it fires:** the target must be 150-1800 studs off and within 35° of
     its nose, and it fires at most one every 2.5 s.
   - **The missile:** 900 studs/s, turning at 160°/s.
   - **A hit** brings a plane down. An Apache takes 2000 damage, more than its
@@ -87,7 +87,7 @@ and fires each in salvos:
 
 - **Beaming:** chaff works far better when the aircraft flies within 30° of
   square across the missile's path, at 20+ studs/s (`BEAM_ANGLE`,
-  `BEAM_BONUS`). A Phantom breaks that way on purpose; an AC-130 or Apache
+  `BEAM_BONUS`). A Phantom breaks that way; an AC-130 or Apache
   only beams a missile when its own course happens to.
 - **Chaff hangs:** it drifts as a glittering cloud for 5 s, where flares are
   thrown clear and drop for 4.

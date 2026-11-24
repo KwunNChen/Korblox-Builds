@@ -99,18 +99,19 @@ function module.findTarget()
 	local nearest,nearestSeen,nearestSensed
 	local nearestDist,nearestSeenDist,nearestSensedDist = range,range,math.huge
 	for _,entry in ipairs(getCandidates()) do
-		local root = aimPart(entry)
-		local dist = (myPos - root.Position).Magnitude
-		if entry.model ~= marine and root.Parent and entry.human.Health > 0
-			and not core.isAlly(entry.model) and dist < nearestSensedDist and core.aware(root) then
-			nearestSensed,nearestSensedDist = root,dist
-		end
-		if entry.model ~= marine and root.Parent and entry.human.Health > 0
-			and dist < (root == current and math.max(range,core.ENGAGED_RANGE) or range) then
-			if core.isAlly(entry.model) then
-				activeAllies[#activeAllies+1] = root
-			else
-				enemies[#enemies+1] = {root = root, dist = dist}
+		local root = entry.model ~= marine and entry.human.Health > 0 and aimPart(entry)
+		if root and root.Parent then
+			local dist = (myPos - root.Position).Magnitude
+			local ally = core.isAlly(entry.model)
+			if not ally and dist < nearestSensedDist and core.aware(root) then
+				nearestSensed,nearestSensedDist = root,dist
+			end
+			if dist < (root == current and math.max(range,core.ENGAGED_RANGE) or range) then
+				if ally then
+					activeAllies[#activeAllies+1] = root
+				else
+					enemies[#enemies+1] = {root = root, dist = dist}
+				end
 			end
 		end
 	end

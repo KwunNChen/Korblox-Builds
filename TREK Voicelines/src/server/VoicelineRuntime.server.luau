@@ -1,6 +1,6 @@
 -- Bootstrap. Waits for TREK to finish installing, then wires the hooks up.
 --
--- The TREK_INSTALLED gate is the same one every TREK server script waits on --
+-- The TREK_INSTALLED gate is the same one every TREK server script waits on,
 -- shared.S does not exist until the installer has populated it.
 
 repeat
@@ -12,7 +12,7 @@ local Config = require(game:GetService("ReplicatedStorage")
 
 -- Name any unusable entry once, at startup. Roblox's own message for these is
 -- "Failed to load sound rbxassetid://" with no indication of which list it came
--- from, and the line simply plays as silence.
+-- from, and the line plays as silence.
 for _, bad in ipairs(Config.findBadEntries()) do
 	warn(string.format(
 		"[TREKVoicelines] %s sound #%d is not a usable asset: %q -- it is being skipped",

@@ -8,7 +8,7 @@ The rig renders in a ViewportFrame, so it never exists in Workspace.
 
 ## Install
 
-**1. Drag `SkullDeathScreen.rbxm` into ServerStorage.** Always ServerStorage —
+**1. Drag `SkullDeathScreen.rbxm` into ServerStorage.** Always ServerStorage -
 scripts do not execute there.
 
 **2. The folders inside are signposts, not things to move.** Open each one and
@@ -34,7 +34,7 @@ KorbloxSkullDeathScreen     <- staging folder, delete when done
 **3. Delete the staging folder.**
 
 **4. Replace the sound id.** The one in the config is mine, and Roblox audio is
-private to the place that owns it — in your game it plays as silence. If it
+private to the place that owns it - in your game it plays as silence. If it
 fails to load, the screen holds for `FallbackDuration` and warns in Output.
 
 ## What's here
@@ -51,11 +51,11 @@ fails to load, the screen holds for `FallbackDuration` and warns in Output.
 |---|---|
 | `SoundId`, `Volume` | the clip. The screen lasts as long as it does |
 | `ModelName`, `FocusPartName` | which rig, and which part the close-up frames (falls back to `Head`) |
-| `FieldOfView`, `CloseUpPadding`, `WidePadding` | framing — bigger padding pulls the camera back |
+| `FieldOfView`, `CloseUpPadding`, `WidePadding` | framing - bigger padding pulls the camera back |
 | `FadeTime`, `ZoomTime` | the fades and the pull-back |
 | `SwayHeight`, `SwayAngle`, `SwayTime` | the slow drift while the clip plays. Zero both for a still shot |
 | `LoadTimeout`, `FallbackDuration` | what happens when the clip will not load |
-| `MaxRespawnWait` | server safety net — respawns anyway after this long. Keep it longer than the clip |
+| `MaxRespawnWait` | server safety net - respawns anyway after this long. Keep it longer than the clip |
 | `Ambient`, `LightColor`, `LightDirection` | lighting inside the viewport |
 
 To use a different rig, drop it into `ReplicatedStorage.SkullDeathScreen` and
@@ -67,7 +67,7 @@ set `ModelName`. R6 and R15 both work. It needs a `Head` (or whatever
 **This package turns `Players.CharacterAutoLoads` off** and spawns every
 character itself: once on join, and after each death when the client reports
 the screen is done (or `MaxRespawnWait` runs out). If another script in your
-place also takes over respawning, the two will fight — pick one.
+place also takes over respawning, the two will fight - pick one.
 
 An admin `LoadCharacter` (Objective System's included) still works. It just
 cuts the screen short.

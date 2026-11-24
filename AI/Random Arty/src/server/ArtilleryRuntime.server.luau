@@ -11,13 +11,13 @@ local DEBUG_ATTRIBUTE = "DebugBarrageNow"
 
 --[[
 	StreamingEnabled + a character that gets heavily restructured (ragdolled)
-	and then destroyed again within a few seconds -- exactly an artillery kill
+	and then destroyed again within a few seconds, exactly an artillery kill
 	-- can desync per-part on a client and leave a frozen, T-posed remnant
 	behind even after the server has genuinely destroyed the real Instance.
 
 	Atomic makes a Model stream in and out as one indivisible unit instead of
 	piecemeal, which is Roblox's own fix for this. It has to be set from the
-	moment the character SPAWNS, not reactively right before it dies -- by
+	moment the character spawns, not reactively right before it dies, by
 	then it has already been streaming under the default mode for however
 	long it was alive, and that is already locked in for any client it has
 	replicated to.
@@ -80,7 +80,7 @@ end)
 blast.Parent = game:GetService("ServerStorage")
 
 -- Set true to drop a barrage immediately. Resets itself, same contract as the
--- snowstorm's DebugThunder -- the Command Bar runs its own VM, so an attribute
+-- snowstorm's DebugThunder: the Command Bar runs its own VM, so an attribute
 -- is the only thing that reliably reaches a running server script.
 ArtilleryFolder:SetAttribute(DEBUG_ATTRIBUTE, false)
 

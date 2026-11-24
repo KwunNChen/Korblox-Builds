@@ -1,19 +1,19 @@
 --[[
 	DebrisChunks
-	The ground thrown out of a crater, as REAL PARTS rather than particles.
+	The ground thrown out of a crater, as real parts rather than particles.
 
-	WHY NOT A ParticleEmitter. Sprites depend on a texture asset, and every way
+	Why not a ParticleEmitter. Sprites depend on a texture asset, and every way
 	that can go wrong fails silently and identically: a moderated id, a decal id
 	used where an image id was needed, an engine path fed through an id parser,
-	or simply no texture at all -- which falls back to Roblox's white sparkle.
+	or no texture at all, which falls back to Roblox's white sparkle.
 	None of those print anything. You just get glitter, or nothing, and no way to
 	tell which knob is at fault.
 
 	A Part cannot fail that way. It has a size, a colour and a position, it
 	renders, and if it is in the wrong place you can see exactly where it went.
 
-	NO PHYSICS. These are parented under workspace.CurrentCamera so they never
-	replicate, and nothing under the Camera is simulated -- so they are Anchored
+	No physics. These are parented under workspace.CurrentCamera so they never
+	replicate, and nothing under the Camera is simulated, so they are Anchored
 	and moved by hand each frame along the same ballistic curve the shells use.
 	That is a feature, not a workaround: reach becomes exactly predictable
 	instead of depending on collisions, and 300 CFrame writes are far cheaper
@@ -94,7 +94,7 @@ end
 	Throws a burst of chunks out of `position`.
 
 	`groundY` is where they stop existing. Taken from the impact point rather
-	than raycast per chunk -- the crater is already snapped to the surface, and
+	than raycast per chunk: the crater is already snapped to the surface, and
 	one shared floor for the whole burst is both cheaper and steadier than a
 	few hundred separate answers about where the ground is.
 ]]
@@ -116,7 +116,7 @@ function DebrisChunks.spawn(position: Vector3, color: Color3, scale: number?)
 
 		local part = Instance.new("Part")
 		part.Name = "DebrisChunk"
-		-- Irregular on purpose. Cubes read as voxels; uneven boxes read as rubble.
+		-- Irregular. Cubes read as voxels; uneven boxes read as rubble.
 		part.Size = Vector3.new(size, size * Shared.rollRange(Config.ChunkAspect), size * Shared.rollRange(Config.ChunkAspect))
 		part.Color = color
 		part.Material = Config.ChunkMaterial

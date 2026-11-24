@@ -26,7 +26,9 @@
 		echo            asset id of the sound his shot carries with; it gives him away
 		                (optional, ECHO_RANGE in CombatModule)
 		tracer          bullet colour
-		pellets         rounds per shot, each with its own spread (optional; 1)
+		pellets         rounds per shot (optional; 1)
+		pelletSpread    degrees the pellets fan out around where the shot was aimed;
+		                spread is then only his aim error for the whole shot
 		launcher        an underbarrel grenade launcher (optional): fires a 40mm
 		                round that bursts on impact, at enemies between minRange
 		                and maxRange studs, every cooldown seconds, at speed
@@ -135,6 +137,7 @@ weapons.list = {
 		weight = 0,
 		damage = {8, 14},
 		pellets = 8,
+		pelletSpread = 4,
 		burstNear = 1, burstFar = 1, farDistance = 60,
 		shotInterval = 0.1,
 		delay = 0.8,

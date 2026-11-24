@@ -47,7 +47,7 @@ local function load(file,marine,radio,status,clock,extra)
 	local modules = {
 		CoreModule = {checkSight = function() return true end},
 		Status = status or {},
-		ChatterModule = {},
+		ChatterModule = {useTactical = noop},
 		ThreatModule = {of = function(target) return target.long and "long" or nil end},
 		Troubleshoot = {log = noop},
 		UniformModule = {},
@@ -154,22 +154,26 @@ do
 	check(not sof.engaged(enemy),"engaged: he never went back to watching")
 end
 
---An AT team stays with the unit it came with.
+--An at team stays with the unit it came with.
 do
 	local function at(radio,model,x)
 		radio[model].root.Position = Vector3.new(x,0,0)
 		return model
 	end
-	local function team(unit,fighting)
+	local function team(unit,fighting,alone)
 		local radio,heard = {},{}
 		local clock = 1000
 		local goals = {}
+		local flags = {}
 		local marine = at(radio,soldier(radio,heard,"Friendly",unit,"Rifleman",1),0)
 		marine.HumanoidRootPart = radio[marine].root
-		marine:SetAttribute("AttachedTo",7)
+		if not alone then
+			marine:SetAttribute("AttachedTo",7)
+		end
 		local status = {set = noop}
 		function status:get(name)
-			return name == "currentTarget" and fighting or nil
+			if name == "currentTarget" then return fighting end
+			return flags[name]
 		end
 		local special = load("SpecialTeamModule.luau",marine,radio,status,function() return clock end,{
 			CoreModule = {checkDist = function() return 200 end},
@@ -183,7 +187,7 @@ do
 			WeaponProfiles = {current = {range = 300}},
 		})
 		return {
-			special = special, marine = marine, goals = goals,
+			special = special, marine = marine, goals = goals, flags = flags,
 			add = function(side,kind,squad,x)
 				local model = at(radio,soldier(radio,heard,side,kind,"Rifleman",1),x)
 				model:SetAttribute("SquadId",squad)
@@ -194,48 +198,29 @@ do
 		}
 	end
 
-	--Follows the nearest of his unit, in a fight too, and never wanders off to hunt.
-	local fight = {Parent = {}}
-	local rocketeer = team("Rocketeer",fight)
+	--With a unit he is one of its men: no detached team, the squad steers him, he never hunts alone.
+	local rocketeer = team("Rocketeer",{Parent = {}})
 	rocketeer.special.hunt = function() error("hunting while he has a unit") end
-	rocketeer.add("Friendly","Infantry",7,300)
-	rocketeer.add("Friendly","Infantry",7,100)
-	rocketeer.add("Friendly","Infantry",8,50)
-	check(rocketeer.special.update(),"AT: the brain took him back")
-	check(rocketeer.goals[1] and rocketeer.goals[1].X == 100,"AT: he did not head for the nearest of his unit")
+	check(not rocketeer.special.detached(rocketeer.marine),"AT: an embedded team was kept out of its squad")
+	check(not rocketeer.special.update(),"AT: the team steered him instead of his squad")
+	check(#rocketeer.goals == 0,"AT: he walked off on his own")
 
-	--Close enough he stands, free to fire.
-	rocketeer = team("Rocketeer")
-	rocketeer.add("Friendly","Infantry",7,15)
-	rocketeer.special.update()
-	check(#rocketeer.goals == 0,"AT: he crowded the unit")
+	--Firing the Javelin, he stands still whatever the squad does.
+	rocketeer.flags.launching = true
+	check(rocketeer.special.update(),"AT: the squad could move him mid-launch")
 
-	--His unit's id is gone: the nearest friendly infantry unit, after spawn settles.
-	rocketeer = team("Rocketeer")
-	rocketeer.add("Friendly","Infantry",9,60)
-	rocketeer.add("Friendly","Sniper",9,10)
-	rocketeer.add("Friendly","Special Recon",9,20)
-	rocketeer.add("Hostile","Infantry",9,30)
-	rocketeer.special.update()
-	check(rocketeer.marine:GetAttribute("AttachedTo") == 7,"AT: he left his unit while it was starting up")
-	rocketeer.wait(10)
-	rocketeer.special.update()
-	check(rocketeer.marine:GetAttribute("AttachedTo") == 9,"AT: he did not take the nearest unit")
-	check(rocketeer.goals[1] and rocketeer.goals[1].X == 60,"AT: he took the wrong men")
-
-	--No unit left: the team goes back to hunting by itself.
-	rocketeer = team("Rocketeer")
+	--A team on its own keeps to itself and hunts.
+	rocketeer = team("Rocketeer",nil,true)
 	local hunted = false
 	rocketeer.special.hunt = function() hunted = true end
+	check(rocketeer.special.detached(rocketeer.marine),"AT: a lone team joined a squad")
 	rocketeer.special.update()
 	check(hunted,"AT: with no unit he stopped hunting")
 
-	--Rocketeer gone, the Loader joins the unit as a rifleman.
+	--Rocketeer gone, the Loader fights on as a rifleman of the squad.
 	local loader = team("Loader")
-	loader.add("Friendly","Infantry",7,40)
 	check(not loader.special.update(),"AT: the Loader kept guarding nobody")
-	check(loader.marine:GetAttribute("SquadId") == 7,"AT: the Loader did not join the unit")
-	check(loader.marine:GetAttribute("SquadSize") == 9,"AT: the Loader joined with no unit size")
+	check(loader.marine:GetAttribute("Unit") == "Infantry","AT: the Loader did not become a rifleman")
 end
 
 --An infantryman calling in his attacker.

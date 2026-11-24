@@ -3,7 +3,7 @@
 	Reports what the grenade tool actually is, right now.
 
 		Press Play, equip the grenade, then paste this into the command bar
-		with the SERVER context selected.
+		with the server context selected.
 
 	Written because "it does not appear in my hand" has at least six distinct
 	causes that look identical from the outside: TREK never found the config, the
@@ -35,7 +35,7 @@ line("================================================")
 	Refuse to run on the client.
 
 	ServerScriptService, ServerStorage and shared.S do not replicate. Run from
-	the client context and every check against them reports "NO" -- which reads
+	the client context and every check against them reports "no", which reads
 	as a catastrophically broken install and sends you hunting for files that
 	are sitting exactly where they should be. Three of this script's loudest
 	failure lines are unreachable from the client and cannot be made honest
@@ -55,7 +55,7 @@ if not game:GetService("RunService"):IsServer() then
 end
 
 -- ---------------------------------------------------------------
--- INSTALL
+-- Install
 -- ---------------------------------------------------------------
 
 local installed = ReplicatedStorage:FindFirstChild("TREK_INSTALLED")
@@ -72,8 +72,8 @@ end
 --[[
 	The server half.
 
-	Listed individually because these load as a chain -- GasRuntime requires
-	GasService requires GasCloud requires GasExposure -- and one missing module
+	Listed individually because these load as a chain. GasRuntime requires
+	GasService requires GasCloud requires GasExposure, and one missing module
 	stalls every module above it. "ServiceRunning" is the only proof that chain
 	completed; everything downstream of it, including the grip that holds the
 	grenade, depends on start() having been reached.
@@ -83,8 +83,8 @@ end
 
 	FindFirstChild returns one of them and GetFullName() prints the same string
 	for all of them, so a stale hand-installed folder sitting beside a
-	Rojo-synced one is completely invisible from an error message -- and Roblox
-	runs BOTH. The stale one errors on a module it has never heard of while the
+	Rojo-synced one is completely invisible from an error message, and Roblox
+	runs both. The stale one errors on a module it has never heard of while the
 	good one works perfectly, which reads as the package being broken.
 
 	This is the difference between "Rojo is not serving the new files" and
@@ -125,7 +125,7 @@ end
 	This list has to be kept current with the project files, and it going stale
 	is not a cosmetic problem: the whole value of this section is naming the one
 	file that is missing. A module added to the package but not added here
-	produces a diagnostic that reports all-present while the chain is broken --
+	produces a diagnostic that reports all-present while the chain is broken,
 	which is worse than no diagnostic, because it sends you looking elsewhere.
 ]]
 local SERVER_MODULES = {
@@ -176,7 +176,7 @@ end
 
 --[[
 	GunConfigs is the gate. checkForGun looks the tool up by name here, and a
-	tool with no entry is ignored completely -- no handler, no ammo store.
+	tool with no entry is ignored completely: no handler, no ammo store.
 ]]
 local configs = shared.S and shared.S.GunConfigs
 line("shared.S.GunConfigs reachable:", yn(configs))
@@ -194,7 +194,7 @@ if configs then
 end
 
 -- ---------------------------------------------------------------
--- THE TOOL
+-- The tool
 -- ---------------------------------------------------------------
 
 for _, player in ipairs(Players:GetPlayers()) do
@@ -215,7 +215,7 @@ for _, player in ipairs(Players:GetPlayers()) do
 	line("  torso part:", torso and torso.Name or "NONE")
 
 	--[[
-		The grenade is joined to the HAND by its own Motor6D, not to the torso by
+		The grenade is joined to the hand by its own Motor6D, not to the torso by
 		TREK's toolAnim. A torso joint is what made it hover beside the chest
 		instead of following the arm, so toolAnim pointing at the grenade is now
 		a fault rather than the goal.
@@ -274,8 +274,8 @@ for _, player in ipairs(Players:GetPlayers()) do
 	end
 
 	--[[
-		There should be NO AnimPart. Its presence makes checkForGun call
-		updateMotor, which joins the grenade to the torso -- and a torso-joined
+		There should be no AnimPart. Its presence makes checkForGun call
+		updateMotor, which joins the grenade to the torso, and a torso-joined
 		grenade hovers beside the chest rather than following the arm.
 	]]
 	local animAnywhere = tool:FindFirstChild("AnimPart", true)
@@ -300,7 +300,7 @@ for _, player in ipairs(Players:GetPlayers()) do
 	line("  mesh parts:", #parts)
 
 	--[[
-		Distance from the HAND is the number that matters now. A grenade sitting
+		Distance from the hand is the number that matters now. A grenade sitting
 		a couple of studs from the hand is gripped; one sitting a fixed distance
 		from the torso but metres from the hand is the old torso joint, and one
 		that never changes as you move is anchored.

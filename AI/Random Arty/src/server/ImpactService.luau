@@ -3,8 +3,8 @@
 	What a shell does when it lands.
 
 	Damage is server-only and always will be. The client draws the explosion,
-	but it never reports what it hit and it is never asked -- a client that
-	simply declined to tell us it was standing in the crater would be immortal.
+	but it never reports what it hit and it is never asked: a client that
+	declined to tell us it was standing in the crater would be immortal.
 ]]
 
 local Players = game:GetService("Players")
@@ -22,16 +22,16 @@ local ImpactService = {}
 
 local CONCUSSION_MODIFIER = "Concussed"
 
--- How far a blast reaches at all. ConcussionRadius is deliberately allowed to
--- exceed DamageRadius -- being rattled by a near miss that did no damage is the
--- point of it -- so this is whichever of the two reaches further. Config is
+-- How far a blast reaches at all. ConcussionRadius is allowed to
+-- exceed DamageRadius, being rattled by a near miss that did no damage is the
+-- point of it, so this is whichever of the two reaches further. Config is
 -- frozen, so it is worked out once.
 local BLAST_REACH = if Config.EnableConcussion
 	then math.max(Config.DamageRadius, Config.ConcussionRadius)
 	else Config.DamageRadius
 
 -- The onion only works if the layers nest. Out of order, an inner sphere
--- swallows an outer one and that band silently never happens -- which looks
+-- swallows an outer one and that band silently never happens, which looks
 -- like a broken feature rather than a bad number, so it is worth saying out
 -- loud at startup instead of leaving it to be inferred from behaviour.
 do
@@ -77,7 +77,7 @@ local function log(message: string, ...)
 end
 
 -- Sampled up the body rather than at one point. A single ray to the torso is a
--- COIN FLIP at any partial cover: shuffle a stud sideways and the whole hit
+-- Coin flip at any partial cover: shuffle a stud sideways and the whole hit
 -- swings between full damage and a quarter of it, with nothing in between. That
 -- is most of what "the damage is inconsistent" actually is.
 local COVER_SAMPLES = {
@@ -89,9 +89,9 @@ local COVER_SAMPLES = {
 --[[
 	0 fully exposed, 1 fully behind something.
 
-	The origin is LIFTED off the ground first. Impact points come from a downward
+	The origin is lifted off the ground first. Impact points come from a downward
 	raycast so they sit exactly on the surface, and a ray cast from there hits
-	that surface on the first stud -- which reads as cover on every shell in the
+	that surface on the first stud, which reads as cover on every shell in the
 	open and quietly caps artillery at a quarter of its damage.
 ]]
 local function coverFraction(blastPosition: Vector3, target: Vector3, character: Model): number
@@ -114,10 +114,10 @@ local function coverFraction(blastPosition: Vector3, target: Vector3, character:
 end
 
 --[[
-	EVERY POINT OF ARTILLERY DAMAGE GOES THROUGH HERE, and it is deliberately
+	Every point of artillery damage goes through here, and it is deliberately
 	not Humanoid:TakeDamage.
 
-	TakeDamage is BLOCKED BY A ForceField. Assigning Humanoid.Health is not --
+	TakeDamage is blocked by a ForceField. Assigning Humanoid.Health is not,
 	and Dismember assigns it. Two paths, two behaviours, and no sign of the
 	difference at either call site. Left split, the onion comes apart against a
 	freshly spawned player: layers 2 and 3 do nothing to them while layer 1 kills
@@ -127,7 +127,7 @@ end
 	One helper, one behaviour: artillery goes through spawn protection. A shell
 	does not care that you just respawned, and every layer agrees about it.
 
-	Tag your spawns with ArtillerySafeZone if you want them left alone -- that is
+	Tag your spawns with ArtillerySafeZone if you want them left alone, that is
 	the supported way to protect a spawn, and unlike a ForceField it stops the
 	shell being aimed there in the first place.
 ]]
@@ -187,7 +187,7 @@ local function tryMaim(
 	end
 
 	-- Odds fall across layer 2 itself, from its inner edge to its outer one,
-	-- rather than from the crater -- nobody in this layer is closer than
+	-- rather than from the crater, nobody in this layer is closer than
 	-- KillRadius, so measuring from zero would waste most of the curve.
 	local band = math.max(Config.DismemberRadius - Config.KillRadius, 0.001)
 	local acrossLayer = (distance - Config.KillRadius) / band
@@ -228,7 +228,7 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 	local offset = root.Position - blastPosition
 	local flat = Vector2.new(offset.X, offset.Z).Magnitude
 
-	-- The vertical gap is scaled DOWN before the length is taken, so the blast is
+	-- The vertical gap is scaled down before the length is taken, so the blast is
 	-- a flattened ellipsoid rather than a sphere. A true sphere spends the same
 	-- radius budget on height as on ground distance, which is what lets a shell
 	-- land a few studs in front of someone standing up a slope and leave them
@@ -239,8 +239,8 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 		return
 	end
 
-	-- Spawn protection is NOT checked. Artillery penetrates a ForceField, in
-	-- every layer -- see applyDamage.
+	-- Spawn protection is not checked. Artillery penetrates a ForceField, in
+	-- every layer. See applyDamage.
 
 	-- The crew of a Warthog or Abrams is protected by the vehicle until it is
 	-- destroyed; those packages set InVehicle while someone is seated.
@@ -248,13 +248,13 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 		return
 	end
 
-	-- LAYER 4. Past the damage sphere entirely: rattled, unhurt.
+	-- Layer 4. Past the damage sphere entirely: rattled, unhurt.
 	if distance > Config.DamageRadius then
 		applyConcussion(humanoid, distance)
 		return
 	end
 
-	-- LAYER 1. Pure distance and nothing else -- no raycast is even fired here.
+	-- Layer 1. Pure distance and nothing else: no raycast is even fired here.
 	-- A shell that lands on top of you is not survivable by standing behind
 	-- something, and making it survivable is what turns the kill sphere into a
 	-- suggestion.
@@ -266,7 +266,7 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 		return
 	end
 
-	-- LAYERS 2 and 3. Cover applies out here.
+	-- Layers 2 and 3. Cover applies out here.
 	local cover = coverFraction(blastPosition, root.Position, character)
 	-- Bloxians hurt by a blast don't go looking for a rifleman to blame.
 	character:SetAttribute("BlastHitAt", workspace:GetServerTimeNow())
@@ -287,11 +287,11 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 			outcome = "killed, limbs off"
 		else
 			-- Layer 3 kills die intact, so what is left of a body tells you
-			-- which layer caught them. INTACT STILL MEANS LIMP -- it ragdolls
+			-- which layer caught them. Intact still means limp: it ragdolls
 			-- and gets the same cleanup as every other kill, it just keeps all
 			-- its limbs.
 			--
-			-- Cleanup is armed FIRST for the same reason it is in Dismember.apply:
+			-- Cleanup is armed first for the same reason it is in Dismember.apply:
 			-- this whole function runs inside a pcall, so anything that throws
 			-- after the kill would otherwise leave the corpse standing forever.
 			-- prepareRagdoll still has to run before the damage lands, or Roblox
@@ -312,7 +312,7 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 
 	-- One line per victim. "The damage feels inconsistent" is almost always two
 	-- shells overlapping, or partial cover, or a health pool already chewed
-	-- down -- none of which you can see from inside the game.
+	-- down, none of which you can see from inside the game.
 	log(
 		"%s at %.1f (%.0f flat, %+.0f up) -- LAYER %d, cover %.0f%%, %.0f damage, %s (%.0f HP left)",
 		character.Name,
@@ -336,7 +336,7 @@ local function hit(character: Model, humanoid: Humanoid, root: BasePart, blastPo
 	shove(root, blastPosition, distance, 1 - cover)
 end
 
--- Walks up for the model that actually OWNS a Humanoid, rather than taking the
+-- Walks up for the model that actually owns a Humanoid, rather than taking the
 -- nearest Model ancestor. A hat, a tool or a weapon rig is a Model too, and
 -- stopping at one of those silently skips the NPC wearing it.
 local function findHumanoidModel(part: BasePart): (Model?, Humanoid?)
@@ -369,6 +369,17 @@ local function sweepNPCs(blastPosition: Vector3)
 		-- Players were already swept by name in detonate; hitting them twice
 		-- would double the damage of every shell.
 		if Players:GetPlayerFromCharacter(character) then
+			continue
+		end
+		-- A tank or a helicopter keeps a Humanoid for its health; it is not a body to
+		-- kill, ragdoll and clean up as a corpse (that deleted it before it could respawn).
+		-- It takes VehicleDamage, falling off to nothing at DamageRadius.
+		if character:HasTag("BloxianVehicle") or character:HasTag("MarineVehicle") then
+			local body = character.PrimaryPart
+			local distance = body and (body.Position - blastPosition).Magnitude
+			if distance and distance < Config.DamageRadius and humanoid and humanoid.Health > 0 then
+				humanoid:TakeDamage(Config.VehicleDamage * (1 - distance / Config.DamageRadius))
+			end
 			continue
 		end
 

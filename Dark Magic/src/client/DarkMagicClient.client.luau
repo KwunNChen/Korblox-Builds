@@ -25,7 +25,7 @@ local ANIM_IDS: { [string]: string } = {
 	raise = "119474075521745", -- DM_Raise
 	rip = "84106519181009", -- DM_SoulRip
 	step = "103187897950830", -- DM_ShadowStep
-	hex = "80748191261058", -- DM_Melt (HEX shares the MELT animation)
+	hex = "80748191261058", -- DM_Melt (hex shares the melt animation)
 }
 local KFS_NAME = {
 	uniform = "DM_Uniform", melt = "DM_Melt", raise = "DM_Raise",
@@ -242,7 +242,7 @@ local function legalTarget(part: Instance?): Model?
 		if hum then
 			local m = part :: Model
 			if mode == "raise" then
-				-- skeletons never fight your side; MELT's leftover bones can be raised
+				-- skeletons never fight your side; melt's leftover bones can be raised
 				local torso = m:FindFirstChild("Torso") or m:FindFirstChildWhichIsA("BasePart")
 				local corpse = m:GetAttribute("MeltCorpse") == true
 				local ok = (hum.Health > 0 or corpse) and not isFriend(m)

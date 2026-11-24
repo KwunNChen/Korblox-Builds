@@ -10,6 +10,8 @@
 
 local fireSupport = {}
 
+local CollectionService = game:GetService("CollectionService")
+
 local modules = script.Parent
 local core = require(modules.CoreModule)
 local status = require(modules.Status)
@@ -28,6 +30,20 @@ local HOLD_BAND = 40
 --the next of these turns (degrees) off that whose spot is on dry ground, tried
 --again in turn whenever there is no path to the one he has.
 local ESCAPE_TURNS = {0, 35, -35, 70, -70, 110, -110}
+
+--Gas clouds (TREK Gas Grenade tags each one GasCloud, with its Radius) are cleared the
+--same way: GAS_MARGIN past the edge, and nobody holds outside them.
+local GAS_MARGIN = 8
+local gasZones = setmetatable({},{__mode = "k"})
+local function gasZone(cloud)
+	local zone = gasZones[cloud]
+	if not zone then
+		zone = {center = cloud.Position, radius = cloud:GetAttribute("Radius") or 18, runsAt = 0,
+			untilTime = math.huge, margin = GAS_MARGIN, hold = 0}
+		gasZones[cloud] = zone
+	end
+	return zone
+end
 
 --Every live fire mission on the server, so every soldier can steer clear.
 _G.BloxianArtilleryZones = _G.BloxianArtilleryZones or {}
@@ -52,6 +68,13 @@ local function nearestZone()
 			end
 		end
 	end
+	for _,cloud in ipairs(CollectionService:GetTagged("GasCloud")) do
+		local zone = gasZone(cloud)
+		local dist = flat(myRoot.Position - zone.center).Magnitude
+		if dist < zone.radius + zone.margin and dist < foundDist then
+			found,foundDist = zone,dist
+		end
+	end
 	return found,foundDist
 end
 
@@ -72,7 +95,7 @@ local function escapePoint(zone,from)
 		away = Vector3.new(math.cos(angle),0,math.sin(angle))
 	end
 	away = away.Unit
-	local reach = zone.radius + EVAC_MARGIN + HOLD_BAND*0.5
+	local reach = zone.radius + (zone.margin or EVAC_MARGIN) + (zone.hold or HOLD_BAND)*0.5
 	for index = from,#ESCAPE_TURNS do
 		local direction = CFrame.fromAxisAngle(Vector3.yAxis,math.rad(ESCAPE_TURNS[index])):VectorToWorldSpace(away)
 		local spot = zone.center + direction*reach
@@ -89,7 +112,7 @@ local escape = nil --{zone, point, turn}: where he is running to
 --Runs out of any artillery impact zone. True while it is steering him.
 function fireSupport.evacuate()
 	local zone,dist = nearestZone()
-	if not zone or dist >= zone.radius + EVAC_MARGIN then
+	if not zone or dist >= zone.radius + (zone.margin or EVAC_MARGIN) then
 		escape = nil
 		status:set("evacuating",nil)
 		if zone then
@@ -111,7 +134,8 @@ function fireSupport.evacuate()
 		escape = {zone = zone,point = point,turn = turn}
 		log("artillery","clearing the impact zone")
 	end
-	movement.navigate(escape.point or zone.center + flat(myRoot.Position - zone.center).Unit*(zone.radius + EVAC_MARGIN + HOLD_BAND*0.5))
+	movement.navigate(escape.point or zone.center + flat(myRoot.Position - zone.center).Unit
+		*(zone.radius + (zone.margin or EVAC_MARGIN) + (zone.hold or HOLD_BAND)*0.5))
 	task.wait(0.2)
 	return true
 end

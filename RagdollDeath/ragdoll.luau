@@ -13,7 +13,7 @@ local FALL_PUSH_SPEED = 22
 local FALL_TOPPLE_SPEED = 9
 
 -- Takes the Torso directly rather than re-finding it per joint. ragdoll()
--- looks it up ONCE and hands it to every call instead of doing the same
+-- looks it up once and hands it to every call instead of doing the same
 -- FindFirstChild five times over for the same five joints.
 local function findJoint(torso: BasePart, name: string): Motor6D?
 	local joint = torso:FindFirstChild(name)

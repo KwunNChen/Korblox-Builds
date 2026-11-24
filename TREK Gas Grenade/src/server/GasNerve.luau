@@ -4,7 +4,7 @@
 
 	One dose is the whole story. The cloud reports contact; everything after that
 	happens here and cannot be stopped by leaving the cloud, by a medic, or by
-	the gas expiring. That is the point of the weapon -- the cloud is not what
+	the gas expiring. That is the point of the weapon: the cloud is not what
 	kills you, it is only where you were standing when you were killed.
 
 	The sequence:
@@ -15,7 +15,7 @@
 	    death     health drains to zero across TimeToDeath and stays there
 
 	Health is drained rather than set, so a player watching their own bar sees it
-	fall. A kill that simply set Health to 0 would read as a disconnect.
+	fall. A kill that set Health to 0 would read as a disconnect.
 
 	Server-only, like everything that decides anything in this package.
 ]]
@@ -23,7 +23,7 @@
 local GasNerve = {}
 
 --[[
-	Bounded, and loud when it fails -- the same helper every other module in the
+	Bounded, and loud when it fails: the same helper every other module in the
 	package uses.
 
 	This was the one require in the package that did not: it passed the result of
@@ -62,7 +62,7 @@ local dying: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 	How long this character has been breathing it, against the threshold that
 	dooms them.
 
-	Separate from the dying set because it is the BEFORE state: accumulating, and
+	Separate from the dying set because it is the before state: accumulating, and
 	still escapable right up until it crosses the line.
 ]]
 local contact: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -104,7 +104,7 @@ end
 	Angular velocity rather than a force: a limp limb on a ball socket answers to
 	spin immediately and settles on its own, where a force has to fight the
 	constraint and ends up either invisible or launching the body across the
-	room. The torso is deliberately included -- convulsions that leave the trunk
+	room. The torso is included, convulsions that leave the trunk
 	perfectly still read as a puppet with loose arms.
 ]]
 local function twitch(limbs: { BasePart }, strength: number)
@@ -126,7 +126,7 @@ local function twitch(limbs: { BasePart }, strength: number)
 			onto whatever spin the limb already had. Roblox damps angular
 			velocity, but not reliably faster than this tops it up, and a limb
 			that has wound up to several times TwitchStrength stops reading as a
-			convulsion and starts driving itself through the floor -- which it
+			convulsion and starts driving itself through the floor, which it
 			does by violating its own constraint hard enough for the solver to
 			teleport it out the other side.
 
@@ -145,7 +145,7 @@ end
 --[[
 	The convulsion that puts them down.
 
-	One impulse on the ROOT assembly, not on every limb.
+	One impulse on the root assembly, not on every limb.
 
 	Shoving each limb separately looks like it should produce a more violent
 	collapse and does the opposite: the six limbs are six separate assemblies
@@ -186,7 +186,7 @@ local function shove(character: Model, nerve)
 	)
 
 	-- A lift of exactly 1 leaves no horizontal part, which is still a perfectly
-	-- good direction -- straight up -- but Unit on a zero vector is not, so the
+	-- good direction, straight up, but Unit on a zero vector is not, so the
 	-- magnitude is checked rather than assumed.
 	if direction.Magnitude < 1e-3 then
 		direction = Vector3.yAxis
@@ -197,7 +197,7 @@ local function shove(character: Model, nerve)
 
 		The twitch accumulates onto whatever the body is already doing because it
 		is a flutter on top of existing motion. This one has to look the same
-		whether the victim was sprinting or standing still -- a running player who
+		whether the victim was sprinting or standing still: a running player who
 		kept their momentum would be thrown twice as far as a stationary one, for
 		no reason anyone watching could account for.
 	]]
@@ -264,7 +264,7 @@ local function voice(character: Model, nerve): () -> ()
 		end
 
 		--[[
-			Fade, then destroy -- and destroy on a timer rather than on the
+			Fade, then destroy, and destroy on a timer rather than on the
 			tween finishing.
 
 			A tween Completed callback never fires if the Sound is destroyed
@@ -289,7 +289,7 @@ end
 	else gets any grace at all: a single tick inside the cloud is a dose, which
 	is what makes the gas a wall rather than an area you can push through.
 
-	The thrower's grace is not mercy so much as playability -- a throw that
+	The thrower's grace is not mercy so much as playability: a throw that
 	bounced badly should be survivable if you turn and run immediately, because
 	otherwise the weapon is as dangerous to carry as to face.
 ]]
@@ -306,15 +306,15 @@ end
 --[[
 	Run one character from dose to death.
 
-	Deliberately a single linear routine rather than a state machine: the whole
+	A single linear routine rather than a state machine: the whole
 	sequence is one path with no branches, because nothing can interrupt it.
 ]]
 local function collapse(character: Model, humanoid: Humanoid, thrower: Player?, config)
 	local nerve = config.Nerve
 
 	--[[
-		Mark it the way TREK marks conditions, so anything else in the game --
-		a HUD, a spectator overlay, a medic system that wants to fail loudly --
+		Mark it the way TREK marks conditions, so anything else in the game:
+		a HUD, a spectator overlay, a medic system that wants to fail loudly,
 		can see this character is gone without knowing about this module.
 	]]
 	humanoid:SetAttribute(nerve.ConditionAttribute, true)
@@ -324,7 +324,7 @@ local function collapse(character: Model, humanoid: Humanoid, thrower: Player?, 
 
 		Set here rather than after the seizure because the drain and the barks
 		it triggers both begin below, and an attribute set even one frame late
-		lets the first "ow" through -- which is the one the player actually
+		lets the first "ow" through, which is the one the player actually
 		notices, because it is the one that overlaps the gas sound starting.
 	]]
 	character:SetAttribute(nerve.SuppressHurtAttribute, true)
@@ -378,7 +378,7 @@ local function collapse(character: Model, humanoid: Humanoid, thrower: Player?, 
 		Drain, tick by tick, rather than killing outright.
 
 		Each step is a fraction of max health so the fall takes TimeToDeath
-		regardless of how much the victim started with -- a wounded player and a
+		regardless of how much the victim started with: a wounded player and a
 		healthy one both die on the same schedule, which is what "the dose is
 		lethal" means.
 	]]
@@ -422,7 +422,7 @@ end
 --[[
 	Report contact with the cloud.
 
-	Called once per cloud tick for everyone inside, whatever their distance --
+	Called once per cloud tick for everyone inside, whatever their distance:
 	the whole radius doses at the same rate, so the damage falloff that shapes
 	the old gas does not apply here. Either you are breathing it or you are not.
 ]]
@@ -451,7 +451,7 @@ end
 
 	Called when they leave the cloud, so sub-threshold contact does not
 	accumulate across separate clouds hours apart. Does nothing to anyone already
-	dosed -- there is no clearing that.
+	dosed: there is no clearing that.
 ]]
 function GasNerve.clear(character: Model)
 	if not dying[character] then

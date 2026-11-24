@@ -62,7 +62,7 @@ local baseMoonSize = 0
 local baseGlare = 0
 local baseSunRays = 0
 
--- While idle (the vast majority of runtime -- thunder is only a Peak-phase
+-- While idle (the vast majority of runtime, thunder is only a Peak-phase
 -- event) the base snapshot only needs to track day/night drift, not chase it
 -- every RenderStepped frame. Throttled so idle frames don't read 5 Instances'
 -- worth of properties 60 times a second for nothing.

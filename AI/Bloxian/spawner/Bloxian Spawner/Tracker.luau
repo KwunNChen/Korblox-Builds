@@ -27,7 +27,7 @@ local TRACKER_NAME = "BloxianTracker"
 
 --NATO unit-size mark for each echelon (the unit's SquadEchelon).
 local ECHELON_MARKS = {["Fire team"] = "Ø", Squad = "●", Section = "●●", Platoon = "●●●", ["SOF Fireteam"] = "Ø", Recce = "Ø"}
---A sniper or AT team's mark and how many men it starts with.
+--A sniper or at team's mark and how many men it starts with.
 local PAIR_MARK = "Ø"
 local PAIR_SIZE = 2
 --How far above the middle of a squad its tag floats (studs).

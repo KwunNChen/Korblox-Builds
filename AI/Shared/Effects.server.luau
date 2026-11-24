@@ -1,7 +1,7 @@
 --[[
-	Runs on each client (RunContext Client): draws this vehicle's blasts -- the
+	Runs on each client (RunContext Client): draws this vehicle's blasts: the
 	main gun's muzzle and shell impacts, and the vehicle blowing up when it is
-	destroyed -- in the same style as the Random Arty barrages. No explosion ball
+	destroyed, in the same style as the Random Arty barrages. No explosion ball
 	and nothing left on the ground:
 
 	    0.00s   a brief light, and one dust image that opens out and settles,
@@ -47,7 +47,7 @@ local DUST_SPIN = 4
 --Debris chunks: how many, their size range (studs), throw speed (studs/s),
 --angle above the ground (degrees), lifetime (s), gravity, and how much darker
 --than the ground they are.
-local CHUNK_COUNT = 30
+local CHUNK_COUNT = 16
 local CHUNK_SIZE = NumberRange.new(0.4, 2)
 local CHUNK_SPEED = NumberRange.new(20, 140)
 local CHUNK_ELEVATION = NumberRange.new(8, 80)
@@ -57,7 +57,7 @@ local CHUNK_DARKEN = 0.55
 
 --Smoke puff: texture, count, size range, lifetime and colour.
 local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
-local SMOKE_COUNT = 35
+local SMOKE_COUNT = 12
 local SMOKE_SIZE = NumberRange.new(45, 75)
 local SMOKE_LIFETIME = NumberRange.new(4, 7)
 local SMOKE_COLOR = Color3.fromRGB(74, 68, 62)

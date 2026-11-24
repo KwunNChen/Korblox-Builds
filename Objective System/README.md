@@ -9,8 +9,8 @@ Extracted from the Bricktops place, where it ran as `Workspace.TObjectiveSystem`
 ## Install
 
 Download `ObjectiveSystem.rbxm`, drag it into ServerStorage, and move the
-`TObjectiveSystem` folder inside it into Workspace. It has to live in Workspace
-— both scripts resolve their config with `script.Parent.Parent`, so the folder
+`TObjectiveSystem` folder inside it into Workspace. It has to live in Workspace:
+both scripts resolve their config with `script.Parent.Parent`, so the folder
 layout is load-bearing and the terminals are real parts that need to be in the
 world anyway.
 
@@ -20,7 +20,7 @@ Chat commands, for anyone who passes the admin check.
 
 | | |
 |---|---|
-| `!begin` | start the raid — reloads every character |
+| `!begin` | start the raid - reloads every character |
 | `!end` | stop the raid |
 | `!score N` | set the score needed to win |
 | `!defenderId N` | set the defending group by group id |
@@ -28,7 +28,7 @@ Chat commands, for anyone who passes the admin check.
 
 Admin is granted two ways, both under `Settings/AdminControls`. `GroupId` plus
 the `RankId` inside it gives it to everyone at or above that rank in that group.
-`UserId` gives it to one person. **`GroupId` ships set to 35065811 — change it
+`UserId` gives it to one person. **`GroupId` ships set to 35065811 - change it
 or you are handing control to my group.**
 
 `UserId` is also overwritten at runtime with `game.PrivateServerOwnerId`, so the
@@ -37,13 +37,13 @@ owner of a private server always has control whatever you set.
 ## Setting up terminals
 
 `Points` holds them, one folder each, named `A`/`B`/`C`. Clone one to add
-another, delete one to remove it — nothing is hardcoded to three.
+another, delete one to remove it - nothing is hardcoded to three.
 
 | | |
 |---|---|
 | `Progress` | `MaxValue`/`MinValue` are how long a capture takes. MinValue must be negative. Ships ±20, which is 4 seconds of uncontested standing at the 0.2s tick |
 | `Value` | score per second this terminal pays its owner |
-| `Capital` | a capital is skipped entirely — never captured, never reset |
+| `Capital` | a capital is skipped entirely - never captured, never reset |
 | `Point` | the part players stand on |
 | `CaptureRadius` | optional. Add a NumberValue to override the radius |
 
@@ -68,7 +68,7 @@ tints terminal markers with.
 
 | | |
 |---|---|
-| `src/server/MainHandler` | the raid loop — counts who's standing where, moves progress, awards score, calls victory |
+| `src/server/MainHandler` | the raid loop - counts who's standing where, moves progress, awards score, calls victory |
 | `src/server/AdminsControl` | the admin check and the five chat commands |
 | `src/package/README` | the original in-Studio INSTRUCTIONS, shipped inside the model |
 | `src/point.project.json` | one terminal, reused for A/B/C |
@@ -88,11 +88,11 @@ those two shapes will work.
 
 ## Known issues, carried over as-is
 
-These are in the original and I have not touched them — this is an extraction,
+These are in the original and I have not touched them - this is an extraction,
 not a rewrite.
 
 - **Score survives a victory.** In `cap`, the win branch sets score to the
-  objective and calls `victory`, which yields 5 seconds and zeroes both scores —
+  objective and calls `victory`, which yields 5 seconds and zeroes both scores -
   then control returns and the `+=` underneath it still runs. The winning side
   starts the next round on its terminal value instead of zero.
 - **Only one `RankId` is ever read.** The source had seven `RankId` values under

@@ -1,12 +1,12 @@
 --[[
-	TREK HOLSTER
+	TREK holster
 
-	Server Script. Put it in ServerScriptService. Standalone -- not part of the
+	Server Script. Put it in ServerScriptService. Standalone, not part of the
 	bayonet package, and it works on a plain TREK install with no bayonet
 	anywhere. It lives here because this is where it got written.
 
 	--------------------------------------------------------------------------
-	WHAT IT DOES
+	What it does
 	--------------------------------------------------------------------------
 
 	When you unequip a TREK weapon it stays visible, slung on your back,
@@ -19,7 +19,7 @@
 	Backpack, where nothing renders it.
 
 	--------------------------------------------------------------------------
-	WHY A COPY RATHER THAN THE TOOL ITSELF
+	Why A copy rather than the tool itself
 	--------------------------------------------------------------------------
 
 	The obvious approach is to keep the real Tool parented to the character and
@@ -32,7 +32,7 @@
 	Tool, nothing mistakes it for one, and it can be destroyed the moment you
 	equip again.
 
-	Scripts are deliberately not copied -- a second Gun handler running from a
+	Scripts are not copied: a second Gun handler running from a
 	decorative model is exactly the duplicate-handler problem that makes sprint
 	stop working.
 ]]
@@ -42,9 +42,9 @@ local Players = game:GetService("Players")
 --[[
 	Where the weapon sits when slung, relative to the Torso.
 
-	THE AXES, in the torso's own frame:
+	The axes, in the torso's own frame:
 
-		+X  the character's right          +Y  up          +Z  BEHIND them
+		+X  the character's right          +Y  up          +Z  behind them
 
 	(Roblox faces -Z, so +Z is the back. That is the one that catches people.)
 
@@ -54,14 +54,14 @@ local Players = game:GetService("Players")
 		Angles(0, 90deg, 0)   lays the barrel across the back, left to right
 		Angles(0, 0, R)       then tilts it within the plane of the back
 
-	The tilt is written BEFORE the yaw in the multiplication, which is what makes
-	it happen in the torso's frame rather than the gun's -- otherwise it rolls
+	The tilt is written before the yaw in the multiplication, which is what makes
+	it happen in the torso's frame rather than the gun's, otherwise it rolls
 	the rifle about its own barrel and nothing appears to move.
 
 	Tuning is live: edit, save, unequip again. No restart.
 ]]
 --[[
-	TUNE IT HERE.
+	Tune it here.
 
 	Rojo pushes edits live: change a number, save, unequip the weapon again and
 	look. No restart, no command bar, no separate tool.
@@ -76,7 +76,7 @@ local STYLE = nil
 local TUNING = {
 	X = 0.95,        -- + is their right
 	Y = 0.1,         -- + is up
-	Z = 0.5,         -- + is BEHIND them
+	Z = 0.5,         -- + is behind them
 	LEAN = 0,      -- tilts it around the body, in the torso's frame
 	PITCH = 90,      -- 90 stands the barrel up, -90 points it down
 	YAW = 0,         -- 90 lays the barrel across the back
@@ -85,13 +85,13 @@ local TUNING = {
 
 local STYLES = {
 	--[[
-		Slung across the body: muzzle up past the RIGHT shoulder, stock down at
-		the LEFT hip, so the weapon lies diagonally over the back the way it does
+		Slung across the body: muzzle up past the right shoulder, stock down at
+		the left hip, so the weapon lies diagonally over the back the way it does
 		when the sling runs across the torso and under the far arm.
 
 		The lean is what makes it cross rather than hang down one side. Checked
 		against the transform: the muzzle sits 2.3 right and 2.6 up, the stock
-		1.1 LEFT and 2.4 down -- opposite sides of the spine, which is the test
+		1.1 Left and 2.4 down, opposite sides of the spine, which is the test
 		for whether it crosses at all.
 
 		Raise the lean toward -55 to lay it flatter across the back; drop it
@@ -116,8 +116,8 @@ local STYLES = {
 		Built in three turns rather than one set of angles, because each one is
 		separately adjustable:
 
-			Angles(0, 0, LEAN)     leans it in the torso's frame -- positive
-			                       swings the muzzle OUTBOARD and tucks the
+			Angles(0, 0, LEAN)     leans it in the torso's frame, positive
+			                       swings the muzzle outboard and tucks the
 			                       stock in against the hip
 			Angles(90deg, 0, 0)    stands the rifle up, barrel skyward
 			Angles(0, 0, 90deg)    rolls it so the receiver's flat faces out,
@@ -172,8 +172,8 @@ local WEAPON_ROOT = "AnimPart"
 		tool:SetAttribute("NoHolster", true)
 
 	AnimPart alone stopped being a reliable test for "this is a weapon" once
-	non-weapon TREK tools existed. AnimPart is how TREK joins ANY tool to the
-	hand -- the gas grenade needs one for exactly that reason -- so anything
+	non-weapon TREK tools existed. AnimPart is how TREK joins any tool to the
+	hand, the gas grenade needs one for exactly that reason, so anything
 	throwable, carried or deployable now looks like a rifle from here and gets
 	slung across the player's back.
 
@@ -185,7 +185,7 @@ local NO_HOLSTER_ATTRIBUTE = "NoHolster"
 
 local HOLSTER_NAME = "HolsteredWeapon"
 
--- Report every decision. Leave on until it looks right on someone's back --
+-- Report every decision. Leave on until it looks right on someone's back,
 -- a holster that silently does nothing and a holster placed inside the torso
 -- look identical from the outside.
 local DEBUG = true
@@ -194,7 +194,7 @@ local DEBUG = true
 	Should this tool hang on the body at all?
 
 	Used by both the unequip path and the spawn scan. The spawn scan in
-	particular must not merely refuse to sling a grenade -- it stops at the first
+	particular must not merely refuse to sling a grenade: it stops at the first
 	match, so a grenade that counted as holsterable would take the rifle's place
 	on the back and the rifle would never be slung at all.
 ]]
@@ -224,7 +224,7 @@ end
 	Build the slung copy.
 
 	The weapon's own Motor6Ds all hang off AnimPart and carry the C0/C1 that
-	hold the gun together, so the clone keeps its shape for free -- moving
+	hold the gun together, so the clone keeps its shape for free, moving
 	AnimPart moves everything joined to it. Only AnimPart needs welding to the
 	body.
 ]]
@@ -261,11 +261,11 @@ local function showHolster(character: Model, tool: Tool)
 	clearHolster(character)
 
 	--[[
-		Clone the WHOLE Tool, then lift the geometry out of the copy.
+		Clone the whole Tool, then lift the geometry out of the copy.
 
-		Cloning each child separately -- AnimPart, then Weapon -- looks
+		Cloning each child separately, AnimPart, then Weapon, looks
 		equivalent and is not. Every Motor6D inside Weapon has Part0 = AnimPart,
-		and a separate clone leaves those joints pointing at the ORIGINAL
+		and a separate clone leaves those joints pointing at the original
 		AnimPart, which by then is sitting in the backpack. The result is one
 		welded AnimPart on your back and sixty-nine parts joined to a weapon
 		that is nowhere: a holster that reports success and shows nothing.
@@ -307,11 +307,11 @@ local function showHolster(character: Model, tool: Tool)
 	end
 
 	--[[
-		Parent, THEN pivot, THEN weld. That order matters.
+		Parent, then pivot, then weld. That order matters.
 
 		A WeldConstraint captures the relative transform of its two parts when
 		it becomes active. Building it while the model is still parented to nil
-		-- with Part1 already in the workspace -- means it can latch onto a
+		-- with Part1 already in the workspace, means it can latch onto a
 		position the model never actually occupied, and the gun ends up
 		somewhere arbitrary or not at all.
 	]]
@@ -336,7 +336,7 @@ local function showHolster(character: Model, tool: Tool)
 
 			A count only says instances exist. If the joints inside the copy
 			point at the original weapon, the parts scatter and the box comes
-			out enormous -- which is exactly how the separate-clone bug looked
+			out enormous, which is exactly how the separate-clone bug looked
 			from the outside: "70 parts" and nothing visible.
 
 			A KR-61 should measure roughly 4 x 1 x 1 studs. Anything in the
@@ -354,7 +354,7 @@ local function showHolster(character: Model, tool: Tool)
 			Decomposed from where the gun actually ended up rather than echoed
 			back from the constant, so it stays honest if anything moves it
 			afterwards. ToOrientation folds the lean into the three angles, so
-			what prints is the COMBINED rotation, not the four separate turns
+			what prints is the combined rotation, not the four separate turns
 			the preset is written as.
 		]]
 		local current = torso.CFrame:ToObjectSpace(root.CFrame)
@@ -379,7 +379,7 @@ end
 
 	Both are watched rather than the Tool's own Equipped/Unequipped events,
 	because those fire on the client that owns the tool and this needs to be the
-	server's view -- everyone should see the sling, not just its owner.
+	server's view, everyone should see the sling, not just its owner.
 ]]
 local function watch(player: Player, character: Model)
 	clearHolster(character)
@@ -387,8 +387,8 @@ local function watch(player: Player, character: Model)
 	--[[
 		Only a weapon coming out takes the weapon off your back.
 
-		Clearing on ANY tool meant drawing a grenade, a map, a medkit -- anything
-		that is not itself slung -- made the rifle vanish from your back, because
+		Clearing on any tool meant drawing a grenade, a map, a medkit, anything
+		that is not itself slung, made the rifle vanish from your back, because
 		the holster read "a tool was equipped" as "the slung weapon was equipped".
 		Those are different events the moment a place has a tool that is not a
 		weapon.
@@ -435,7 +435,7 @@ local function watch(player: Player, character: Model)
 	--[[
 		Spawning with a weapon already in the backpack should show it slung.
 
-		"Nothing equipped" is not the condition -- "no WEAPON equipped" is.
+		"Nothing equipped" is not the condition, "no weapon equipped" is.
 		Spawning with a grenade already in your hands should still put the rifle
 		on your back, and the original check skipped the scan entirely the moment
 		anything at all was held.

@@ -72,7 +72,7 @@ for _,sound in ipairs({runningSound,jumpingSound,myHead:FindFirstChild("Landing"
 	sound.RollOffMaxDistance = STEP_HEARING
 end
 
---No "BLOXIAN" name (or health bar) over his head.
+--No "bloxian" name (or health bar) over his head.
 myHuman.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 
 --GettingUp is off (below), so a soldier knocked over by a blast would never stand again.

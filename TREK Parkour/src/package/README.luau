@@ -1,35 +1,35 @@
 --[[
 
-	TREK PARKOUR
+	TREK parkour
 
 	Vaulting and ledge mantling for TREK 4. Sprint into low cover and go over it.
-	Jump at a wall, press jump again, and haul yourself up -- with your weapon
+	Jump at a wall, press jump again, and haul yourself up, with your weapon
 	slung and your sprint gone until you are standing.
 
-	REQUIRES TREK 4. It hooks into whatever install you already have and does not
+	Requires TREK 4. It hooks into whatever install you already have and does not
 	modify it. Delete this folder and your install is exactly as it was.
 
 	This is a ModuleScript, so it never runs. Read it, then delete it with the
 	wrapper folder in step 4.
 
 	==========================================================================
-	INSTALL
+	Install
 	==========================================================================
 
-	Drag TREKParkour.rbxm into ServerStorage. Always ServerStorage -- scripts do
-	not execute there, which is the whole point. Drop it into ServerScriptService
+	Drag TREKParkour.rbxm into ServerStorage. Always ServerStorage, scripts do
+	not execute there, and that is what you want. Drop it into ServerScriptService
 	or Workspace and the server script starts running before the modules it needs
 	exist, and it fails in ways that look like bugs.
 
-	The folders inside are SIGNPOSTS. A folder called ReplicatedStorage is a
-	label telling you where its CONTENTS belong. Open it and move the folder
-	INSIDE it into the real service.
+	The folders inside are signposts. A folder called ReplicatedStorage is a
+	label telling you where its contents belong. Open it and move the folder
+	Inside it into the real service.
 
 	1. ReplicatedStorage/  ->  move  TREKParkour  into  game.ReplicatedStorage
 	2. ServerScriptService/ -> move  TREKParkour  into  game.ServerScriptService
 	3. StarterPlayerScripts/ -> move TREKParkour  into
 	                            game.StarterPlayer.StarterPlayerScripts
-	4. Tools/               -> OPTIONAL. Only needed by whoever is animating.
+	4. Tools/               -> optional. Only needed by whoever is animating.
 	                            Leave it in ServerStorage; it never runs in game.
 	5. Delete the empty TREKParkour wrapper folder.
 
@@ -38,7 +38,7 @@
 	Moving a signpost itself gives you ReplicatedStorage.ReplicatedStorage.
 	TREKParkour, and nothing finds anything.
 
-	WHEN YOU'RE DONE
+	When you're done
 
 	    ReplicatedStorage
 	      `-- TREKParkour          the modules, and the config you edit
@@ -48,26 +48,26 @@
 	      `-- TREKParkour          the one LocalScript
 
 	There is no Common folder. Ski, Random Arty and Variable Snowstorm all ship
-	one because they all hold a SUSTAINED WalkSpeed modifier and would otherwise
+	one because they all hold a sustained WalkSpeed modifier and would otherwise
 	fight each other.
 
-	This package writes WalkSpeed in one place only -- the short boost you get
-	for landing a vault -- and it multiplies whatever your speed already is
+	This package writes WalkSpeed in one place only: the short boost you get
+	for landing a vault, and it multiplies whatever your speed already is
 	rather than replacing it, then puts it back. So a storm slowing you still
 	gets its say. Turn EnableVaultBoost off and it touches WalkSpeed nowhere.
 
 	==========================================================================
-	CONTROLS
+	Controls
 	==========================================================================
 
-	VAULT      sprint into something waist-high. No key. It just happens.
-	MANTLE     jump, then press jump again while you are in the air near a ledge.
+	Vault      sprint into something waist-high. No key. It just happens.
+	Mantle     jump, then press jump again while you are in the air near a ledge.
 
 	No new keys. The mantle is on the jump button, which means it works on
 	keyboard, on a gamepad and on mobile without any of them being configured.
 
 	==========================================================================
-	WHAT A MANTLE COSTS YOU
+	What A mantle costs you
 	==========================================================================
 
 	While you are pulling yourself up:
@@ -76,7 +76,7 @@
 	    sprint is switched off         and comes back when you are standing
 	    you cannot steer, or cancel
 
-	That is deliberate. A mantle is a decision, not a free movement upgrade --
+	That is deliberate. A mantle is a decision, not a free movement upgrade:
 	you are committing to about a second of being useless in exchange for
 	getting somewhere you could not otherwise stand.
 
@@ -86,11 +86,11 @@
 
 	The weapon going away is also load-bearing, not only flavour. TREK rewrites
 	your character's rotation every frame while a weapon is out, and the climb
-	cannot play over the top of that. Putting the weapon away is what stops it --
+	cannot play over the top of that. Putting the weapon away is what stops it:
 	it is the same thing TREK's own gun handler does on unequip.
 
 	==========================================================================
-	TUNING: ReplicatedStorage.TREKParkour.ParkourConfig
+	Tuning: ReplicatedStorage.TREKParkour.ParkourConfig
 	==========================================================================
 
 	One file, and it is the only one you should need to open. Every value in it
@@ -103,15 +103,15 @@
 	    MantleDuration     how long you are helpless for (1.1s)
 
 	Turn on DebugLog while you are tuning. Every refusal prints its reason, which
-	is the whole diagnostic -- "too high" and "no room up there" look identical
+	is the whole diagnostic, "too high" and "no room up there" look identical
 	from the outside and are fixed by different numbers.
 
 	==========================================================================
-	ANIMATIONS
+	Animations
 	==========================================================================
 
-	The animation slots in the config ship EMPTY, and an empty slot plays
-	nothing. The move still happens -- you travel the arc, you get pulled onto
+	The animation slots in the config ship empty, and an empty slot plays
+	nothing. The move still happens: you travel the arc, you get pulled onto
 	the ledge, it just is not posed. That is deliberate: the heights and timings
 	can be tuned before anyone animates anything.
 
@@ -120,10 +120,10 @@
 	    require(game.ServerStorage.TREKParkour.Tools.ParkourRig).attach(workspace.Dummy)
 
 	It puts the real obstacles next to the dummy, built from the live config, so
-	you are posing against the heights the game actually uses -- plus markers on
+	you are posing against the heights the game actually uses, plus markers on
 	the two points the game drives the root through.
 
-	FOR WHOEVER IS ANIMATING:
+	For whoever is animating:
 
 	    Author for R6. An R6 sequence loaded onto an R15 rig gives you zero
 	    tracks and an empty timeline, with no error to tell you why.
@@ -131,25 +131,25 @@
 	    R6 has no knees and no ankles. A pull-up has to come from the waist, the
 	    hips and the shoulders.
 
-	    DO NOT ANIMATE THE ROOT. The game writes the character's position every
+	    Do not animate the root. The game writes the character's position every
 	    frame during a move. Any root motion baked into your track fights that
-	    and reads as jitter. Animate the limbs against a stationary root -- the
+	    and reads as jitter. Animate the limbs against a stationary root: the
 	    game moves the body.
 
 	There are three slots: Vault, MantleCatch and MantlePull. Fill them in one at
 	a time; each one falls back independently, so a half-finished set is fine.
 
 	One thing worth knowing before someone reports it as a bug: an animation
-	this place cannot READ behaves exactly like an empty slot. LoadAnimation
+	this place cannot read behaves exactly like an empty slot. LoadAnimation
 	still returns a track and playing it does nothing visible, with no error.
 	The only symptom is "Failed to load animation with sanitized ID" in Output.
 	Publish under the account that owns the game, or a group it belongs to.
 
 	==========================================================================
-	MADE BY
+	Made by
 	==========================================================================
 
-	PlagueByte (pb6008 on Discord). TREK is not mine and is not included here --
+	PlagueByte (pb6008 on Discord). TREK is not mine and is not included here:
 	this hooks into whatever install you already have.
 
 ]]

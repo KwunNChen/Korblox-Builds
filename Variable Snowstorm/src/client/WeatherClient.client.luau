@@ -99,7 +99,7 @@ end)
 local shelterParams = Shared.newShelterParams({ rig })
 local character: Model? = nil
 
--- Straight up, same length as the shelter check -- used to find how much
+-- Straight up, same length as the shelter check, used to find how much
 -- headroom is left before a roof, so the emission box can be shrunk to fit
 -- under it instead of spawning flakes above solid geometry.
 local CEILING_RAY = Vector3.new(0, Config.ShelterRayLength, 0)

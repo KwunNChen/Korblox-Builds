@@ -9,6 +9,7 @@
 	and sets:
 		morph   a model in ServerStorage.BloxiaMorphs: its Shirt, Pants and gear go
 		        on him, each piece where it sits on the morph's body
+		skin    a Color3 for his whole body
 ]]
 
 local uniform = {}
@@ -31,6 +32,32 @@ uniform.presets = {
 		{unit = "Rocketeer", morph = "Infantry"},
 		{unit = "Loader", morph = "Infantry"},
 		{unit = "Pilot", morph = "Infantry"},
+	},
+	--Tower Assault's CBRN squad (ServerStorage.TowerBosses): full hazmat on everyone.
+	CBRN = {
+		{morph = "Hazmat"},
+	},
+	Korblox = {
+		{skin = BrickColor.new("Institutional white").Color},
+		{unit = "Infantry", role = "Rifleman", morph = "KorbloxInfantry"},
+		{unit = "Infantry", role = "Radioman", morph = "KorbloxRadioman"},
+		{unit = "Sniper", morph = "KorbloxInfantry"},
+		{unit = "Spotter", morph = "KorbloxInfantry"},
+		{unit = "Special Recon", morph = "KorbloxInfantry"},
+		{unit = "Rocketeer", morph = "KorbloxInfantry"},
+		{unit = "Loader", morph = "KorbloxInfantry"},
+		{unit = "Pilot", morph = "KorbloxInfantry"},
+	},
+	KorbloxNaval = {
+		{skin = BrickColor.new("Institutional white").Color},
+		{unit = "Infantry", role = "Rifleman", morph = "NavalRaider"},
+		{unit = "Infantry", role = "Radioman", morph = "NavalRaiderVest"},
+		{unit = "Sniper", morph = "NavalRaiderVest"},
+		{unit = "Spotter", morph = "NavalRaiderVest"},
+		{unit = "Special Recon", morph = "NavalRaiderVest"},
+		{unit = "Rocketeer", morph = "NavalRaider"},
+		{unit = "Loader", morph = "NavalRaider"},
+		{unit = "Pilot", morph = "NavalRaider"},
 	},
 }
 
@@ -93,6 +120,22 @@ local function wearMorph(name)
 	end
 end
 
+local LIMBS = {"Head","Torso","Left Arm","Right Arm","Left Leg","Right Leg","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
+
+local function paintSkin(color)
+	local colors = marine:FindFirstChildOfClass("BodyColors") or Instance.new("BodyColors")
+	for _,field in ipairs({"HeadColor3","TorsoColor3","LeftArmColor3","RightArmColor3","LeftLegColor3","RightLegColor3"}) do
+		colors[field] = color
+	end
+	colors.Parent = marine
+	for _,name in ipairs(LIMBS) do
+		local part = marine:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			part.Color = color
+		end
+	end
+end
+
 local function matches(rule)
 	local unitValue = mySettings:FindFirstChild("Unit")
 	local roleValue = mySettings:FindFirstChild("Role")
@@ -109,7 +152,12 @@ task.spawn(function()
 	end
 	for _,rule in ipairs(uniform.presets[marine:GetAttribute("UniformPreset")]) do
 		if matches(rule) then
-			wearMorph(rule.morph)
+			if rule.morph then
+				wearMorph(rule.morph)
+			end
+			if rule.skin then
+				paintSkin(rule.skin)
+			end
 		end
 	end
 end)

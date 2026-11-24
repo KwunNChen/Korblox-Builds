@@ -2,7 +2,7 @@
 	Small unit tactics, after the US Army / Ranger battle drills.
 
 	Soldiers of the same team within SQUAD_RANGE of each other form a squad.
-	The highest ranked one leads. Everyone is split into two fire teams,
+	The radioman leads, else a rifleman at random (myEntry.rank). Everyone is split into two fire teams,
 	Alpha and Bravo, alternating down the rank order.
 
 	No contact: followers hold a wedge on the leader.
@@ -26,6 +26,7 @@ local squad = {}
 local modules = script.Parent
 local core = require(modules.CoreModule)
 local status = require(modules.Status)
+local speed = require(modules.SpeedModule)
 local movement = require(modules.MovementModule)
 local tactics = require(modules.TacticsModule)
 local chatter = require(modules.ChatterModule)
@@ -187,7 +188,10 @@ local units = _G.BloxianUnits
 
 local radio = _G.BloxianRadio
 local myEntry = radio[marine]
-myEntry.rank = math.random()
+--The radioman leads (the spawner's Leader option makes the first man one), then
+--riflemen; the at team his squad brought only with no rifleman left. The random part breaks ties.
+myEntry.rank = math.random() + (marine:GetAttribute("Role") == "Radioman" and 1 or 0)
+	- (marine:GetAttribute("AttachedTo") and 1 or 0)
 myEntry.squadId = myEntry.rank
 myEntry.healthFraction = function()
 	return myHuman.Health/myHuman.MaxHealth
@@ -217,7 +221,7 @@ end
 --This soldier and his squad, highest rank first. The first one leads. A squad
 --is everyone who joined up within SQUAD_RANGE, and it holds together out to
 --SQUAD_BREAK_RANGE, so a soldier who gets separated rejoins instead of going it alone.
-local function members()
+local function findMembers()
 	local list = {myEntry}
 	local team = teamValue.Value
 	local myId = marine:GetAttribute("SquadId")
@@ -241,6 +245,18 @@ local function members()
 	--Everyone carries the leader's id, which is what keeps the squad together.
 	myEntry.squadId = list[1].rank
 	return list
+end
+
+--The squad update, isAlone and the guerrilla check all ask within one tick: worked out
+--at most once per MEMBERS_CACHE seconds. Callers only read the list.
+local MEMBERS_CACHE = 0.05
+local membersAt,membersList = -math.huge,nil
+local function members()
+	local now = os.clock()
+	if not membersList or now - membersAt >= MEMBERS_CACHE then
+		membersAt,membersList = now,findMembers()
+	end
+	return membersList
 end
 
 --How many of squad id are alive, and who.
@@ -776,18 +792,22 @@ local function bound(goal,target)
 	tactics.release()
 
 	chatter.callout("rush",nil,0.5)
-	myHuman.WalkSpeed = RUSH_SPEED
-	movement.goToPosition(destination,function() return myHuman.Health > 0 end,RUSH_TIMEOUT)
-	myHuman.WalkSpeed = status:get("weaponAimed") and 10 or 16
+	speed.set(RUSH_SPEED)
+	local arrived = movement.goToPosition(destination,function() return myHuman.Health > 0 end,RUSH_TIMEOUT)
+	speed.set(status:get("weaponAimed") and 10 or 16)
 
-	if spot then
+	if spot and arrived then
 		tactics.occupy(spot,{suppress = true})
 	end
-	chatter.callout("set",nil,0.4)
-	return true
+	if arrived then
+		chatter.callout("set",nil,0.4)
+	end
+	return arrived
 end
 
-local SUPPRESS = {force = true, suppress = true, hold = true}
+--Seconds a base of fire stays in cover it has no sight of the enemy from before it moves for a shot.
+local OVERWATCH_BLIND = 6
+local SUPPRESS = {force = true, suppress = true, hold = true, blind = OVERWATCH_BLIND}
 
 --The nearest edge of the open with a clear shot at the target, else the nearest
 --spot he can walk straight to with one.
@@ -813,8 +833,8 @@ local function firingPosition(target)
 end
 
 --Get a shot on the target: stand and fire if he has one, else step to a spot
---that has one, else push toward the enemy.
-local function engage(target)
+--that has one, else push toward the enemy (in numbers, or advancing anyway).
+local function engage(target,advancing)
 	if core.checkSight(target) then
 		holdStill()
 		return true
@@ -826,8 +846,8 @@ local function engage(target)
 		movement.goToPosition(spot,function()
 			return myHuman.Health > 0 and not core.checkSight(target)
 		end,4)
-	elseif tactics.advantage() then
-		log("squadRole","no firing position, pushing toward the enemy in numbers",2)
+	elseif advancing or tactics.advantage() then
+		log("squadRole","no firing position, pushing toward the enemy",2)
 		movement.pathToLocation(target)
 	else
 		log("squadRole","no firing position, holding an angle",2)
@@ -838,11 +858,11 @@ end
 
 --Base of fire: cover with a firing spot and keep shooting. With no such cover,
 --get a shot from wherever he can.
-local function overwatch(target)
+local function overwatch(target,advancing)
 	if tactics.update(SUPPRESS) then
 		return true
 	end
-	return engage(target)
+	return engage(target,advancing)
 end
 
 --The leader's position facing the way he is walking (or looking, when still).
@@ -1014,7 +1034,7 @@ local function act(currentPlan,myIndex,list,target,leaderEntry)
 		return true
 	end
 
-	return overwatch(target)
+	return overwatch(target,kind == "bound")
 end
 
 --Runs the squad for this tick. True when the squad is steering this soldier.
@@ -1023,6 +1043,7 @@ function squad.update()
 		return false
 	end
 	status:set("squadHoldFire",false)
+	squad.plan = nil
 	joinNearestUnit()
 	updateStrength()
 	if squadValue and not squadValue.Value then return false end
@@ -1072,6 +1093,7 @@ function squad.update()
 	end
 
 	local currentPlan = leaderEntry.plan
+	squad.plan = currentPlan and currentPlan.kind
 
 	--Fight the squad's enemy even if this soldier has not seen him himself.
 	if not target and currentPlan and currentPlan.kind ~= "rally" and currentPlan.target and currentPlan.target.Parent

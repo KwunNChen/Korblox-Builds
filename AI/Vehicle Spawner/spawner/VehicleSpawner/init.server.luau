@@ -5,7 +5,7 @@
 	in a vehicle cloned from ServerStorage.BloxianVehicles, facing where the
 	player looks. The panel picks the vehicle, which team may crew it,
 	and whether it comes with Bloxians already aboard (cloned from
-	ServerStorage.BLOXIAN).
+	ServerStorage.bloxian).
 
 	Spawned vehicles do not respawn: wrecked or abandoned, they are removed.
 

@@ -1,11 +1,11 @@
 --[[
-	PARKOUR RIG -- a dummy with the real obstacles next to it, for animating.
+	Parkour rig: a dummy with the real obstacles next to it, for animating.
 
-	NOT a lune script and not game code. Paste the require line into the Studio
-	COMMAND BAR.
+	Not a lune script and not game code. Paste the require line into the Studio
+	Command bar.
 
 	--------------------------------------------------------------------------
-	USING IT
+	Using it
 	--------------------------------------------------------------------------
 
 	1. Avatar tab > Rig Builder > R6 > Block Rig. A "Dummy" appears in Workspace.
@@ -20,7 +20,7 @@
 	       require(game.ServerStorage.TREKParkour.Tools.ParkourRig).detach(workspace.Dummy)
 
 	--------------------------------------------------------------------------
-	WHY THE BLOCKS ARE THERE
+	Why the blocks are there
 	--------------------------------------------------------------------------
 
 	They are built from the live ParkourConfig, not from numbers typed in here.
@@ -32,7 +32,7 @@
 	    VaultBar      the tallest thing a vault will take
 	    MantleLow     the lowest lip a mantle will grab
 	    MantleHigh    the tallest thing a mantle will climb
-	    TooHigh       just past the limit -- where the feature stops
+	    TooHigh       just past the limit, where the feature stops
 
 	    GrabMarker    where the root is at the hang, mid-mantle
 	    LandMarker    where the root ends up standing on top
@@ -41,19 +41,19 @@
 	points, so a hand that does not reach GrabMarker will visibly miss the ledge.
 
 	--------------------------------------------------------------------------
-	FOR WHOEVER IS ANIMATING
+	For whoever is animating
 	--------------------------------------------------------------------------
 
-	AUTHOR FOR R6. An R6 sequence loaded onto an R15 rig gives you zero tracks
+	Author for R6. An R6 sequence loaded onto an R15 rig gives you zero tracks
 	and an empty timeline, with no error to tell you why.
 
-	R6 HAS NO KNEES AND NO ANKLES. A pull-up has to come from the waist, the
+	R6 has no knees and no ankles. A pull-up has to come from the waist, the
 	hips and the shoulders. You have six joints: RootJoint, Neck, both
 	Shoulders, both Hips.
 
-	DO NOT ANIMATE THE ROOT. The game writes HumanoidRootPart.CFrame every frame
+	Do not animate the root. The game writes HumanoidRootPart.CFrame every frame
 	during a move. Any root motion baked into your track fights that write and
-	reads as jitter. Animate the limbs against a stationary root -- the game
+	reads as jitter. Animate the limbs against a stationary root: the game
 	moves the body.
 
 	The three slots, and roughly what each has to cover:
@@ -64,7 +64,7 @@
 
 	Publish under the account that owns the game, or a group it belongs to. An
 	animation the place cannot read loads as zero tracks and plays nothing, with
-	no error -- which looks exactly like a broken feature.
+	no error, which looks exactly like a broken feature.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -212,7 +212,7 @@ function ParkourRig.attach(rig: Instance?)
 
 		This tool exists to show an animator where the game actually drives the
 		root. A second copy of the arithmetic defeats that the moment anyone
-		retunes it -- the markers would keep pointing at the old place and the
+		retunes it: the markers would keep pointing at the old place and the
 		hands would miss the ledge, which is precisely the failure this is
 		supposed to prevent.
 	]]

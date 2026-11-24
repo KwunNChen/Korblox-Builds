@@ -13,6 +13,7 @@ local chatter = require(modules.ChatterModule)
 local troubleshoot = require(modules.Troubleshoot)
 local weapon = require(modules.WeaponProfiles).current
 local morale = require(modules.MoraleModule)
+local sof = require(modules.SofModule)
 
 local marine = modules.Parent.Parent
 local myRoot = marine.HumanoidRootPart
@@ -73,12 +74,18 @@ local SUPPRESS_TIME = 3
 _G.BloxianSuppressed = _G.BloxianSuppressed or setmetatable({},{__mode = "k"})
 local suppressedUntil = _G.BloxianSuppressed
 
+--Live grenades in the air or on the ground: where each lands, and who threw it.
+_G.BloxianGrenades = _G.BloxianGrenades or {}
+local liveGrenades = _G.BloxianGrenades
+
 --Grenade blast: anyone within GRENADE_KILL_RADIUS dies; further out he loses
 --GRENADE_WOUND of his max health, falling off to nothing at GRENADE_RADIUS. Sized
 --to max health so a 200 HP soldier and a 100 HP player are hurt alike.
 local GRENADE_RADIUS = 16
 local GRENADE_KILL_RADIUS = 5
 local GRENADE_WOUND = 0.8
+--Damage to a vehicle at the burst (none at GRENADE_RADIUS), cut by its SmallArmsScale armour.
+local GRENADE_VEHICLE_DAMAGE = 80
 
 --The blast only reaches a body it has a clear line to (torso or head) from
 --this far above where the grenade lies.
@@ -92,7 +99,7 @@ local function shielded(from,human)
 	for _,name in ipairs(BODY_POINTS) do
 		local part = body:FindFirstChild(name)
 		if part then
-			local result = workspace:Raycast(from,part.Position - from,blastParams)
+			local result = core.cast(from,part.Position - from,blastParams)
 			if not result or result.Instance:IsDescendantOf(body) then
 				return false
 			end
@@ -117,6 +124,10 @@ local THROW_FLIGHT_TIMES = {0.6, 0.8, 1.0, 1.2, 1.45}
 --studs of where it was aimed. Anything else (a wall top, a ceiling, a ledge in
 --between) means it would bounce off somewhere useless, so he does not throw.
 local LANDING_TOLERANCE = 7
+
+--How wide the grenade is traced along its arc, in studs from its middle, so it
+--can't graze an eave or a beam the middle line just misses.
+local GRENADE_CLEARANCE = 0.6
 
 --How many straight pieces an arc is traced in. More is more exact, and costs more raycasts.
 local ARC_STEPS = 14
@@ -224,7 +235,7 @@ function combat.fireFrom(origin,spread,shot,caseAt)
 		effectsRemote:FireAllClients(aimed,shot.speed,shot.range,shot.color,shot.ignore or marine,caseAt)
 	end
 
-	local result = workspace:Raycast(aimed.Position,aimed.LookVector*shot.range,shot.params or bulletParams)
+	local result = core.cast(aimed.Position,aimed.LookVector*shot.range,shot.params or bulletParams)
 	if result then
 		onBulletHit(shot,result)
 	end
@@ -267,6 +278,50 @@ local function suppress(target,aimed)
 	end
 end
 
+--A player's round (TREK guns tell the server every shot: RayRemote for hitscan,
+--ProjectileRemote otherwise) passing within FIRED_AT_RADIUS of him, no further than
+--FIRED_AT_RANGE from the gun, turns him on the shooter (sof.firedAt); within
+--SUPPRESS_RADIUS it pins him like a Bloxian's. Client values: only ever a trigger.
+local FIRED_AT_RADIUS = 12
+local FIRED_AT_RANGE = 500
+local function playerFired(player,from,to)
+	local character = player.Character
+	local human = character and character:FindFirstChildOfClass("Humanoid")
+	local shooter = human and human.Health > 0 and human.RootPart
+	if not shooter or myHuman.Health <= 0 or typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" or core.isAlly(character) then
+		return
+	end
+	local line = to - from
+	--Also false for NaN.
+	if not (line.Magnitude >= 1 and line.Magnitude < math.huge) then return end
+	line = line.Unit
+	local offset = myRoot.Position - from
+	local along = offset:Dot(line)
+	if not (along >= 0 and along <= FIRED_AT_RANGE) then return end
+	local miss = (offset - line*along).Magnitude
+	if miss > FIRED_AT_RADIUS then return end
+	if miss < SUPPRESS_RADIUS then
+		suppressedUntil[marine] = os.clock() + SUPPRESS_TIME
+	end
+	sof.firedAt(shooter)
+end
+task.spawn(function()
+	local services = game:GetService("ReplicatedStorage"):WaitForChild("TREK_SERVICES",30)
+	local remotes = services and services:WaitForChild("TREK_Remotes",30)
+	local ray = remotes and remotes:WaitForChild("RayRemote",30)
+	local projectile = remotes and remotes:WaitForChild("ProjectileRemote",30)
+	if ray then
+		ray.OnServerEvent:Connect(playerFired)
+	end
+	if projectile then
+		projectile.OnServerEvent:Connect(function(player,_,from,direction)
+			if typeof(from) == "Vector3" and typeof(direction) == "Vector3" then
+				playerFired(player,from,from + direction)
+			end
+		end)
+	end
+end)
+
 local rifleShot = {damage = weapon.damage, speed = BULLET_SPEED, range = BULLET_RANGE, color = weapon.tracer}
 
 local flashIndex = 0
@@ -301,6 +356,11 @@ function combat.shoot(target)
 			if weapon.accuracy and math.random() > weapon.accuracy then
 				spread = math.max(spread,WIDE_SPREAD)
 			end
+			if weapon.pelletSpread then
+				local aimError = math.rad(spread)
+				muzzle *= CFrame.Angles((math.random()*2 - 1)*aimError,(math.random()*2 - 1)*aimError,0)
+				spread = weapon.pelletSpread
+			end
 			for pellet = 1,weapon.pellets or 1 do
 				suppress(target,combat.fireFrom(muzzle,spread,rifleShot,pellet == 1 and chamber.WorldCFrame or nil))
 			end
@@ -328,6 +388,8 @@ end
 
 local arcParams = RaycastParams.new()
 arcParams.FilterDescendantsInstances = {marine}
+--A thrown grenade only bounces off what it would physically hit.
+arcParams.RespectCanCollide = true
 
 local function gravity()
 	return Vector3.new(0,-workspace.Gravity,0)
@@ -338,15 +400,19 @@ local function launchVelocity(origin,goal,flightTime)
 	return (goal - origin - 0.5*gravity()*flightTime*flightTime)/flightTime
 end
 
---Traces the arc in ARC_STEPS straight pieces. Clear when the first thing it
---touches is near the aim point, or it touches nothing at all.
+--Traces the arc in ARC_STEPS straight pieces, from his chest up to his hand
+--first, so a roof right over him counts. Clear when the first thing it touches
+--is near the aim point, or it touches nothing at all.
 local function arcClear(origin,velocity,flightTime,goal)
 	local g = gravity()
+	if workspace:Spherecast(myRoot.Position,GRENADE_CLEARANCE,origin - myRoot.Position,arcParams) then
+		return false
+	end
 	local previous = origin
 	for i = 1,ARC_STEPS do
 		local t = flightTime*i/ARC_STEPS
 		local point = origin + velocity*t + 0.5*g*t*t
-		local result = workspace:Raycast(previous,point - previous,arcParams)
+		local result = workspace:Spherecast(previous,GRENADE_CLEARANCE,point - previous,arcParams)
 		if result then
 			return (result.Position - goal).Magnitude <= LANDING_TOLERANCE
 		end
@@ -409,8 +475,15 @@ local function blast(position,radius,killRadius,wound)
 	x.DestroyJointRadiusPercent = 0
 
 	--Explosion.Hit fires once per part: each body is hurt once, by its closest part.
+	--A vehicle's Humanoid is only its health: it takes vehicle damage, by its armour.
 	local closest = {}
+	local cars = {}
 	x.Hit:Connect(function(part,partDist)
+		local car = core.vehicleOf(part)
+		if car then
+			cars[car] = math.min(cars[car] or math.huge,partDist)
+			return
+		end
 		local human = core.getHuman(part.Parent)
 		if human and partDist < (closest[human] or math.huge) then
 			closest[human] = partDist
@@ -418,6 +491,9 @@ local function blast(position,radius,killRadius,wound)
 	end)
 	x.Parent = workspace
 	task.delay(0.1,function()
+		for car,dist in pairs(cars) do
+			core.damageVehicle(car,GRENADE_VEHICLE_DAMAGE*math.max(1 - dist/radius,0))
+		end
 		for human,dist in pairs(closest) do
 			if shielded(blastAt,human) then
 				continue
@@ -501,6 +577,18 @@ function combat.launch(target,distance)
 	return true
 end
 
+--Where the nearest enemy grenade will go off within its blast of him, or nil.
+function combat.grenadeNear()
+	local nearest,nearestDist = nil,GRENADE_RADIUS
+	for g,live in pairs(liveGrenades) do
+		local dist = (live.landing - myRoot.Position).Magnitude
+		if dist < nearestDist and g.Parent and live.by.Parent and not core.isAlly(live.by) then
+			nearest,nearestDist = live.landing,dist
+		end
+	end
+	return nearest
+end
+
 function combat.throwGrenade(target)
 	--No clear arc: he keeps the grenade rather than bounce it off a wall.
 	local plannedVelocity = solveArc(releasePoint(target),aimPoint(target))
@@ -553,17 +641,32 @@ function combat.throwGrenade(target)
 
 		throwAnimation:Stop()
 
-		w.Part1 = nil
-
-		--Solve again from where the grenade really is, at where he is now. If he
-		--has moved behind something new in the last moment, the planned arc stands.
+		--Solve again from his release point, at where the target is now, and let
+		--go from there. No clear arc any more (he turned under a roof or beam): he keeps it.
+		local origin = releasePoint(target)
 		local goal = aimPoint(target)
 		troubleshoot.mark(goal)
-		g.AssemblyLinearVelocity = solveArc(g.Position,goal) or plannedVelocity
+		arcParams.FilterDescendantsInstances = {marine,g}
+		local velocity = solveArc(origin,goal)
+		arcParams.FilterDescendantsInstances = {marine}
+		if not velocity then
+			g.Boom.PlayOnRemove = false
+			g:Destroy()
+			marine.Grenade.Transparency = 0
+			status:set("weaponCool",true)
+			status:set("grenadeCool",true)
+			status:endAction()
+			return false
+		end
+		w.Part1 = nil
+		g.CFrame = CFrame.new(origin)
+		g.AssemblyLinearVelocity = velocity
+		liveGrenades[g] = {landing = goal, by = marine}
 
 		local exploded = false
 		local touched
 		local function explode()
+			liveGrenades[g] = nil
 			if exploded or not g.Parent then return end
 			exploded = true
 			if touched then touched:Disconnect() end

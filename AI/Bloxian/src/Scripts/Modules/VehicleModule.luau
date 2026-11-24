@@ -96,7 +96,7 @@ local PASS_TIME = 1.5
 --No enemy: the driver keeps with the nearest friendly soldier on foot within
 --ESCORT_RANGE, holding ESCORT_DISTANCE studs (past the vehicle's HalfWidth) off
 --him. With nobody to keep with he patrols at PATROL_THROTTLE: legs out to
---PATROL_RADIUS from where he started patrolling, PATROL_PAUSE_MIN..MAX seconds
+--PATROL_RADIUS from where he started patrolling, PATROL_PAUSE_MIN..max seconds
 --between legs, and a leg given up after PATROL_LEG_TIME seconds.
 local ESCORT_RANGE = 250
 local ESCORT_DISTANCE = 25
@@ -172,7 +172,7 @@ local DODGE_COMMIT = 1
 --that has a friendly driver. He rides on into a fight, shooting from the roof,
 --and jumps off once an enemy is within RIDE_DISMOUNT_DISTANCE, a missile is
 --coming in, the smoke goes up, or the vehicle loses RIDE_HIT_SHARE of its
---health in one go (an AT round, not rifle fire). Also after RIDE_MAX seconds
+--health in one go (an at round, not rifle fire). Also after RIDE_MAX seconds
 --with no enemy. He stays off for RIDE_COOLDOWN seconds. The driver and gunner
 --never get out for any of this.
 local RIDE_RANGE = 60
@@ -436,9 +436,20 @@ local waitingSince = nil
 local stuckSince,reverseUntil,reverseSteer = nil,0,0
 local orbitDirection = math.random(2) == 1 and 1 or -1
 
+--Ray settings that skip a vehicle and this soldier, made once per vehicle.
+local carParams = setmetatable({},{__mode = "k"})
+local function paramsFor(car)
+	local params = carParams[car]
+	if not params then
+		params = RaycastParams.new()
+		params.FilterDescendantsInstances = {car,marine}
+		carParams[car] = params
+	end
+	return params
+end
+
 local function clearRun(car,from,to)
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {car,marine}
+	local params = paramsFor(car)
 	local offset = flat(to - from)
 	local length = math.min(offset.Magnitude,40)
 	if length < 1 then return true end
@@ -505,9 +516,7 @@ local function patrolPoint(car)
 	local reach = PATROL_RADIUS*(0.3 + math.random()*0.7)
 	local angle = math.random()*2*math.pi
 	local spot = patrolHome + Vector3.new(math.cos(angle)*reach,0,math.sin(angle)*reach)
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {car,marine}
-	local result = workspace:Raycast(spot + Vector3.new(0,300,0),Vector3.new(0,-600,0),params)
+	local result = workspace:Raycast(spot + Vector3.new(0,300,0),Vector3.new(0,-600,0),paramsFor(car))
 	if result and result.Material ~= Enum.Material.Water then
 		return result.Position
 	end
@@ -679,8 +688,9 @@ local firing = false
 local lastBurstEnd = 0
 local flashIndex = 0
 
+local turretRay = RaycastParams.new()
 local function turretParams(car)
-	local params = RaycastParams.new()
+	local params = turretRay
 	local exclude = {car,marine}
 	for _,seat in ipairs(car:GetChildren()) do
 		if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
@@ -927,7 +937,9 @@ end
 --Runs the vehicle for this tick. True while he is in, or on his way to, a vehicle.
 --Each vehicle's ground speed, from how far its body moved since last looked at
 --(the Abrams and Apache are moved by constraints, so their velocity alone lies).
-local tracked = setmetatable({},{__mode = "k"})
+--Shared by every soldier: one speed per vehicle per 0.1 s, not one each.
+_G.BloxianVehicleSpeeds = _G.BloxianVehicleSpeeds or setmetatable({},{__mode = "k"})
+local tracked = _G.BloxianVehicleSpeeds
 local function groundVelocity(car,body,now)
 	local entry = tracked[car]
 	if not entry then
@@ -1054,7 +1066,8 @@ local function rideTrouble(enemy,now)
 	if enemy and (enemy.Position - myRoot.Position).Magnitude <= RIDE_DISMOUNT_DISTANCE then return "enemy close" end
 	if not riderCar.Parent or riderCar:GetAttribute("Wrecked") then return "vehicle gone" end
 	if not driverIsFriend(riderCar) then return "no driver" end
-	if (riderCar:GetAttribute("MissileInbound") or 0) > 0 then return "missile coming" end
+	if (riderCar:GetAttribute("MissileInbound") or 0) > 0
+		and workspace:GetServerTimeNow() < (riderCar:GetAttribute("MissileInboundUntil") or 0) then return "missile coming" end
 	local smokeAt = riderCar:GetAttribute("SmokeAt")
 	if smokeAt and workspace:GetServerTimeNow() - smokeAt < SMOKE_REVERSE_TIME then return "smoke" end
 	local health = carHealth(riderCar)

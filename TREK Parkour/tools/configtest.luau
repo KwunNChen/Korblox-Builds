@@ -8,13 +8,13 @@
 	an easing curve that does not reach its endpoint so a mantle finishes a stud
 	short, or a config key deleted while the source still reads it.
 
-	The last block is the one that has earned its place most often -- a static
+	The last block is the one that has earned its place most often: a static
 	cross-check that every Config.X the source reads is actually defined. Delete
 	a key from ParkourConfig and the game does not complain until someone jumps
 	at a wall.
 
 	Nothing here touches Roblox. Enough of the globals are stubbed below for the
-	modules to load, which is why only the pure parts can be tested -- anything
+	modules to load, which is why only the pure parts can be tested, anything
 	that casts or touches an Instance is out of scope and belongs in Studio.
 ]]
 
@@ -23,7 +23,7 @@ local luau = require("@lune/luau")
 local process = require("@lune/process")
 
 -- ============================================================
--- HARNESS
+-- Harness
 -- ============================================================
 
 local passed, failed = 0, 0
@@ -43,7 +43,7 @@ local function near(a: number, b: number, tolerance: number?): boolean
 end
 
 -- ============================================================
--- JUST ENOUGH ROBLOX
+-- Just enough roblox
 -- ============================================================
 
 local vectorMethods = {}
@@ -194,14 +194,14 @@ function loadModule(name: string): any
 end
 
 -- ============================================================
--- THE STATIC CROSS-CHECK
+-- The static cross-check
 -- ============================================================
 
 --[[
-	This runs FIRST, deliberately.
+	This runs first.
 
 	A key deleted from the config makes every later assertion that reads it die
-	with "attempt to compare number < nil", which is true but useless -- it names
+	with "attempt to compare number < nil", which is true but useless: it names
 	neither the key nor the file that wanted it. Running the scrape up front
 	means the precise diagnosis is already on screen before anything can crash
 	on the same missing value.
@@ -268,7 +268,7 @@ local function crossCheck()
 
 		A key nothing reads is a lie in the package's primary interface: someone
 		tunes it, nothing happens, and they go looking for the bug in the code.
-		This catches the far commoner version -- a setting left behind when the
+		This catches the far commoner version: a setting left behind when the
 		feature that read it was rewritten.
 	]]
 	local orphans = {}
@@ -287,7 +287,7 @@ local function crossCheck()
 end
 
 -- ============================================================
--- THE CHECKS
+-- The checks
 -- ============================================================
 
 crossCheck()
@@ -302,7 +302,7 @@ check("StepHeight is positive", Config.StepHeight > 0)
 check("RootToSoles is positive", Config.RootToSoles > 0)
 
 --[[
-	Ordered AND contiguous. A gap between two bands is a height where the player
+	Ordered and contiguous. A gap between two bands is a height where the player
 	gets no move and no explanation, which is the worst kind of bug to be told
 	about second-hand.
 ]]

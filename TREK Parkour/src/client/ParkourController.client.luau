@@ -6,7 +6,7 @@
 	It lives in StarterPlayerScripts, not StarterCharacterScripts, and that is a
 	deliberate choice rather than a convention. TREK's own movement scripts live
 	in StarterCharacterScripts and there is a known failure where a place ends up
-	with two copies running -- see TREK Bayonet/tools/SprintDiagnostic.client.luau,
+	with two copies running. See TREK Bayonet/tools/SprintDiagnostic.client.luau,
 	which was written to catch exactly that. One keypress then does everything
 	twice. Running once per player instead of once per life sidesteps the whole
 	class of problem, and the guard below catches anyone who moves this file.
@@ -34,7 +34,7 @@ local Boost = require(script.Parent:WaitForChild("ParkourBoost"))
 	If a second copy of this script starts, the first one wins and the second
 	returns quietly. Two controllers would both watch JumpRequest and both fire
 	the remote, and the server would reject the duplicate as a rate-limit
-	violation -- which looks exactly like a broken mantle.
+	violation, which looks exactly like a broken mantle.
 ]]
 if _G.__TREKParkourController then
 	Shared.warn("a second ParkourController started -- ignoring it. Only one copy should be installed.")
@@ -47,7 +47,7 @@ local player = Players.LocalPlayer
 --[[
 	The server builds these at runtime, so they can appear after this script
 	does. Resolved off the critical path: if a move somehow happens before they
-	arrive it simply runs without the lockout rather than yielding an input
+	arrive it runs without the lockout rather than yielding an input
 	handler or erroring.
 ]]
 local remoteBegin: RemoteEvent? = nil
@@ -80,7 +80,7 @@ local session: Session? = nil
 
 --[[
 	Tear down whatever is running. Safe on a session that never started a move,
-	safe to call twice, and it must stay that way -- every abort path funnels
+	safe to call twice, and it must stay that way: every abort path funnels
 	through here, including ones that fire a frame apart.
 ]]
 local function endSession(reason: string)
@@ -161,7 +161,7 @@ end
 	The gate both moves pass through. Cheap tests first, because the vault runs
 	this ten times a second.
 
-	`announce` is off for the vault poll -- a refusal reason printed at 10Hz
+	`announce` is off for the vault poll: a refusal reason printed at 10Hz
 	drowns the log it is supposed to be helping you read. The mantle announces,
 	because it is a thing you asked for and got told no about.
 ]]
@@ -188,7 +188,7 @@ end
 local probeClock = 0
 
 --[[
-	The vault polls, so it only speaks when its answer CHANGES. Logging every
+	The vault polls, so it only speaks when its answer changes. Logging every
 	refusal at 10Hz buries everything else in Output and makes the one line you
 	were looking for impossible to find.
 ]]
@@ -205,13 +205,13 @@ end
 --[[
 	Fire the remote, run the move, and own every way out of it.
 
-	The two moves build genuinely different specs -- one derives a hang point
-	from a Reading, the other just reads its own position -- so they keep their
+	The two moves build genuinely different specs: one derives a hang point
+	from a Reading, the other just reads its own position, so they keep their
 	own setup. What they had in common was the whole tail: the same remote fire,
 	the same onFinish, the same failure path, differing only in the word in the
 	log line. That is what lives here.
 
-	The remote is fired BEFORE the motion starts, not after it finishes. The
+	The remote is fired before the motion starts, not after it finishes. The
 	server has to take the weapon and veto sprint now; waiting a round trip
 	before moving would make the whole thing feel laggy, so the client moves
 	immediately and the lockout catches up. ParkourMotion covers the gap by not
@@ -263,9 +263,9 @@ local function startVault(current: Session, land: Vector3, height: number)
 	current.state = State.Vaulting
 
 	--[[
-		The vault goes through the server for the same reasons the mantle does --
+		The vault goes through the server for the same reasons the mantle does.
 		UsingAbility so other systems can see it, a rate limit, and the anchor
-		check -- even though it costs the player nothing. A move the server never
+		check, even though it costs the player nothing. A move the server never
 		hears about is a move with no bound on how far or how often it can happen.
 	]]
 	local ok = launch(current, Shared.Action.Vault, "vault", {
@@ -276,7 +276,7 @@ local function startVault(current: Session, land: Vector3, height: number)
 
 		--[[
 			No facing. The vault writes position only and leaves rotation to
-			whoever else wants it -- which while a weapon is out is TREK's
+			whoever else wants it, which while a weapon is out is TREK's
 			HeadAndArmsController, every frame. Not contesting it is what lets
 			the weapon stay in your hands through a vault.
 		]]
@@ -294,8 +294,8 @@ end
 --[[
 	Order matters here, and it is not the order it reads in.
 
-	The two property reads below reject almost every tick -- standing still,
-	walking, or airborne -- and they cost nothing. readyFor is the expensive one:
+	The two property reads below reject almost every tick, standing still,
+	walking, or airborne, and they cost nothing. readyFor is the expensive one:
 	through blockReason it makes three FindFirstChild calls and a
 	Humanoid:GetState(), which forces a state-machine query.
 
@@ -351,7 +351,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 
 	--[[
-		Airborne tracking. FloorMaterial is the cheap reliable answer -- it is
+		Airborne tracking. FloorMaterial is the cheap reliable answer: it is
 		Air exactly when nothing is under the Humanoid, without having to guess
 		from the state machine, which TREK leaves entirely unmanaged anyway.
 	]]
@@ -416,7 +416,7 @@ end
 
 	JumpRequest covers keyboard, gamepad and the mobile jump button in one
 	connection, and it collides with none of the keys TREK has already taken.
-	But it FIRES REPEATEDLY WHILE THE KEY IS HELD, several times a second -- so
+	But it fires repeatedly while the key is held, several times a second, so
 	without the debounce, holding space through a jump spends the attempt on the
 	first airborne frame, long before you are anywhere near the ledge.
 ]]

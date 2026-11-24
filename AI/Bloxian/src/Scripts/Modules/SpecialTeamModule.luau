@@ -3,7 +3,7 @@
 	same PairId attribute:
 
 		Sniper team   a Sniper and his Spotter
-		AT team       a Rocketeer with a Javelin and his Loader
+		At team       a Rocketeer with a Javelin and his Loader
 
 	They work apart from squads: no chasing, investigating or wandering. The
 	second man (Spotter, Loader) never leaves his leader's shoulder, even with
@@ -19,10 +19,10 @@
 
 	The Spotter lies down beside his sniper.
 
-	The AT team a squad brings (AttachedTo, its unit's SquadId) stays with that
-	unit, in a fight or not, and fires from there. If its unit merges or splits
-	it takes the nearest friendly unit. If the Rocketeer goes down his Loader
-	joins the unit as a rifleman.
+	The at team a squad brings (AttachedTo, and its unit's SquadId) is part of
+	that squad: it moves, takes cover and fights by the squad's drills, merges
+	and splits with it, and the Rocketeer only stands still to fire. If he goes
+	down his Loader fights on as a rifleman of the squad.
 
 	The Rocketeer of a team on its own goes hunting (JavelinModule sets
 	specialTeam.hunt): toward any enemy vehicle he hears of, or patrolling around
@@ -58,13 +58,6 @@ local TOO_CLOSE = 40
 --and behind him.
 local GUARD_LEASH = 8
 local GUARD_OFFSET = Vector3.new(4,0,3)
-
---An AT team with a unit: how far it may drift from the nearest of its men, how
---far off it looks for another unit when its own id is gone, and the seconds after
---spawning before it looks, while its unit's scripts start up.
-local UNIT_LEASH = 20
-local REJOIN_RANGE = 150
-local REJOIN_AFTER = 5
 
 --Seconds a sniper stays on an enemy sniper he heard fire.
 local COUNTER_TIME = 20
@@ -131,11 +124,12 @@ end
 --to walk now, or nil to stand.
 specialTeam.hunt = nil
 
---Sniper and AT teams keep to themselves. Riflemen, special operations, and
---pilots on the ground, join squads.
+--Sniper and at teams keep to themselves, unless the at team came with a unit.
+--Riflemen, special operations, and pilots on the ground, join squads.
 function specialTeam.detached(model)
 	local kind = model:GetAttribute("Unit")
 	return kind ~= nil and kind ~= "Infantry" and kind ~= "Pilot" and not sof.UNITS[kind]
+		and not model:GetAttribute("AttachedTo")
 end
 
 --The other man of this soldier's pair, alive, with the given unit; or nil.
@@ -149,34 +143,6 @@ function specialTeam.partner(wantedUnit)
 		end
 	end
 	return nil
-end
-
---The nearest living man of the unit his AT team came with, taking the nearest
---friendly unit if that one's id is gone. Nil with no unit, or none around.
-local startedAt = os.clock()
-local function unitMate()
-	local id = marine:GetAttribute("AttachedTo")
-	if not id then return nil end
-	local mate,mateDist = nil,math.huge
-	local other,otherDist = nil,REJOIN_RANGE
-	for model,entry in pairs(_G.BloxianRadio or {}) do
-		local squadId = model:GetAttribute("SquadId")
-		if squadId and model ~= marine and entry.team.Value == marine.Settings.Team.Value and entry.root.Parent
-			and entry.human.Health > 0 and not specialTeam.detached(model) and not sof.kindOf(model) then
-			local dist = (entry.root.Position - myRoot.Position).Magnitude
-			if squadId == id and dist < mateDist then
-				mate,mateDist = entry,dist
-			elseif dist < otherDist then
-				other,otherDist = entry,dist
-			end
-		end
-	end
-	if not mate and other and os.clock() - startedAt >= REJOIN_AFTER then
-		marine:SetAttribute("AttachedTo",other.root.Parent:GetAttribute("SquadId"))
-		log("brain","AT team joining the nearest unit")
-		return other
-	end
-	return mate
 end
 
 local fullRange = weapon.range
@@ -434,21 +400,18 @@ function specialTeam.update()
 		holdCounterTarget()
 	end
 
+	local embedded = marine:GetAttribute("AttachedTo") ~= nil
+
 	if leaderUnit then
 		local leader = specialTeam.partner(leaderUnit)
 		if not leader then
 			log("brain",string.lower(leaderUnit).." down, fighting as a rifleman")
-			local mate = unitMate()
-			if mate then
-				for _,name in ipairs({"SquadId","SquadSize"}) do
-					marine:SetAttribute(name,mate.root.Parent:GetAttribute(name))
-				end
-			end
 			unit = "Infantry"
 			marine:SetAttribute("Unit",unit)
 			status:set("teamStance",nil)
 			return false
 		end
+		if embedded then return false end
 		if (leader.root.Position - myRoot.Position).Magnitude > GUARD_LEASH then
 			movement.navigate(leader.root.CFrame:PointToWorldSpace(GUARD_OFFSET))
 			return true
@@ -460,6 +423,11 @@ function specialTeam.update()
 			face(leader.root.CFrame.LookVector)
 		end
 	else
+		if embedded then
+			if not status:get("launching") then return false end
+			movement.stop()
+			return true
+		end
 		local target = status:get("currentTarget")
 		if target and target.Parent and core.checkDist(target,myRoot) < TOO_CLOSE then
 			status:set("teamStance",nil)
@@ -467,13 +435,10 @@ function specialTeam.update()
 		end
 
 		local goal = nil
-		local mate = unit == "Rocketeer" and unitMate()
 		if status:get("launching") then
 			goal = nil
 		elseif unit == "Sniper" then
 			goal = perchGoal()
-		elseif mate then
-			goal = (mate.root.Position - myRoot.Position).Magnitude > UNIT_LEASH and mate.root.Position or nil
 		elseif specialTeam.hunt then
 			goal = specialTeam.hunt(target ~= nil and target.Parent ~= nil)
 		end

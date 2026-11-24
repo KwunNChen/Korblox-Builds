@@ -35,7 +35,9 @@
 		                gets close, if the last was FLARE_INTERVAL ago or
 		                more, and may pull the missile off.
 		FlaresAt        server time of its last salvo.
-		MissileInbound  how many missiles are homing on it right now.
+		MissileInbound  how many missiles are homing on it right now, until
+		                MissileInboundUntil (server time): after that the
+		                count is stale (its shooter was removed) and ignored.
 	Strafes (gun runs), set by whoever sends it in (the spawner's Kinetic Events
 	airstrike), makes it fly out of the map after that many, or as soon as nobody
 	is left to attack, unless it is shot down first: away from the players, gone
@@ -52,7 +54,6 @@ local debris = game:GetService("Debris")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local serverStorage = game:GetService("ServerStorage")
-local tweenService = game:GetService("TweenService")
 
 --Flight: cruise and combat speed (studs/s), how fast it turns (degrees/s) and
 --climbs (studs/s) cruising and in combat, its patrol height above the ground
@@ -202,20 +203,9 @@ local GUN_SOUND = "rbxassetid://17705539789"
 --Shot down: how fast it falls (studs/s) and rolls (radians/s).
 local FALL_SPEED = 120
 local FALL_SPIN = 2
---Engulfed: how many of its parts burn and the biggest fire on one (studs; 30
---is Roblox's limit), and how much bigger than a shell's impact the blast is
---when it hits the ground (Random Arty's ArtilleryBlast).
-local ENGULF_PARTS = 30
-local ENGULF_MAX_FIRE = 25
+--How much bigger than a shell's impact the blast is when it hits the ground
+--(Random Arty's ArtilleryBlast).
 local CRASH_SCALE = 4
-
---The wreck left on the ground: its charred colour, how long the fires burn on
---it, how long it lies there in all, and how long it takes to fade away
---(seconds).
-local WRECK_COLOR = Color3.fromRGB(45,40,36)
-local WRECK_BURN = 6
-local WRECK_TIME = 12
-local WRECK_FADE = 3
 
 --The pilot who ejects: a Bloxian from ServerStorage in the Pilot uniform with
 --the FN FAL. Thrown up EJECT_UP studs/s, his canopy opens after CHUTE_DELAY
@@ -226,14 +216,6 @@ local PILOT_WEAPON = "Rifle"
 local EJECT_UP = 40
 local CHUTE_DELAY = 0.8
 local CHUTE_FALL_SPEED = 25
-local CHUTE_SIZE = Vector3.new(14,5,14)
-local CHUTE_HEIGHT = 10
-local CHUTE_COLOR = Color3.fromRGB(96,104,72)
-local CHUTE_FADE = 1.5
-
---A missile's blast when Random Arty is not there to draw it (studs), and its sound.
-local BLAST_RADIUS = 22
-local BLAST_SOUND = "rbxassetid://73652976704676"
 
 --Flyby: played from the jet when it passes within FLYBY_RANGE of a player, at
 --most once every FLYBY_COOLDOWN seconds; how loud, and how far it carries.
@@ -245,11 +227,11 @@ local FLYBY_HEARING = 1500
 
 local sides = require(script.Parent:WaitForChild("Sides"))
 local airDefense = require(script.Parent:WaitForChild("AirDefense"))
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
 local HOSTILE = sides.HOSTILE
 local FRIENDLY = sides.FRIENDLY
 local JET_TAG = sides.JET_TAG
 local GUNSHIP_TAG = sides.GUNSHIP_TAG
-local HELI_TAG = sides.HELI_TAG
 local AIR_TAGS = sides.AIR_TAGS
 local VEHICLE_TAGS = {"BloxianVehicle","MarineVehicle"}
 
@@ -342,17 +324,6 @@ local function vehicleStanding(car)
 	return sides.vehicleStanding(car,mySide())
 end
 
-local function vehicleOf(instance)
-	local model = instance:FindFirstAncestorOfClass("Model")
-	while model do
-		for _,tag in ipairs(VEHICLE_TAGS) do
-			if model:HasTag(tag) then return model end
-		end
-		model = model:FindFirstAncestorOfClass("Model")
-	end
-	return nil
-end
-
 local airKind = sides.airKind
 
 --An enemy AC-130, Phantom or Apache still flying.
@@ -365,118 +336,6 @@ local hurtAircraft = airDefense.hurtAircraft
 local velocityOf = airDefense.velocityOf
 
 ---------------------------------------------------------------- effects
-
---Random Arty's shell impact when it is installed (ServerStorage.ArtilleryBlast),
---else a plain explosion and boom.
---scale: 1 is a shell's impact.
-local function blastFx(position,scale)
-	local artilleryBlast = serverStorage:FindFirstChild("ArtilleryBlast")
-	if artilleryBlast then
-		artilleryBlast:Fire(position,scale or 1)
-		return
-	end
-	local explosion = Instance.new("Explosion")
-	explosion.Position = position
-	explosion.BlastRadius = BLAST_RADIUS*(scale or 1)
-	explosion.BlastPressure = 0
-	explosion.DestroyJointRadiusPercent = 0
-	explosion.ExplosionType = Enum.ExplosionType.NoCraters
-	explosion.Parent = workspace
-
-	local holder = Instance.new("Attachment")
-	holder.WorldPosition = position
-	holder.Parent = workspace.Terrain
-	local sound = Instance.new("Sound")
-	sound.SoundId = BLAST_SOUND
-	sound.Volume = 2
-	sound.RollOffMinDistance = 30
-	sound.RollOffMaxDistance = 2000
-	sound.Parent = holder
-	sound:Play()
-	debris:AddItem(holder,6)
-end
-
---Sets the whole airframe alight: a fire on each visible part (the biggest
---ENGULF_PARTS of them, sized to the part) and black smoke off the largest.
-local function engulf(model)
-	local parts = {}
-	for _,part in ipairs(model:GetDescendants()) do
-		if part:IsA("BasePart") and part.Transparency < 1 and not part:FindFirstChild("EngulfFire") then
-			parts[#parts+1] = part
-		end
-	end
-	table.sort(parts,function(a,b)
-		return a.Size.Magnitude > b.Size.Magnitude
-	end)
-	for index = 1,math.min(#parts,ENGULF_PARTS) do
-		local part = parts[index]
-		local fire = Instance.new("Fire")
-		fire.Name = "EngulfFire"
-		fire.Size = math.clamp(math.max(part.Size.X,part.Size.Y,part.Size.Z)*0.4,4,ENGULF_MAX_FIRE)
-		fire.Heat = 20
-		fire.Color = Color3.fromRGB(255,120,30)
-		fire.SecondaryColor = Color3.fromRGB(255,220,80)
-		fire.Parent = part
-		if index <= 3 then
-			local smoke = Instance.new("Smoke")
-			smoke.Size = ENGULF_MAX_FIRE
-			smoke.RiseVelocity = 12
-			smoke.Opacity = 0.7
-			smoke.Color = Color3.fromRGB(30,30,30)
-			smoke.Parent = part
-		end
-	end
-end
-
---Lays the model down at `at` as a wreck: charred black, its fires burning out
---after WRECK_BURN, and the whole thing fading away after WRECK_TIME.
-local function wreck(model,body,at,facing)
-	model:SetAttribute("Wrecked",true)
-	for _,tag in ipairs({"BloxianJet","BloxianGunship"}) do
-		model:RemoveTag(tag)
-	end
-	local tilt = CFrame.Angles(math.rad(-6),0,math.rad(math.random(-20,20)))
-	body.CFrame = CFrame.lookAt(at,at + facing) * CFrame.new(0,model:GetExtentsSize().Y*0.2,0) * tilt
-	local visible = {}
-	for _,item in ipairs(model:GetDescendants()) do
-		if item:IsA("SurfaceAppearance") then
-			item:Destroy()
-		elseif item:IsA("BasePart") and item.Transparency < 1 then
-			visible[#visible+1] = item
-			item.Color = WRECK_COLOR
-			item.Material = Enum.Material.Slate
-			if item:IsA("MeshPart") then
-				pcall(function()
-					item.TextureID = ""
-				end)
-			end
-		end
-	end
-
-	task.delay(WRECK_BURN,function()
-		for _,item in ipairs(model:GetDescendants()) do
-			if item:IsA("Fire") then
-				item.Enabled = false
-			end
-		end
-	end)
-	task.delay(WRECK_TIME,function()
-		if not model.Parent then return end
-		for _,item in ipairs(model:GetDescendants()) do
-			if item:IsA("Smoke") then
-				item.Enabled = false
-			end
-		end
-		local fade = TweenInfo.new(WRECK_FADE)
-		for _,part in ipairs(visible) do
-			if part.Parent then
-				tweenService:Create(part,fade,{Transparency = 1}):Play()
-			end
-		end
-		task.wait(WRECK_FADE)
-		model:Destroy()
-	end)
-end
 
 local plainPart,addTrail = airDefense.plainPart,airDefense.addTrail
 
@@ -509,55 +368,6 @@ local function puff(at)
 end
 
 ---------------------------------------------------------------- the pilot
-
-local function parachute(character)
-	local body = character:FindFirstChild("HumanoidRootPart")
-	local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-	local human = character:FindFirstChildOfClass("Humanoid")
-	if not body or not torso or not human or human.Health <= 0 then return end
-
-	local canopy = plainPart("Parachute",CHUTE_SIZE,CHUTE_COLOR,Enum.Material.Fabric)
-	canopy.Anchored = false
-	canopy.Massless = true
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = canopy
-	canopy.CFrame = torso.CFrame * CFrame.new(0,CHUTE_HEIGHT,0)
-	local weld = Instance.new("Weld")
-	weld.Part0 = torso
-	weld.Part1 = canopy
-	weld.C0 = CFrame.new(0,CHUTE_HEIGHT,0)
-	weld.Parent = canopy
-	local harness = Instance.new("Attachment")
-	harness.Name = "Harness"
-	harness.Position = Vector3.new(0,1,0)
-	harness.Parent = torso
-	canopy.Parent = character
-
-	local drag = Instance.new("LinearVelocity")
-	drag.Name = "ParachuteDrag"
-	drag.Attachment0 = harness
-	drag.RelativeTo = Enum.ActuatorRelativeTo.World
-	drag.VectorVelocity = Vector3.new(0,-CHUTE_FALL_SPEED,0)
-	drag.MaxForce = body.AssemblyMass*workspace.Gravity*3
-	drag.Parent = body
-
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {character}
-	local falling = 0
-	while character.Parent and human.Health > 0 and falling < 90 do
-		if human.FloorMaterial ~= Enum.Material.Air or workspace:Raycast(body.Position,Vector3.new(0,-3.5,0),params) then
-			break
-		end
-		falling += task.wait()
-	end
-	drag:Destroy()
-	harness:Destroy()
-	canopy.Anchored = true
-	weld:Destroy()
-	tweenService:Create(canopy,TweenInfo.new(CHUTE_FADE),{Transparency = 1}):Play()
-	debris:AddItem(canopy,CHUTE_FADE)
-end
 
 local function setValue(holder,name,className,value)
 	local item = holder:FindFirstChild(name)
@@ -598,7 +408,7 @@ local function eject(at)
 	if body then
 		body.AssemblyLinearVelocity = Vector3.new(0,EJECT_UP,0)
 	end
-	task.delay(CHUTE_DELAY,parachute,pilot)
+	task.delay(CHUTE_DELAY,kit.parachute,pilot,CHUTE_FALL_SPEED)
 end
 
 ---------------------------------------------------------------- weapons
@@ -663,6 +473,7 @@ local function launch(parts,target,speed,turnRate,onHit)
 	missile.CFrame = CFrame.lookAt(from,from + root.CFrame.LookVector)
 	addTrail(missile,Color3.fromRGB(230,230,230),1.2,0.6)
 	missile.Parent = workspace
+	debris:AddItem(missile,MISSILE_LIFE + 1)
 	local whoosh = Instance.new("Sound")
 	whoosh.SoundId = MISSILE_SOUND
 	whoosh.Volume = 2
@@ -673,6 +484,7 @@ local function launch(parts,target,speed,turnRate,onHit)
 
 	local airborne = airKind(target) ~= nil
 	target:SetAttribute("MissileInbound",(target:GetAttribute("MissileInbound") or 0) + 1)
+	target:SetAttribute("MissileInboundUntil",math.max(target:GetAttribute("MissileInboundUntil") or 0,workspace:GetServerTimeNow() + MISSILE_LIFE + 1))
 	target:SetAttribute("ThreatAt",root.Position)
 	if airborne then
 		airDefense.velocityOf(target)
@@ -717,14 +529,14 @@ local function launch(parts,target,speed,turnRate,onHit)
 			end
 			--Through the flares: it goes off on one instead of the aircraft.
 			if airborne and airDefense.touchedFlare(target,missile.Position) then
-				blastFx(missile.Position)
+				kit.blastFx(missile.Position)
 				finish()
 				return
 			end
 			if toGoal.Magnitude < MISSILE_HIT then
 				local missed = blinded and (not target.PrimaryPart or (target.PrimaryPart.Position - missile.Position).Magnitude > MISSILE_HIT)
 				if chasing or missed then
-					blastFx(missile.Position)
+					kit.blastFx(missile.Position)
 				else
 					onHit(missile.Position)
 				end
@@ -750,14 +562,14 @@ end
 local function fireSidewinder(target)
 	return launch(sidewinders,target,MISSILE_SPEED,MISSILE_TURN,function(at)
 		hurtAircraft(target,math.huge,AIR_HELI_DAMAGE)
-		blastFx(at)
+		kit.blastFx(at)
 	end)
 end
 
 --Into an enemy vehicle only: no splash on people.
 local function fireMaverick(car)
 	return launch(mavericks,car,MAVERICK_SPEED,MISSILE_TURN,function(at)
-		blastFx(at)
+		kit.blastFx(at)
 		local human = car:FindFirstChildOfClass("Humanoid")
 		if human and human.Health > 0 then
 			human:TakeDamage(MAVERICK_DAMAGE)
@@ -826,7 +638,7 @@ local function fireRound(targetPart)
 	if not result then return end
 	puff(hitAt)
 
-	local car = vehicleOf(result.Instance)
+	local car = kit.vehicleOf(jet,result.Instance)
 	if car then
 		local human = car:FindFirstChildOfClass("Humanoid")
 		if human and human.Health > 0 and vehicleStanding(car) == "enemy" then
@@ -932,7 +744,7 @@ local function findGroundTarget()
 		local seat = entry.human.SeatPart
 		--Nobody still in the air on a parachute (a pilot out of a wreck).
 		local hanging = entry.model:FindFirstChild("Parachute") ~= nil
-		if not (seat and vehicleOf(seat)) and not hanging then
+		if not (seat and kit.vehicleOf(jet,seat)) and not hanging then
 			local view = standing(entry.model)
 			if view == "friend" then
 				friends[#friends+1] = entry.root.Position
@@ -1054,7 +866,7 @@ connection = runService.Heartbeat:Connect(function(dt)
 	if jet:GetAttribute("ShotDown") then
 		if not downSince then
 			downSince = now
-			engulf(jet)
+			kit.engulf(jet)
 			task.spawn(eject,position)
 		end
 		gunSound:Stop()
@@ -1064,9 +876,9 @@ connection = runService.Heartbeat:Connect(function(dt)
 		root.CFrame = CFrame.lookAt(position,position + heading - Vector3.new(0,0.6,0)) * CFrame.Angles(0,0,spin)
 		if position.Y <= groundY(position) + 4 or now - downSince > 20 then
 			local at = Vector3.new(position.X,groundY(position),position.Z)
-			blastFx(at,CRASH_SCALE)
+			kit.blastFx(at,CRASH_SCALE)
 			connection:Disconnect()
-			wreck(jet,root,at,heading)
+			kit.wreck(jet,root,at,heading)
 		end
 		return
 	end
@@ -1098,6 +910,7 @@ connection = runService.Heartbeat:Connect(function(dt)
 	--Breaking: a missile coming, or an enemy on its tail.
 	if now >= breakUntil + BREAK_COOLDOWN then
 		local inbound = (jet:GetAttribute("MissileInbound") or 0) > 0
+			and workspace:GetServerTimeNow() < (jet:GetAttribute("MissileInboundUntil") or 0)
 		local chaser = onMyTail()
 		if inbound or chaser then
 			breakUntil = now + BREAK_TIME

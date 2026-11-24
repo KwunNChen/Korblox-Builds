@@ -14,8 +14,8 @@ local Service = {}
 
 	Two reasons this is not a direct `Enum.RollOffMode[Config.RollOffMode]` at
 	playback time. It would run on every single bark for a value that never
-	changes; and more importantly an unrecognised name THROWS rather than
-	returning nil -- "The enum item 'X' does not exist" -- so the obvious
+	changes. Worse, an unrecognised name throws rather than
+	returning nil, "The enum item 'X' does not exist", so the obvious
 	`... or default` guard protects nothing and the error surfaces mid-bark,
 	inside a Died or OnServerEvent handler, taking the rest of that handler with
 	it. Walking GetEnumItems cannot throw.
@@ -53,7 +53,7 @@ local channels: { [Model]: Channel } = setmetatable({}, { __mode = "k" }) :: any
 	Recently started barks, as { at, position }, newest last.
 
 	Arbitration is otherwise entirely per character, so nothing stops twenty
-	people in a push from shouting at once -- each one is obeying its own
+	people in a push from shouting at once: each one is obeying its own
 	cooldown perfectly. This is the only state in the system that is global.
 
 	Pruned on every append rather than on a timer, so it stays proportional to
@@ -67,7 +67,7 @@ local recentBarks: { { at: number, position: Vector3, speaker: Model } } = {}
 -- Entries are appended in time order, so everything expired is a prefix of the
 -- list: find where the survivors start and shift them down. The previous version
 -- built a whole replacement array (plus a fresh entry table) on every bark, and
--- discarded the old one -- garbage generated at exactly the moment the server is
+-- discarded the old one, garbage generated at exactly the moment the server is
 -- busiest. The only allocation left is the entry itself.
 local function noteBark(now: number, position: Vector3, speaker: Model)
 	local cutoff = now - Config.CrowdWindow
@@ -95,17 +95,17 @@ local function noteBark(now: number, position: Vector3, speaker: Model)
 end
 
 --[[
-	How many OTHER characters started a bark near this spot inside the window.
+	How many other characters started a bark near this spot inside the window.
 
-	The speaker's own recent lines are excluded deliberately. This gate exists
+	The speaker's own recent lines are excluded. This gate exists
 	because several voices at once are unintelligible; one voice saying two things
 	in sequence is not that, and how often a single character may speak is already
 	fully governed by Cooldown and by the channel. Counting your own last line
-	against you was double jeopardy -- and it is what made Kill unreliable, since a
+	against you was double jeopardy, and it is what made Kill unreliable, since a
 	kill always follows barks from the fight that produced it.
 ]]
 -- Compares squared distances so the loop never takes a square root, and stops as
--- soon as the limit is reached rather than counting the whole list -- the caller
+-- soon as the limit is reached rather than counting the whole list: the caller
 -- only ever asks whether the count has hit CrowdLimit.
 local function nearbyBarkCount(now: number, position: Vector3, speaker: Model, limit: number): number
 	local count = 0
@@ -145,7 +145,7 @@ end
 -- one, which leaves every eligible clip equally likely. Rolling across all n and
 -- nudging collisions onto the next slot would be simpler and wrong: it hands the
 -- successor its own share plus the collision's, making it twice as likely as any
--- other clip -- and with exactly two clips it degenerates into strict alternation.
+-- other clip, and with exactly two clips it degenerates into strict alternation.
 local function pickSound(channel: Channel, event: string, sounds: { any }): any
 	if #sounds == 1 then
 		return sounds[1]
@@ -223,8 +223,8 @@ function Service.request(character: Model, event: string): boolean
 
 		Everything down to the cooldown check is now plain table lookups and
 		arithmetic: no Roblox API call, no allocation. That matters because most
-		requests in a firefight are REFUSED -- Hurt fires on every damaging hit but
-		speaks once per cooldown -- so the refusal path is the hot one, and it
+		requests in a firefight are refused. Hurt fires on every damaging hit but
+		speaks once per cooldown, so the refusal path is the hot one, and it
 		should cost as close to nothing as possible.
 
 		The workspace descendancy test used to run first. It is a C-side ancestor
@@ -273,8 +273,8 @@ function Service.request(character: Model, event: string): boolean
 
 	-- A concurrent event sits outside the one-voice-at-a-time rule: it layers
 	-- over whatever is already speaking instead of waiting for or interrupting
-	-- it. Priority is meaningless for these -- they neither block nor are
-	-- blocked -- but Cooldown and Chance still apply.
+	-- it. Priority is meaningless for these: they neither block nor are
+	-- blocked, but Cooldown and Chance still apply.
 	local concurrent = cfg.Concurrent == true
 
 	if not concurrent then
@@ -298,7 +298,7 @@ function Service.request(character: Model, event: string): boolean
 
 	-- Crowd gate. Placed after the cooldown check so a refused bark costs
 	-- nothing, and before the chance roll so a dropped bark does not also burn
-	-- the cooldown -- the speaker should still be able to talk once the noise
+	-- the cooldown: the speaker should still be able to talk once the noise
 	-- around them dies down.
 	local speakerRoot = character:FindFirstChild("HumanoidRootPart")
 	if not cfg.IgnoresCrowd and speakerRoot and speakerRoot:IsA("BasePart") then
@@ -337,7 +337,7 @@ function Service.request(character: Model, event: string): boolean
 	end
 
 	if concurrent then
-		-- Deliberately never touches channel.playing or busyUntil: it must not
+		-- Never touches channel.playing or busyUntil: it must not
 		-- occupy the voice, or it would block the very lines it is meant to
 		-- layer over. Cleans up after itself instead of going through release.
 		sound.Ended:Once(function()
@@ -360,7 +360,7 @@ function Service.request(character: Model, event: string): boolean
 		end)
 
 		-- Backstop. Ended never fires for an id that fails to load, and it is
-		-- also disconnected outright if the emitter is destroyed mid-line --
+		-- also disconnected outright if the emitter is destroyed mid-line,
 		-- TREK gibbing a head does exactly that.
 		--
 		-- release() is therefore called unconditionally. Guarding it on
@@ -381,10 +381,10 @@ function Service.request(character: Model, event: string): boolean
 	-- Leading silence in the recording is skipped here rather than by asking
 	-- anyone to re-export the file.
 	--
-	-- Set AFTER Play, not before. Play() seeks the stream to the start, so an
-	-- offset written first is overwritten by the call meant to honour it -- the
+	-- Set after Play, not before. Play() seeks the stream to the start, so an
+	-- offset written first is overwritten by the call meant to honour it: the
 	-- kind of bug that reads as "StartOffset does nothing".
-	-- Read off the VOICE, not the event. The clips came from the voice owner via
+	-- Read off the voice, not the event. The clips came from the voice owner via
 	-- soundsFor, so the lead-in to trim is the voice owner's too: LowAmmo speaks
 	-- Reload's recordings and must skip whatever Reload skips.
 	local voiceCfg = Config.Events[voice]

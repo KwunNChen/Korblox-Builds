@@ -151,6 +151,25 @@ function core.getHuman(instance)
 	return instance and instance:FindFirstChild("Humanoid")
 end
 
+--What a ray hits, passing through anything a body walks through (leaves, trigger
+--zones, a capture point's volume) unless it is part of someone: a prone soldier's
+--torso is skipped by its collision group, so his non-solid limbs must still stop it.
+local PASS_THROUGH = 4
+function core.cast(origin,direction,params)
+	local result = workspace:Raycast(origin,direction,params)
+	local filter = nil
+	for _ = 1,PASS_THROUGH do
+		if not result or result.Instance.CanCollide or core.getHuman(result.Instance.Parent) then break end
+		filter = filter or params.FilterDescendantsInstances
+		params:AddToFilter(result.Instance)
+		result = workspace:Raycast(origin,direction,params)
+	end
+	if filter then
+		params.FilterDescendantsInstances = filter
+	end
+	return result
+end
+
 --On a Roblox team's name he sides with that team's players and fights the
 --rest; Hostile fights every player; any other name leaves it to AttackPlayers.
 --Players with no team also fall back to AttackPlayers.
@@ -164,6 +183,11 @@ local function playerIsAlly(player)
 		return player.Team == robloxTeam
 	end
 	return not attackPlayersValue.Value
+end
+
+--A blank team counts as Hostile, as in Shared/Sides.
+local function side(name)
+	return name ~= "" and name or HOSTILE_TEAM
 end
 
 function core.isAlly(model)
@@ -190,7 +214,7 @@ function core.isAlly(model)
 		end
 	end
 
-	return targetTeam ~= nil and targetTeam == teamValue.Value
+	return targetTeam ~= nil and side(targetTeam) == side(teamValue.Value)
 end
 
 function core.applyDamage(human,dmg)
@@ -280,10 +304,22 @@ end
 
 --Whether a smoke screen (a part tagged SmokeScreen, with a Radius attribute) lies
 --between two points.
+--Kept up to date rather than fetched on every sight check.
+local smokeClouds = CollectionService:GetTagged("SmokeScreen")
+CollectionService:GetInstanceAddedSignal("SmokeScreen"):Connect(function(cloud)
+	table.insert(smokeClouds,cloud)
+end)
+CollectionService:GetInstanceRemovedSignal("SmokeScreen"):Connect(function(cloud)
+	local index = table.find(smokeClouds,cloud)
+	if index then
+		table.remove(smokeClouds,index)
+	end
+end)
+
 function core.smokeBetween(from,to)
 	local line = to - from
 	local length = line:Dot(line)
-	for _,cloud in ipairs(CollectionService:GetTagged("SmokeScreen")) do
+	for _,cloud in ipairs(smokeClouds) do
 		local centre = cloud.Position
 		local t = length > 0 and math.clamp((centre - from):Dot(line)/length,0,1) or 0
 		if (from + line*t - centre).Magnitude < (cloud:GetAttribute("Radius") or 10) then
@@ -316,7 +352,11 @@ local function computeSight(target)
 		sightRange = math.max(sightRange,car:GetAttribute("SpotRange") or 0)
 		params = paramsIn(car)
 	end
-	local result = workspace:Raycast(origin,offset.Unit*sightRange,params)
+	local distance = offset.Magnitude
+	if distance > sightRange then
+		return false
+	end
+	local result = core.cast(origin,offset.Unit*(distance + 3),params)
 	if not result then
 		return false
 	end
@@ -359,7 +399,7 @@ function core.checkSight(target)
 end
 
 function core.raycast(origin,dir)
-	local result = workspace:Raycast(origin,dir,raycastParams)
+	local result = core.cast(origin,dir,raycastParams)
 	if result then
 		return true, result
 	else
@@ -376,7 +416,7 @@ function core.checkShot(target)
 		return false
 	end
 
-	local result = workspace:Raycast(barrelPos,offset.Unit*(offset.Magnitude + 3),raycastParams)
+	local result = core.cast(barrelPos,offset.Unit*(offset.Magnitude + 3),raycastParams)
 	if not result then
 		return false
 	end

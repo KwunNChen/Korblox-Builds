@@ -3,17 +3,17 @@
 	The server's half. It owns the things a client must not be trusted with:
 	the mid-move flag, the sprint veto, the weapon, and the budget.
 
-	It does NOT own the motion. The player's own client has network ownership of
-	their character, so there is no authority here to take -- a server that tried
+	It does not own the motion. The player's own client has network ownership of
+	their character, so there is no authority here to take: a server that tried
 	to drive the body would be fighting for something it does not have. What it
 	owns instead is whether a claimed move is plausible, and what it costs.
 
 	--------------------------------------------------------------------------
-	WHAT THE VALIDATION IS AND IS NOT FOR
+	What the validation is and is not for
 	--------------------------------------------------------------------------
 
-	Someone who wants to teleport already can -- that is what network ownership
-	means. These bounds exist so that this package is not a CONVENIENT way to do
+	Someone who wants to teleport already can, that is what network ownership
+	means. These bounds exist so that this package is not a convenient way to do
 	it, not because they stop a determined exploiter.
 
 	Nobody is kicked. TREK's only kick is its anti-hitbox-expansion check, and
@@ -55,7 +55,7 @@ end
 --[[
 	Put everything back, whatever state it was in.
 
-	Every path out ends here -- completion, death, respawn, seating, the
+	Every path out ends here, completion, death, respawn, seating, the
 	watchdog, a player leaving. It must be safe on a character that never
 	started a move, and safe to call twice, because under a bad enough
 	connection it will be.
@@ -127,7 +127,7 @@ local function onBegin(player: Player, payload: unknown)
 	end
 	local action = claim.action :: string
 
-	-- Resolving the shape IS the validation: an action with no shape is not a
+	-- Resolving the shape is the validation: an action with no shape is not a
 	-- move this package knows about.
 	local shape = Shared.moveShape(action)
 	if not shape then
@@ -158,9 +158,9 @@ local function onBegin(player: Player, payload: unknown)
 	end
 
 	--[[
-		THE CHECK THAT ACTUALLY CLOSES THE HOLE.
+		The check that actually closes the hole.
 
-		Bounding the move's LENGTH on its own is worthless: a client that lies
+		Bounding the move's length on its own is worthless: a client that lies
 		about where it started gets a full-length move from anywhere on the map.
 		This measures the claimed start against a position the server got from
 		Roblox's own replication, so the length bound below means something.
@@ -177,7 +177,7 @@ local function onBegin(player: Player, payload: unknown)
 		The downward bound is not symmetry for its own sake: no legal reading
 		produces a descent at all, because `land` derives from the top surface the
 		probe found, which is always above the soles. Without it a claim was a
-		free MaxReach-out, unbounded-DOWN displacement at the cooldown rate --
+		free MaxReach-out, unbounded-down displacement at the cooldown rate,
 		which is a more useful primitive to an exploiter than the upward one this
 		was guarding.
 	]]
@@ -219,7 +219,7 @@ local function onBegin(player: Player, payload: unknown)
 		disarmed and sprint-locked. The client's report is an optimisation; this
 		is the path that is guaranteed to run.
 
-		The id check stops a stale timer from tearing down a NEWER move that
+		The id check stops a stale timer from tearing down a newer move that
 		started after this one finished.
 	]]
 	task.delay(shape.duration + Config.WatchdogGrace, function()

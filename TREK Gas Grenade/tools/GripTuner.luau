@@ -1,14 +1,14 @@
 --[[
-	GRIP TUNER
+	Grip tuner
 
-	NOT a lune script. Paste it into the Studio COMMAND BAR during a PLAYTEST,
-	with the grenade EQUIPPED so the grip joint exists.
+	Not a lune script. Paste it into the Studio command bar during a playtest,
+	with the grenade equipped so the grip joint exists.
 
-	Run it once as-is: it MEASURES the grip and prints where the grenade
+	Run it once as-is: it measures the grip and prints where the grenade
 	currently sits, in the same six numbers you would edit. Nothing moves.
 
 	Then set APPLY = true, change the numbers, and run it again. The grenade
-	moves immediately, in the live playtest, with no rebuild and no re-import --
+	moves immediately, in the live playtest, with no rebuild and no re-import,
 	so finding the right orientation is a few seconds of trying rather than a
 	round trip through Rojo each time.
 
@@ -68,7 +68,7 @@ print("holding:   " .. (grip.Part1 and grip.Part1:GetFullName() or "NOTHING -- j
 	Where it is now, in the same six numbers this script takes.
 
 	C0 is already expressed in the hand's frame, so unlike the holster tuner
-	there is nothing to convert -- the offset is read straight off the joint.
+	there is nothing to convert: the offset is read straight off the joint.
 	ToOrientation pulls the rotation apart into the X/Y/Z angles CFrame.Angles
 	expects, in that order.
 ]]

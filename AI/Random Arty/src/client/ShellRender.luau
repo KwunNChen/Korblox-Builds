@@ -1,6 +1,6 @@
 --[[
 	ShellRender
-	Draws the shells and their impacts. Client only, and it decides nothing --
+	Draws the shells and their impacts. Client only, and it decides nothing:
 	the server has already chosen where every one of these lands.
 
 	Everything built here is parented into a folder under workspace.CurrentCamera.
@@ -9,7 +9,7 @@
 	same trick Variable Snowstorm uses for its particle rig.
 
 	The bright arc is a Trail with LightEmission at 1, not a light source. That
-	makes it read as glowing against a dark or foggy sky for free -- twenty
+	makes it read as glowing against a dark or foggy sky for free, twenty
 	actual PointLights would not survive contact with a framerate.
 ]]
 
@@ -42,7 +42,7 @@ type Shell = {
 local active: { Shell } = {}
 local container: Folder?
 
--- Counts shells that actually have a part, not entries in `active` -- culled
+-- Counts shells that actually have a part, not entries in `active`, culled
 -- ones stay in the list so their impact still bursts and booms, and charging
 -- them against the render budget would let a distant barrage stop a nearby one
 -- from drawing.
@@ -84,7 +84,7 @@ local function cameraPosition(): Vector3
 end
 
 -- ============================================================
--- THE SHELL
+-- The shell
 -- ============================================================
 
 local function buildShellPart(): BasePart
@@ -160,7 +160,7 @@ local function buildShellPart(): BasePart
 end
 
 -- ============================================================
--- THE IMPACT
+-- The impact
 -- ============================================================
 
 -- Reused; the local character is swapped in per cast so standing on the crater
@@ -170,7 +170,7 @@ surfaceParams.FilterType = Enum.RaycastFilterType.Exclude
 surfaceParams.IgnoreWater = false
 
 --[[
-	What the shell landed on -- colour AND facing.
+	What the shell landed on, colour and facing.
 
 	Colour is what the debris and dust are tinted with, so snow throws white and
 	mud throws brown without anything being authored per map. The normal is what
@@ -184,7 +184,7 @@ surfaceParams.IgnoreWater = false
 
 	Falling back to Vector3.yAxis for the normal (flat, facing up) when the
 	surface match is off or the cast finds nothing is the same as this system's
-	old behaviour before a normal was tracked at all -- it only gets worse than
+	old behaviour before a normal was tracked at all: it only gets worse than
 	that on genuinely sloped, untracked ground.
 ]]
 local function readSurface(position: Vector3): (Color3, Vector3)
@@ -222,10 +222,10 @@ local function buildImpact(position: Vector3, scale: number?)
 
 	local parent = getContainer()
 
-	-- ============ [STAGE 1] DUST -- fires immediately ============
+	-- ============ [Stage 1] dust, fires immediately ============
 	--
 	-- No glowing ball. Just a brief light, and one dust cloud that grows and
-	-- sinks over the crater -- spawned below, once the surface under the shell
+	-- sinks over the crater, spawned below, once the surface under the shell
 	-- has been read.
 
 	if Config.EnableImpactLight then
@@ -233,7 +233,7 @@ local function buildImpact(position: Vector3, scale: number?)
 		lightHost.Name = "ArtilleryImpactLight"
 		lightHost.Size = Vector3.one
 		lightHost.CFrame = CFrame.new(position)
-		-- Invisible on purpose: this exists only to carry the PointLight. The
+		-- Invisible: this exists only to carry the PointLight. The
 		-- part itself is what used to be the ball.
 		lightHost.Transparency = 1
 		lightHost.Anchored = true
@@ -275,7 +275,7 @@ local function buildImpact(position: Vector3, scale: number?)
 	-- nothing about it is tracked here.
 	DustCloud.spawn(position, surface:Lerp(Color3.new(0, 0, 0), Config.DustDecalDarken), groundNormal, size)
 
-	-- ============ [STAGE 2] DEBRIS -- thrown at ImpactDebrisDelay ============
+	-- ============ [Stage 2] debris, thrown at ImpactDebrisDelay ============
 	--
 	-- Real parts, not particles. See DebrisChunks for why.
 
@@ -284,7 +284,7 @@ local function buildImpact(position: Vector3, scale: number?)
 	-- is most of what makes an impact look like glitter instead of dirt.
 	local debrisColor = surface:Lerp(Color3.new(0, 0, 0), Config.DebrisDarken)
 
-	-- ============ [STAGE 3] SMOKE -- emitted at ImpactSmokeDelay ============
+	-- ============ [Stage 3] smoke, emitted at ImpactSmokeDelay ============
 
 	local smoke = Instance.new("ParticleEmitter")
 	smoke.Color = ColorSequence.new(Config.ImpactSmokeColor)
@@ -316,7 +316,7 @@ local function buildImpact(position: Vector3, scale: number?)
 
 		Everything bursting simultaneously is what makes an explosion read as a
 		flat pop: the dust wave, the ground coming up and the cloud settling are
-		one event visually, so the eye gets no sense of anything happening TO the
+		one event visually, so the eye gets no sense of anything happening to the
 		ground. A few hundredths of a second between them is enough.
 
 		The guards matter. These delays outlive the host if the effect is culled
@@ -339,7 +339,7 @@ local function buildImpact(position: Vector3, scale: number?)
 end
 
 -- ============================================================
--- LIFECYCLE
+-- Lifecycle
 -- ============================================================
 
 local function detonate(shell: Shell)

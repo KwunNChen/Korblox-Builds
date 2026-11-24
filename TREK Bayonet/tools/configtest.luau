@@ -6,8 +6,8 @@
 	Run after editing BayonetWeaponMode or the merged weapon module.
 
 	Every assertion below corresponds to a line in TREK or in TREK Custom Bullets
-	that reads a field WITHOUT a nil check and throws, or silently does something
-	worse. They are not style preferences -- each one is a crash or a corrupted
+	that reads a field without a nil check and throws, or silently does something
+	worse. They are not style preferences: each one is a crash or a corrupted
 	value that would otherwise be found by a player.
 ]]
 
@@ -60,7 +60,7 @@ local INDEX = 2
 		TREKDamageModule:57   result *= config.headShotMultiplier
 		TREKGibsModule:126    if rnd > mod.limbRemovalChance
 
-	A missing one does not degrade the bayonet -- it throws mid-swing, after the
+	A missing one does not degrade the bayonet: it throws mid-swing, after the
 	damage path has already started.
 ]]
 local REQUIRED_NUMBERS = {
@@ -92,7 +92,7 @@ local function checkBlock(label: string, block: any)
 	end
 
 	-- shoot() does `tool.LocalTAmmo[mode].Ammo.Value -= 1` unconditionally, and
-	-- createAmmoStore skips any block with a falsy MagCapacity -- so omitting it
+	-- createAmmoStore skips any block with a falsy MagCapacity, so omitting it
 	-- means the store has no entry and every swing errors.
 	check("MagCapacity is truthy", block.MagCapacity and true or false,
 		"a melee mode still goes through the ammo path")
@@ -117,14 +117,14 @@ local function checkBlock(label: string, block: any)
 		"the server refuses the swing and divides nothing")
 
 	--[[
-		Fields VANILLA TREK dereferences for every mode at LOAD:
+		Fields vanilla TREK dereferences for every mode at load:
 
 			Gun.client.luau:130
 			modeStuff[name].fastCastBehavior.CosmeticBulletTemplate =
 				shared.S.TREK_EffectsStorage.ProjectileTypes[tabl.ProjectileName]
 
 		Indexing that Instance with nil throws, and it happens while the handler
-		is still setting up -- so the whole WEAPON stops working, not just this
+		is still setting up, so the whole weapon stops working, not just this
 		mode. A bayonet fires no projectiles and Custom Bullets never reads any
 		of this, which is exactly why it got dropped once and bricked the KR-61.
 
@@ -176,7 +176,7 @@ do
 end
 
 --[[
-	Every Config field the code READS must be one the config DEFINES.
+	Every Config field the code reads must be one the config defines.
 
 	This exists because BayonetConfig was rewritten during the fire-mode rework
 	and MissAnnounceAfter was dropped while BayonetService still read it. The
@@ -184,8 +184,8 @@ end
 
 		BayonetService:783: attempt to compare nil < number
 
-	at startup -- the service died before creating its remote, so the bayonet was
-	simply absent, with one line in a log full of unrelated TREK asset warnings.
+	at startup: the service died before creating its remote, so the bayonet was
+	absent, with one line in a log full of unrelated TREK asset warnings.
 
 	A static scan catches it in a second and needs no Roblox at all.
 ]]

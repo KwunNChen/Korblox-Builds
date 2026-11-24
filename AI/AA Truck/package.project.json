@@ -34,6 +34,9 @@
     },
     "AirDefense": {
       "$path": "../Shared/AirDefense.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
     }
   }
 }

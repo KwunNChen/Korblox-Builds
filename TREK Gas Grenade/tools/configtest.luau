@@ -15,7 +15,7 @@
 	from GasConfig and nothing complains until someone throws a grenade.
 
 	Nothing here touches Roblox. Just enough is stubbed for GasConfig to load,
-	which is why only the pure parts are testable -- anything that raycasts or
+	which is why only the pure parts are testable, anything that raycasts or
 	spawns an Instance belongs in Studio.
 ]]
 
@@ -24,7 +24,7 @@ local luau = require("@lune/luau")
 local process = require("@lune/process")
 
 -- ============================================================
--- HARNESS
+-- Harness
 -- ============================================================
 
 local passed, failed = 0, 0
@@ -40,7 +40,7 @@ local function check(name: string, ok: boolean, detail: string?)
 end
 
 -- ============================================================
--- JUST ENOUGH ROBLOX
+-- Just enough roblox
 -- ============================================================
 
 local function Color3_fromRGB(r: number, g: number, b: number)
@@ -61,7 +61,7 @@ local env = {
 	},
 	--[[
 		CFrames need a __mul, because the grip offsets compose a translation with
-		a rotation. Without it the config does not merely fail a check -- it
+		a rotation. Without it the config does not merely fail a check: it
 		errors on load and every check below it never runs, which reads as the
 		whole suite passing if you are not watching the count.
 	]]
@@ -89,7 +89,7 @@ local env = {
 	--[[
 		Only the members the config actually names. A stub that invented every
 		enum would happily accept a typo like AnimationPriority.Actoin, which is
-		exactly the mistake worth catching -- it fails silently at runtime by
+		exactly the mistake worth catching: it fails silently at runtime by
 		leaving the track at its default priority.
 	]]
 	Enum = {
@@ -118,7 +118,7 @@ end
 local Config = loadModule("src/shared/GasConfig.luau")
 
 -- ============================================================
--- SHAPE
+-- Shape
 -- ============================================================
 
 local REQUIRED = {
@@ -206,7 +206,7 @@ check("the nested Animation table is frozen too", table.isfrozen(Config.Animatio
 --[[
 	Animation ids are a rich source of silent failure: a bare number, a decal id
 	pasted by mistake, or the asset-delivery prefix that does not resolve for
-	animations. None of them error -- the track just never plays.
+	animations. None of them error: the track just never plays.
 ]]
 local throwId = Config.Animation.Throw
 
@@ -239,11 +239,11 @@ check("animation fade time is not negative", Config.Animation.FadeTime >= 0)
 
 --[[
 	Speed divides the release delay at runtime, so zero does not merely freeze
-	the animation -- it makes the release delay infinite and the grenade never
+	the animation: it makes the release delay infinite and the grenade never
 	leaves the hand at all. Negative runs the throw backwards.
 ]]
 -- ============================================================
--- SOUND
+-- Sound
 -- ============================================================
 
 check("GasConfig defines Sound", Config.Sound ~= nil)
@@ -251,7 +251,7 @@ check("the nested Sound table is frozen too", table.isfrozen(Config.Sound))
 
 --[[
 	Same silent-failure family as the animation id. A bare number or an http url
-	does not error -- the Sound simply never makes a noise, and a silent gas
+	does not error: the Sound never makes a noise, and a silent gas
 	cloud looks exactly like a working one.
 ]]
 check(
@@ -289,11 +289,11 @@ check(
 check("hiss fade-out is not negative", Config.Sound.FadeOut >= 0)
 
 -- ============================================================
--- DISORIENTATION
+-- Disorientation
 -- ============================================================
 
 -- ============================================================
--- MODELS
+-- Models
 -- ============================================================
 
 check("the nested Models table is frozen too", table.isfrozen(Config.Models))
@@ -303,8 +303,8 @@ check("the nested Models table is frozen too", table.isfrozen(Config.Models))
 	FindFirstChild in the service return nil, which surfaces as "model is
 	missing" against a folder that plainly contains it.
 
-	Pointing both at the same model is legitimate -- the grenade then looks
-	identical in the hand and in the air -- so that is not checked against.
+	Pointing both at the same model is legitimate: the grenade then looks
+	identical in the hand and in the air, so that is not checked against.
 ]]
 for _, slot in ipairs({ "Held", "Thrown" }) do
 	check(
@@ -317,7 +317,7 @@ end
 -- ============================================================
 
 -- ============================================================
--- NERVE AGENT
+-- Nerve agent
 -- ============================================================
 
 check("the nested Nerve table is frozen too", table.isfrozen(Config.Nerve))
@@ -336,7 +336,7 @@ check(
 --[[
 	The dose threshold is measured in cloud ticks, so anything at or below one
 	TickInterval means "one tick inside is enough". Above it, the victim gets a
-	grace nobody asked for -- silently, because the only symptom is people
+	grace nobody asked for, silently, because the only symptom is people
 	surviving gas that was meant to be lethal.
 ]]
 check(
@@ -375,7 +375,7 @@ check("seize delay is not negative", nerve.SeizeDelay >= 0)
 --[[
 	The speed the sweep has to beat.
 
-	Deliberately generous against anything on foot in TREK -- if it holds for
+	Generous against anything on foot in TREK, if it holds for
 	something this fast it holds for a sprint.
 ]]
 local FAST_PLAYER = 60
@@ -383,7 +383,7 @@ local FAST_PLAYER = 60
 check("the sweep margin is not negative", Config.SweepMargin >= 0)
 
 --[[
-	THE test for "people can just run through it".
+	The test for "people can just run through it".
 
 	The overlap query only returns who is inside the cloud at the instant of a
 	tick. Someone moving faster than the margin covers can be outside at two
@@ -403,7 +403,7 @@ check(
 	One tick in the cloud has to be a lethal dose, or the gas is an area you
 	push through rather than a wall. expose() accumulates TickInterval per tick,
 	so a threshold above one tick's worth means brief contact does nothing at
-	all -- and brief contact is all a moving player ever has.
+	all, and brief contact is all a moving player ever has.
 ]]
 check(
 	"a single tick of contact is a dose",
@@ -430,7 +430,7 @@ check("collapse spin is not negative", nerve.CollapseSpin >= 0)
 
 --[[
 	Outside 0..1 the lift stops meaning "a fraction of the shove". Above 1 the
-	horizontal term goes negative, which does not error -- it just silently
+	horizontal term goes negative, which does not error: it just silently
 	inverts the heading, so the body reliably falls the opposite way from the
 	one the direction was drawn for.
 ]]
@@ -448,7 +448,7 @@ check(
 	the twitch was comparing quantities with different meanings and passed
 	happily at a value that threw bodies through the floor.
 
-	The limit is drawn from what demonstrably works in this place -- SkiRagdoll
+	The limit is drawn from what demonstrably works in this place. SkiRagdoll
 	tumbles at 9, RagdollDeath topples at 9. Well above that and the ball sockets
 	start fighting the spin hard enough for the solver to answer with impulses
 	that clip geometry.
@@ -473,8 +473,8 @@ check("the nerve sound table is frozen", table.isfrozen(nerveSound))
 
 --[[
 	A bare number here is the classic way to get silence with no error. Roblox
-	accepts the assignment, finds no asset, and plays nothing -- and the failure
-	looks identical to the sound simply not being wired up.
+	accepts the assignment, finds no asset, and plays nothing, and the failure
+	looks identical to the sound not being wired up.
 ]]
 check(
 	"the nerve sound id is an rbxassetid string",
@@ -501,7 +501,7 @@ check(
 
 --[[
 	The suppression attribute has to be a usable name. An empty string is a
-	legal attribute name to SET and silently unreadable, so the hurt barks would
+	legal attribute name to set and silently unreadable, so the hurt barks would
 	come back with nothing anywhere saying why.
 ]]
 check(
@@ -616,7 +616,7 @@ check(
 )
 
 -- ============================================================
--- INVARIANTS
+-- Invariants
 -- ============================================================
 
 check(
@@ -657,14 +657,14 @@ check(
 )
 
 -- ============================================================
--- TRAJECTORY
+-- Trajectory
 -- ============================================================
 
 --[[
 	Power and angle are individually plausible numbers that together produce a
 	throw nobody would ship.
 
-	The pair shipped before this block existed -- power 70, angle 12 -- reads as
+	The pair shipped before this block existed, power 70, angle 12, reads as
 	perfectly reasonable in the file and lands the grenade 10 studs away having
 	risen half a stud. Neither value is wrong on its own; the product is. So the
 	check is on the trajectory they actually describe.
@@ -721,8 +721,8 @@ check("MagCapacity is at least one", Config.MagCapacity >= 1)
 
 	TREK's createAmmoStore assigns ReservedAmmo straight into a
 	DoubleConstrainedValue's MaxValue and Value with no nil check. Spell it
-	StoredAmmo -- which reads like the obvious name, and is what the ammo folder
-	is actually called -- and the store is built with MaxValue = nil, which
+	StoredAmmo, which reads like the obvious name, and is what the ammo folder
+	is actually called, and the store is built with MaxValue = nil, which
 	throws inside checkForGun while the character is still spawning.
 ]]
 check(
@@ -754,7 +754,7 @@ check("DestroyDelay is not negative", Config.DestroyDelay >= 0)
 
 	The tool is only spent once the grenade actually leaves, which is
 	ReleaseDelay-scaled-by-Speed after the animation starts. Compared against the
-	scaled value, not the raw one, because that is what actually elapses -- at
+	scaled value, not the raw one, because that is what actually elapses, at
 	Speed 2 a 0.25 delay is really 0.125.
 ]]
 local windUp = Config.Animation.ReleaseDelay / math.max(Config.Animation.Speed or 1, 0.01)
@@ -781,7 +781,7 @@ check(
 )
 
 -- ============================================================
--- TIME TO KILL
+-- Time to kill
 -- ============================================================
 
 --[[
@@ -806,7 +806,7 @@ check(
 )
 
 -- ============================================================
--- FALLOFF
+-- Falloff
 -- ============================================================
 
 --[[
@@ -852,7 +852,7 @@ check(
 )
 
 -- ============================================================
--- EVERY KEY THE SOURCE READS ACTUALLY EXISTS
+-- Every key the source reads actually exists
 -- ============================================================
 
 local function collectFiles(directory: string, out: { string })
@@ -875,11 +875,11 @@ for _, path in ipairs(files) do
 
 	--[[
 		%f[%w] is a frontier pattern: it requires a non-word/word transition, so
-		"config" has to START a name rather than end one.
+		"config" has to start a name rather than end one.
 
-		Without it, any local ending in Config -- soundConfig, visualConfig --
-		matches on its tail, and every field read off that NESTED table gets
-		checked against the ROOT config, where it does not exist. Which is how
+		Without it, any local ending in Config, soundConfig, visualConfig,
+		matches on its tail, and every field read off that nested table gets
+		checked against the root config, where it does not exist. Which is how
 		this reported Config.Hiss as missing while GasConfig.Sound.Hiss was
 		sitting there perfectly well defined.
 	]]

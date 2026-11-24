@@ -4,11 +4,11 @@
 
 	Three casts, in order, cheapest first, each one able to refuse on its own:
 
-	  1. FORWARD  is there a wall face in reach, and am I running at it?
-	  2. TOP      how high is the surface above it?
-	  3. CLEAR    is there room for a body up there?
+	  1. Forward  is there a wall face in reach, and am I running at it?
+	  2. Top      how high is the surface above it?
+	  3. Clear    is there room for a body up there?
 
-	Every refusal carries a reason string. That is not decoration -- "too high"
+	Every refusal carries a reason string. That is not decoration, "too high"
 	and "no room up there" look identical from inside the game and are fixed by
 	different numbers, so the reason is the entire diagnostic when someone says
 	"it won't let me climb this".
@@ -20,7 +20,7 @@
 --[[
 	This lives in shared rather than client because the Studio probe tool needs
 	exactly the same answers the game uses. A tool that re-implemented the casts
-	would drift from the real ones, and the whole point of the tool is to show
+	would drift from the real ones, and the tool is only useful if it shows
 	you what the game is actually seeing.
 ]]
 local Config = require(script.Parent:WaitForChild("ParkourConfig"))
@@ -43,8 +43,8 @@ export type Reading = {
 	direction: Vector3, -- travel direction used
 	facePoint: Vector3?,
 	topY: number?,
-	height: number?, -- top surface above the soles -- the vault's measure
-	reach: number?, -- top surface relative to the root -- the mantle's measure
+	height: number?, -- top surface above the soles: the vault's measure
+	reach: number?, -- top surface relative to the root: the mantle's measure
 	land: Vector3?, -- where the root ends up if the move is allowed
 }
 
@@ -60,7 +60,7 @@ end
 --[[
 	Pure. Height is measured from the soles to the top surface.
 
-	The bands are contiguous on purpose -- a gap between them is a height where
+	The bands are contiguous: a gap between them is a height where
 	the player gets no move and no explanation for why not.
 ]]
 function ParkourDetect.classify(height: number): string
@@ -77,7 +77,7 @@ end
 --[[
 	Pure. The mantle's own test, and it asks a different question.
 
-	`reach` is the lip relative to the ROOT, not the soles -- see the config. A
+	`reach` is the lip relative to the root, not the soles. See the config. A
 	player at the top of a jump has their feet somewhere useless, but their
 	hands are always a known distance from their root.
 
@@ -133,7 +133,7 @@ end
 
 --[[
 	mode is "Vault" or "Mantle", and it changes only where the forward probe
-	starts -- see VaultProbeHeight / MantleProbeHeight in the config for why one
+	starts. See VaultProbeHeight / MantleProbeHeight in the config for why one
 	is measured from the soles and the other from the root.
 ]]
 function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePart, mode: string): Reading
@@ -148,7 +148,7 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 
 	local castParams = Shared.castParams(character)
 
-	-- 1. FORWARD --------------------------------------------------------------
+	-- 1. Forward --------------------------------------------------------------
 
 	local face = workspace:Raycast(origin, flat * Config.ProbeDistance, castParams)
 	if not face then
@@ -169,12 +169,12 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 		return fail(origin, flat, ParkourDetect.Result.None, unusable)
 	end
 
-	-- 2. TOP ------------------------------------------------------------------
+	-- 2. Top ------------------------------------------------------------------
 
 	--[[
-		Start above the highest thing we would ever climb and cast down. A MISS
+		Start above the highest thing we would ever climb and cast down. A miss
 		here is the "too high to bother with" answer, and it is a miss rather
-		than a comparison, which is what makes it reliable -- there is simply no
+		than a comparison, which is what makes it reliable: there is no
 		top surface within reach.
 	]]
 	local topOrigin = face.Position + flat * Config.TopProbeInset + Vector3.new(0, Config.MantleMaxHeight, 0)
@@ -224,7 +224,7 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 	}
 
 	-- Refusals from here on carry the measured height and reach, which fail()
-	-- cannot -- so they amend the reading rather than building a new one. One
+	-- cannot, so they amend the reading rather than building a new one. One
 	-- helper, so all of them still read the same way.
 	local function refuse(refusal: string, why: string): Reading
 		reading.result = refusal
@@ -233,13 +233,13 @@ function ParkourDetect.probe(character: Model, humanoid: Humanoid, root: BasePar
 	end
 
 	-- Anything that is not an actionable move stops here, before the clearance
-	-- check -- there is no point asking whether you would fit somewhere you are
+	-- check: there is no point asking whether you would fit somewhere you are
 	-- not going.
 	if result ~= ParkourDetect.Result.Vault and result ~= ParkourDetect.Result.Mantle then
 		return reading
 	end
 
-	-- 3. CLEAR ----------------------------------------------------------------
+	-- 3. Clear ----------------------------------------------------------------
 
 	local land = Shared.landPoint(face.Position, top.Position.Y, flat)
 

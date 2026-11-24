@@ -1,8 +1,8 @@
 --[[
 
-	GIVE CREDIT TO PLAGUEBYTE!!!!! @pb6008 for any inquiries
+	Give credit to PLAGUEBYTE!!!!! @pb6008 for any inquiries
 
-	VARIABLE SNOWSTORM + THUNDERSTORM
+	Variable snowstorm + thunderstorm
 
 	Storms run on a cycle, snow stops when you walk under a roof, and getting
 	caught out in one slows you down.
@@ -12,7 +12,7 @@
 
 
 	========================================================
-	INSTALL
+	Install
 	========================================================
 
 	The folders in this package are named after where they go. Drag each one
@@ -53,7 +53,7 @@
 	5. Delete the empty VariableSnowstorm folder.
 
 
-	WHEN YOU'RE DONE
+	When you're done
 
 	    ReplicatedStorage
 	    |-- Weather               WeatherConfig, WeatherShared
@@ -71,7 +71,7 @@
 
 
 	========================================================
-	WIND AUDIO NEEDS YOUR OWN ASSET
+	Wind audio needs your own asset
 	========================================================
 
 	Roblox audio is private by default, so the WindSoundId this ships with may
@@ -85,11 +85,11 @@
 
 
 	========================================================
-	TESTING
+	Testing
 	========================================================
 
 	The cycle opens with 60 to 120 seconds of clear weather. To skip the wait,
-	press Play, set the Client/Server toggle in the toolbar to SERVER, and run:
+	press Play, set the Client/Server toggle in the toolbar to server, and run:
 
 	    game.ReplicatedStorage.Weather:SetAttribute("DebugStartIntensity", 1)
 
@@ -100,14 +100,14 @@
 	No print means the command never reached the server, which is almost always
 	the toggle sitting on Client.
 
-	SEEING NO SNOW?
+	Seeing no snow?
 
 	  1. Is there fog? Fog is applied before anything else the client does, so
 	     fog means the client is running and the problem is elsewhere. No fog at
 	     full intensity means the client scripts aren't running at all, and you
 	     probably missed install step 4.
 
-	  2. Are you under a roof? Shelter detection kills snow on purpose. Anything
+	  2. Are you under a roof? Shelter detection kills snow. Anything
 	     solid within 250 studs overhead counts. Walk into the open.
 
 	  3. Too sparse to notice? Raise WeatherConfig.FlakeSizePeak before you
@@ -116,7 +116,7 @@
 
 
 	========================================================
-	TUNING: ReplicatedStorage.Weather.WeatherConfig
+	Tuning: ReplicatedStorage.Weather.WeatherConfig
 	========================================================
 
 	    ParticleBudget            live flake cap, main performance knob
@@ -142,40 +142,40 @@
 
 
 	========================================================
-	THUNDERSTORMS
+	Thunderstorms
 	========================================================
 
 	Some Peaks bring a thunderstorm. It opens with a warning rumble, then runs a
 	couple of minutes of distant lightning.
 
-	LIGHTNING IS WEATHER, NOT A THREAT. It does no damage, ignores shelter, and
+	Lightning is weather, not a threat. It does no damage, ignores shelter, and
 	never targets anyone. There is nothing to dodge.
 
-	NOTHING IS DRAWN IN THE WORLD. No bolt, no parts added to Workspace. A strike
+	Nothing is drawn in the world. No bolt, no parts added to Workspace. A strike
 	is a flash through Lighting, plus a wash of light at the screen edge nearest
 	where it happened, drawn as a ScreenGui in PlayerGui.
 
 	Nearer strikes flash harder and rumble sooner, further ones are a faint wash
 	of light followed by a late roll. The light always comes before the sound.
 
-	Players are picked only to decide WHERE a strike happens, so it lands
+	Players are picked only to decide where a strike happens, so it lands
 	somewhere someone can see it rather than in an empty corner of the map.
 
 	The sky darkens as the window opens, and a Peak blizzard darkens it on its
-	own too -- at StormDarkenAmount = 1 the sun is fully blotted at Peak whether
+	own too, at StormDarkenAmount = 1 the sun is fully blotted at Peak whether
 	or not there is lightning.
 
 	Thunder needs one audio id of your own in ThunderCrackSoundId, for the same
 	reason WindSoundId does. The opening rumble is that same asset slowed down,
 	so there is nothing else to source.
 
-	To test one without waiting for a Peak, on SERVER:
+	To test one without waiting for a Peak, on server:
 
 	    game.ReplicatedStorage.Weather:SetAttribute("DebugThunder", true)
 
 
 	========================================================
-	SPEED MODIFIERS
+	Speed modifiers
 	========================================================
 
 	SpeedService is the only thing allowed to assign Humanoid.WalkSpeed or the

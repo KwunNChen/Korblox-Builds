@@ -8,7 +8,7 @@
 	was stopped cannot detonate shells it queued before it ended.
 
 	This service never creates a shell part. It publishes four numbers per shell
-	and lets each client draw its own -- see ShellRender.
+	and lets each client draw its own. See ShellRender.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -67,10 +67,10 @@ local function refreshSnapFilter()
 end
 
 -- ============================================================
--- PLACEMENT
+-- Placement
 -- ============================================================
 
--- Y is ignored on purpose, so a single flat plate tagged over a spawn protects
+-- Y is ignored, so a single flat plate tagged over a spawn protects
 -- the whole column above it rather than only the slab's own thickness.
 local function inSafeZone(position: Vector3): boolean
 	for _, zone in CollectionService:GetTagged(Config.SafeZoneTag) do
@@ -98,7 +98,7 @@ local SHELTER_SAMPLES = {
 --[[
 	True if there is enough over this position to call it a roof.
 
-	Casts UP rather than testing anything for being a ceiling: whatever stops the
+	Casts up rather than testing anything for being a ceiling: whatever stops the
 	ray is the roof. A bunker, a bridge, a rock overhang and a tree canopy all
 	work with nothing tagged and nothing authored.
 
@@ -107,7 +107,7 @@ local SHELTER_SAMPLES = {
 	cover, so standing in a doorway would flicker between safe and targetable
 	from one barrage to the next.
 
-	This only stops the guns AIMING at you. It is not a shield -- a shell aimed
+	This only stops the guns aiming at you. It is not a shield: a shell aimed
 	at the squad outside your door still lands outside your door, and the blast
 	does not care what you are standing under.
 ]]
@@ -149,7 +149,7 @@ end
 	Centaura behaviour: the guns fire at random, but the random is biased to
 	where people actually are.
 
-	Players under a roof are dropped from the candidate list entirely -- they
+	Players under a roof are dropped from the candidate list entirely: they
 	cannot be seen from a battery kilometres away, so shelling them is the guns
 	knowing something they have no way to know. They also stop counting toward
 	anyone else's cluster weight, which falls out of the same list and is right:
@@ -229,7 +229,7 @@ local function rollImpact(epicenter: Vector3, scatter: number): Vector3?
 end
 
 -- ============================================================
--- FIRING
+-- Firing
 -- ============================================================
 
 local function clearMarkers()
@@ -285,7 +285,7 @@ local function fireShell(impact: Vector3, heading: number, isLive: () -> boolean
 
 	-- GetServerTimeNow is shared between the server and every client, so an
 	-- absolute impact stamp is all the clients need to land their explosion on
-	-- the same frame the damage happens -- whatever their ping is. Sending a
+	-- the same frame the damage happens, whatever their ping is. Sending a
 	-- duration instead would drift by exactly one trip's latency per shell.
 	local impactTime = workspace:GetServerTimeNow() + flightTime
 
@@ -456,7 +456,7 @@ local function runBarrage(epicenterOverride: Vector3?, mission: { caller: Model?
 end
 
 -- ============================================================
--- LIFECYCLE
+-- Lifecycle
 -- ============================================================
 
 function BarrageService.triggerNow()
@@ -475,9 +475,9 @@ end
 	A fire mission called in from inside the game (the Bloxian Spawner's Kinetic Events tab, say): the
 	same barrage, centred on position instead of on wherever players cluster.
 
-	Gives back true and what a caller needs to get clear -- seconds of warning,
+	Gives back true and what a caller needs to get clear, seconds of warning,
 	the radius shells can land and still kill in, and how long until the last
-	shell is down -- or false and why it could not fire.
+	shell is down, or false and why it could not fire.
 
 	With mission.gunship (the AC-130 firing on its own) it is the gunship's
 	barrage instead: no warning, and it fires whether or not the battery is.
@@ -586,8 +586,8 @@ function BarrageService.start()
 			else
 				-- Silent here used to look identical to broken: the loop would
 				-- skip forever with nothing in Output, and DebugBarrageNow (which
-				-- has no player-count check at all) would still fire -- so the
-				-- system LOOKED like it only ever worked from the debug command.
+				-- has no player-count check at all) would still fire, so the
+				-- system looked like it only ever worked from the debug command.
 				-- This is the whole reason for that.
 				log(
 					"natural barrage skipped -- %d online, MinPlayersForBarrage is %d. "

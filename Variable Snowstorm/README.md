@@ -156,7 +156,7 @@ nothing Command Bar related can break it.
 
 The first two are correct behavior, not bugs.
 
-1. Are you under a roof? Shelter detection mutes snow on purpose. Anything solid
+1. Are you under a roof? Shelter detection mutes snow. Anything solid
    within `ShelterRayLength` (250 studs) overhead counts, so a large ceiling in
    a test place suppresses everything. Walk into the open.
 
@@ -201,7 +201,7 @@ Everything is in `src/shared/WeatherConfig.luau`.
 | `WindDirectionalSwing` | How far heading moves that multiplier. 0 makes the storm slow you the same in every direction. |
 | `WindAirborneAccel` | How hard wind shoves you while airborne. |
 | `StormJumpMultiplier` | Jump height at full intensity. |
-| `EnableThunderstorm` | Distant lightning inside a Peak. Purely visual — it never damages anyone. |
+| `EnableThunderstorm` | Distant lightning inside a Peak. Purely visual - it never damages anyone. |
 | `ThunderChance` | Odds a given Peak contains a thunderstorm at all. |
 | `ThunderDuration` | Seconds a thunderstorm runs. |
 | `ThunderMinDistance` | How far off the nearest strikes land. Raise to push lightning further away. |
@@ -286,7 +286,7 @@ couple of minutes of distant lightning.
 never targets anyone. It exists to make a blizzard feel like it has a sky over
 it.
 
-**A strike draws no geometry at all** — no bolt, no marker, nothing parented
+**A strike draws no geometry at all** - no bolt, no marker, nothing parented
 into Workspace. It is two things instead:
 
 - A **global flash** through Lighting (`ThunderFlashBrightness`,
@@ -307,7 +307,7 @@ players standing apart get different flash strength and a different delay before
 the thunder reaches them.
 
 The sky darkens as the window opens, ramping in across `ThunderWarningLead` so
-it lands before the first strike — the darkening *is* the warning. It also makes
+it lands before the first strike - the darkening *is* the warning. It also makes
 each flash punch harder by contrast. Only `Brightness`, `Ambient`,
 `ExposureCompensation`, and `Atmosphere.Color` move; fog and Atmosphere density
 stay with the snowstorm, so the two lighting owners never fight. Exposure is
@@ -325,7 +325,7 @@ the same whether the server has two people or thirty.
 
 Because thunder is weather rather than a threat, it runs long and rare:
 `ThunderDuration` defaults to 150 seconds and `ThunderChance` means not every
-Peak gets one. There is no telegraph, no marker, and no shelter check — nothing
+Peak gets one. There is no telegraph, no marker, and no shelter check - nothing
 to dodge, so nothing to warn about. The light always arrives before the sound,
 delayed by `distance / ThunderSoundSpeed`, which is what makes distance
 readable.
@@ -338,7 +338,7 @@ game.ReplicatedStorage.Weather:SetAttribute("DebugThunder", true)
 ```
 
 It resets itself to `false` and prints confirmation. Same toggle rule as
-`DebugStartIntensity` — the Client/Server switch has to be on **Server**.
+`DebugStartIntensity` - the Client/Server switch has to be on **Server**.
 
 One rule: never assign `WalkSpeed` directly once a humanoid is managed here.
 Outside writes get overwritten on the next recompute.

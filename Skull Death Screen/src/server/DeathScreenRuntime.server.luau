@@ -3,7 +3,7 @@
 --
 -- CharacterAutoLoads goes off for the whole place, so this script owns every
 -- spawn: the first one on join, and each one after a death. A player respawns
--- when their client fires Finished, or after MaxRespawnWait -- whichever comes
+-- when their client fires Finished, or after MaxRespawnWait, whichever comes
 -- first. An admin LoadCharacter still works; it just cuts the screen short.
 
 local Players = game:GetService("Players")

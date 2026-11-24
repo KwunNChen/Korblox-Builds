@@ -1,11 +1,11 @@
 --[[
 
-	GIVE CREDIT TO PLAGUEBYTE!!!!! @pb6008 for any inquiries
+	Give credit to PLAGUEBYTE!!!!! @pb6008 for any inquiries
 
-	BLAST DOOR
+	Blast door
 
 	A two-leaf door that slides apart from the middle to open and slides back
-	together to close. Anyone still standing in the gap when it shuts dies --
+	together to close. Anyone still standing in the gap when it shuts dies,
 	turned to red mist, not a ragdoll.
 
 	Entirely server-side. No client scripts, no remotes, nothing goes in
@@ -16,17 +16,17 @@
 
 
 	========================================================
-	INSTALL
+	Install
 	========================================================
 
 	1. This package should be sitting in ServerStorage. If it's anywhere else,
-	   move it there first -- scripts don't execute in ServerStorage, so
+	   move it there first, scripts don't execute in ServerStorage, so
 	   nothing runs early by mistake.
 
 	2. Open the "ReplicatedStorage" and "ServerScriptService" folders. Move
 	   each one's "BlastDoor" child into the matching real service.
 
-	3. Delete the empty KorbloxBlastDoor folder, or keep it -- Tools stays in
+	3. Delete the empty KorbloxBlastDoor folder, or keep it. Tools stays in
 	   ServerStorage and nothing requires it. It's a Command Bar helper for
 	   dropping a test door into Workspace, never runs on its own.
 
@@ -44,7 +44,7 @@
 	it split down the middle.
 
 
-	WHEN YOU'RE DONE
+	When you're done
 
 	    ReplicatedStorage
 	    +-- BlastDoor              DoorConfig, DoorShared
@@ -57,7 +57,7 @@
 
 
 	========================================================
-	ACTIVATION
+	Activation
 	========================================================
 
 	DoorConfig.ActivationMethod picks how it opens:
@@ -68,22 +68,22 @@
 
 	    "Button"      looks for a ProximityPrompt anywhere inside the tagged
 	                  Model. Finds none, it builds one on a part named
-	                  "Button" -- or on "Left" if there's no Button part
+	                  "Button", or on "Left" if there's no Button part
 	                  either. Press to toggle. AutoCloseDelay closes it again
 	                  on its own after that many seconds open; 0 leaves that
 	                  entirely to the button.
 
-	    "Both"        either one opens it. AutoCloseDelay is ignored here --
+	    "Both"        either one opens it. AutoCloseDelay is ignored here.
 	                  Proximity's own presence check already governs closing,
 	                  and a fixed timer on top of it would fight that.
 
 	Want your own button instead of the auto-built one? Just put a
-	ProximityPrompt somewhere in the Model yourself -- the server finds it
+	ProximityPrompt somewhere in the Model yourself: the server finds it
 	and leaves it alone rather than building a second one.
 
 
 	========================================================
-	THE KILL
+	The kill
 	========================================================
 
 	While closing, every frame checks a box centered on the shrinking gap
@@ -92,7 +92,7 @@
 	while the gap is wide is safe; only the actual pinch is fatal, and the
 	door never reverses or pauses for what's in the way.
 
-	CrushZoneHeight and CrushZoneDepth size that detection box -- match them
+	CrushZoneHeight and CrushZoneDepth size that detection box, match them
 	to your actual doorway, not the default's 4-stud test slabs.
 
 	The kill hides the character first (parts invisible and non-collide),
@@ -100,16 +100,16 @@
 	destroys the model a moment later. There is no corpse standing there,
 	limp or otherwise, at any point.
 
-	COMPATIBLE WITH RagdollDeath/ragdoll.luau. Before the kill, the victim
+	Compatible with RagdollDeath/ragdoll.luau. Before the kill, the victim
 	gets a SuppressRagdoll attribute (named in DoorConfig), and that shared
 	script checks for it and backs off if it's set. Install both in the same
 	place and a crush death still turns to mist instead of ragdolling for a
-	frame first. Without it installed, the door behaves identically -- it
+	frame first. Without it installed, the door behaves identically: it
 	never depended on that script existing.
 
 
 	========================================================
-	TUNING: ReplicatedStorage.BlastDoor.DoorConfig
+	Tuning: ReplicatedStorage.BlastDoor.DoorConfig
 	========================================================
 
 	    SlideAxis, SlideDistance    which local axis the halves travel along,
@@ -121,7 +121,7 @@
 	    SenseCheckInterval          how often the proximity check runs
 	    ButtonPartName, Button*     where the auto-built prompt goes and how
 	                                it reads
-	    AutoCloseDelay              button-mode only, see ACTIVATION above
+	    AutoCloseDelay              button-mode only, see "Activation" above
 	    EnableSound, *SoundId       ships silent, see the note below
 	    EnableCrushKill             master switch for the kill entirely
 	    CrushGapThreshold           how narrow before standing in it is fatal
@@ -140,23 +140,23 @@
 
 
 	========================================================
-	IF SOMETHING'S OFF
+	If something's off
 	========================================================
 
-	THE HALVES MOVE THE WRONG WAY, OR THROUGH EACH OTHER
+	The halves move the wrong way, or through each other
 	  SlideAxis doesn't match how the door was built. Try the other
-	  horizontal axis first -- most doors are X or Z, not Y.
+	  horizontal axis first, most doors are X or Z, not Y.
 
-	THE BUTTON DOESN'T APPEAR
+	The button doesn't appear
 	  Check for a leftover ProximityPrompt already in the Model from a
-	  previous test -- the server only builds one when it finds none at all.
+	  previous test: the server only builds one when it finds none at all.
 
-	NOBODY EVER DIES IN THE GAP
+	Nobody ever dies in the gap
 	  CrushZoneHeight/Depth are sized for the built-in 4-stud example slabs.
 	  A bigger door needs a bigger box, or the detection zone sits inside
 	  the doorway with room to spare on either side.
 
-	TURN ON DoorConfig.DebugLog
+	Turn on DoorConfig.DebugLog
 	  Prints every open, close, and crush to Output, tagged [BlastDoor].
 
 ]]

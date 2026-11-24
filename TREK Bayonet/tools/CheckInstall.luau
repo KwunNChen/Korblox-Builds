@@ -1,15 +1,15 @@
 --[[
-	TREK BAYONET -- INSTALL CHECKER AND FIXER
+	TREK bayonet, install checker and fixer
 
-	NOT a lune script. Paste it into the Studio COMMAND BAR.
+	Not a lune script. Paste it into the Studio command bar.
 
-	Run it in EDIT MODE to check what is placed in the saved game, or during a
-	PLAYTEST to check what TREK actually built. Both are worth doing: several
+	Run it in edit mode to check what is placed in the saved game, or during a
+	Playtest to check what TREK actually built. Both are worth doing: several
 	things live in one and not the other.
 
 	Set FIX = true to create the pieces it can create safely (2Barrel, 2Fire).
 	It never touches TREK, never deletes a weapon config, and never writes into
-	ReplicatedStorage.TREK_SERVICES -- see the note on that below.
+	ReplicatedStorage.TREK_SERVICES. See the note on that below.
 
 	Every check corresponds to something that has actually gone wrong, and to a
 	failure mode that is silent or misleading in game.
@@ -20,13 +20,13 @@ local FIX = false
 --[[
 	The weapon to check. Both are place-specific and neither can be guessed:
 
-	  * The installer's instance name may carry a TRAILING SPACE. It does in the
+	  * The installer's instance name may carry a trailing space. It does in the
 	    place this was written for ("Installer "), which is invisible in the
 	    Explorer and breaks every FindFirstChild that assumes otherwise. This
 	    script matches on the prefix instead so either spelling works.
 
 	  * The weapon's name is matched exactly, because looser matching has twice
-	    written configuration into the wrong module -- once by taking the last
+	    written configuration into the wrong module, once by taking the last
 	    name match in Workspace, once by matching a known Idle animation id that
 	    the KT-60 happens to share.
 ]]
@@ -90,10 +90,10 @@ print("TREK Custom Bullets")
 --------------------------------------------------------------------------------
 
 --[[
-	Looked for in TWO places on purpose.
+	Looked for in two places.
 
-	In EDIT MODE the pack sits in the plugin, waiting to be merged. During a
-	PLAYTEST the installer has copied it into the live TREK_SERVICES. Checking
+	In edit mode the pack sits in the plugin, waiting to be merged. During a
+	Playtest the installer has copied it into the live TREK_SERVICES. Checking
 	only one of them gives a confident answer that is wrong half the time.
 ]]
 local function findModules(): Instance?
@@ -202,8 +202,8 @@ end
 --[[
 	That folder used to be pure legacy. It is not any more: WeaponPosePriority
 	lives there, and without it every weapon sprint pose blends 50/50 with
-	TREK's global Run -- both sit at Movement priority -- and the weapon reads
-	as dropped while sprinting. So check the CONTENTS, not the folder.
+	TREK's global Run, both sit at Movement priority, and the weapon reads
+	as dropped while sprinting. So check the contents, not the folder.
 ]]
 local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
 local clientFolder = starter and starter:FindFirstChild("TREKBayonet")

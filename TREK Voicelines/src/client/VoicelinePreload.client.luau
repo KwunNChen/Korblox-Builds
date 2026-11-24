@@ -1,9 +1,9 @@
 --!strict
 -- Warms the audio cache so the first use of each clip is not a silent miss.
 --
--- This has to run on the CLIENT. VoicelineService builds the Sound on the server
+-- This has to run on the client. VoicelineService builds the Sound on the server
 -- and parents it to the speaker's head, so the instance replicates but the audio
--- data does not -- every listener fetches the asset themselves. Preloading on the
+-- data does not: every listener fetches the asset themselves. Preloading on the
 -- server would warm the server's cache, which nobody listens through.
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -15,7 +15,7 @@ local Config = require(ReplicatedStorage:WaitForChild("TREKVoicelines")
 -- One probe per unique id. The same clip listed under several events, or twice
 -- under one, is fetched once.
 --
--- Dedupe on the NORMALISED url, not the raw config entry: 3526632933 and
+-- Dedupe on the normalised url, not the raw config entry: 3526632933 and
 -- "rbxassetid://3526632933" are the same asset written two ways.
 local seen: { [string]: boolean } = {}
 local probes: { Sound } = {}
@@ -42,7 +42,7 @@ if #probes == 0 then
 end
 
 -- Backgrounded: PreloadAsync yields, and with a large library it yields for a
--- while. Nothing else waits on this -- an unwarmed clip still plays, just later.
+-- while. Nothing else waits on this: an unwarmed clip still plays, just later.
 task.spawn(function()
 	local ok, err = pcall(function()
 		ContentProvider:PreloadAsync(probes)

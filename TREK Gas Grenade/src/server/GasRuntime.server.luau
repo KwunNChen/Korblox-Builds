@@ -17,8 +17,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild inside a require chain does not fail -- it hangs
-	the module forever, and every module waiting on THIS one hangs with it.
+	An unbounded WaitForChild inside a require chain does not fail: it hangs
+	the module forever, and every module waiting on this one hangs with it.
 	Adding one new file to this chain once killed the entire service that way:
 	the grenade quietly stopped being held, with nothing in the output to say
 	why, because nothing had errored. It was still waiting.

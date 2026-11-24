@@ -2,7 +2,7 @@
 -- Every tunable for the skull death screen.
 --
 -- The sound id is mine. Roblox audio is private to the place that owns it, so
--- in your game it plays as silence and reports no error -- upload your own clip
+-- in your game it plays as silence and reports no error, upload your own clip
 -- and paste its id in. If it fails to load, the screen holds for
 -- FallbackDuration instead and warns in Output.
 

@@ -1,6 +1,6 @@
 -- Studio-only. Drops a working, correctly-tagged example door into Workspace
 -- so the system can be playtested before any real art exists. Never runs in
--- game -- call it from the Command Bar:
+-- game, call it from the Command Bar:
 --
 --   require(game.ServerStorage.KorbloxBlastDoor.Tools.BuildExampleDoor).build(workspace)
 

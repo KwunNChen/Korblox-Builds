@@ -1,19 +1,19 @@
 --[[
-	STRIP HEAD TRACK
+	STRIP head track
 
-	NOT a lune script. Select your R6 rig in the Explorer, then paste this whole
-	file into the Studio COMMAND BAR in EDIT MODE.
+	Not a lune script. Select your R6 rig in the Explorer, then paste this whole
+	file into the Studio command bar in edit mode.
 
 	Adapted from TREK Bayonet's tools/StripLegTracks.luau. Same machinery,
 	already pointed at the climb animation and set to remove the neck.
 
 	--------------------------------------------------------------------------
-	WHAT IT IS FOR
+	What it is for
 	--------------------------------------------------------------------------
 
 	A borrowed animation brings its own head movement. A ladder climb has the
 	head craning up at the rungs, which on a mantle reads as staring at the sky
-	while hauling yourself over a wall -- and the head is the first thing anyone
+	while hauling yourself over a wall, and the head is the first thing anyone
 	looks at, so one bad neck track spoils an otherwise usable pose.
 
 	An animation only drives the joints it actually keyframes, so deleting the
@@ -24,14 +24,14 @@
 	not the necessary one.
 
 	--------------------------------------------------------------------------
-	AFTERWARDS
+	Afterwards
 	--------------------------------------------------------------------------
 
 	Clip Editor -> ... -> Load -> MantlePull, check it, Publish to Roblox, then
-	put the new id into ParkourConfig.Animations.MantlePull -- in the file on
+	put the new id into ParkourConfig.Animations.MantlePull, in the file on
 	disk, not the Studio copy, or the next rojo sync overwrites it.
 
-	If it says "removed NOTHING", this animation has no Head pose and the head
+	If it says "removed nothing", this animation has no Head pose and the head
 	movement you are seeing comes from somewhere else. Use KeepHeadLevel instead.
 ]]
 
@@ -46,7 +46,7 @@ print("=== STRIP HEAD TRACK ===")
 print("source asset: " .. SOURCE_ID)
 
 --[[
-	The rig must be SELECTED. There is no fallback scan on purpose -- scanning
+	The rig must be selected. There is no fallback scan, scanning
 	for "a model with a Torso" picks a respawn dummy as often as the rig you are
 	working on, and silently acting on the wrong one is worse than refusing.
 ]]
@@ -87,9 +87,9 @@ for _, keyframe in ipairs(sequence:GetChildren()) do
 		if pose:IsA("Pose") then
 			if STRIP[pose.Name] then
 				--[[
-					Destroying a Pose takes its CHILDREN with it. On R6 the Head
+					Destroying a Pose takes its children with it. On R6 the Head
 					hangs off the Torso and is itself a leaf, so removing it is
-					safe -- but never put "Torso" in STRIP, or the arms and head
+					safe, but never put "Torso" in STRIP, or the arms and head
 					go with it.
 				]]
 				pose:Destroy()
@@ -109,7 +109,7 @@ table.sort(names)
 
 --[[
 	Saves live in ServerStorage.RBX_ANIMSAVES.<rig name> in this Studio version,
-	NOT in Rig > AnimSaves. Both are written here, because which one the Clip
+	Not in Rig > AnimSaves. Both are written here, because which one the Clip
 	Editor reads varies by version and an empty Load menu is almost always this.
 ]]
 local root = game:GetService("ServerStorage"):FindFirstChild("RBX_ANIMSAVES")

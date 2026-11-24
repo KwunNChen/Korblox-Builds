@@ -11,9 +11,10 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Dark Magic Soul") :: UnreliableRemoteEvent
 
--- the default PlayerModule reads keyboard, gamepad and touch alike
+-- the default PlayerModule reads keyboard, gamepad and touch alike. Some games replace it, so look
+-- for it in the background: waiting here would stall everything below (textures, shake, tendrils).
 local controls: any = nil
-pcall(function()
+task.spawn(pcall, function()
 	controls = (require :: any)(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")):GetControls()
 end)
 
@@ -91,11 +92,11 @@ end)
 local TweenService = game:GetService("TweenService")
 local fx = ReplicatedStorage:WaitForChild("Dark Magic FX") :: RemoteEvent
 
--- fetch the spell textures up front; otherwise the first chain or tendril anyone sees is a blank white strip
+-- fetch the spell textures up front; otherwise the first chain anyone sees is a blank white strip
 -- (keep in step with TEX_* in DarkMagic.server.luau)
 task.spawn(function()
 	local decals = {}
-	for _, id in { 128829109917714, 138082068081539, 121817789379823, 110818878717565, 109175035979792 } do
+	for _, id in { 128829109917714, 121817789379823, 110818878717565, 109175035979792 } do
 		local d = Instance.new("Decal")
 		d.Texture = "rbxassetid://" .. id
 		table.insert(decals, d)
@@ -141,4 +142,92 @@ fx.OnClientEvent:Connect(function(at: any, radius: any, strength: any, dark: any
 			TintColor = Color3.new(1, 1, 1),
 		}):Play()
 	end
+end)
+
+-- Shadow tendrils: the server sends (arm, target part, seconds held). Each arm throws one thick
+-- tendril and two thin ones: black tapering segments with a violet rim that whip out in an arc,
+-- writhe while held, then pull back into the hand. Drawn here so they move at frame rate.
+local tendrilRemote = ReplicatedStorage:WaitForChild("Dark Magic Tendril") :: RemoteEvent
+local SEGS = 16 -- fewer shows corners at the bends
+local OUT, BACK = 0.16, 0.22 -- seconds to lash out / pull back
+
+local function strand(model: Model, width: number): { BasePart }
+	local parts = {}
+	for i = 1, SEGS do
+		local p = Instance.new("Part")
+		p.Shape = Enum.PartType.Cylinder -- length runs along X
+		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = Color3.fromRGB(10, 0, 16)
+		local w = width * (1 - (i - 1) / SEGS * 0.8) -- tapers to a fifth at the tip
+		p.Size = Vector3.new(0.1, w, w)
+		p.Parent = model
+		parts[i] = p
+	end
+	return parts
+end
+
+tendrilRemote.OnClientEvent:Connect(function(arm: any, target: any, hold: any)
+	if not (typeof(arm) == "Instance" and arm:IsA("BasePart") and typeof(target) == "Instance" and target:IsA("BasePart")) then
+		return
+	end
+	local held = math.clamp(tonumber(hold) or 0.5, 0.1, 3)
+	local model = Instance.new("Model")
+	model.Name = "DarkMagicTendril"
+	local strands = { { parts = strand(model, 0.55), seed = math.random() * 100, amp = 1, aim = Vector3.zero } }
+	for _ = 1, 2 do
+		local aim = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 2.4
+		table.insert(strands, { parts = strand(model, 0.25), seed = math.random() * 100, amp = 1.7, aim = aim })
+	end
+	local rim = Instance.new("Highlight")
+	rim.FillTransparency = 1
+	rim.OutlineColor = Color3.fromRGB(150, 45, 230)
+	rim.OutlineTransparency = 0.25
+	rim.DepthMode = Enum.HighlightDepthMode.Occluded
+	rim.Parent = model
+	model.Parent = workspace
+
+	local t0 = os.clock()
+	local conn: RBXScriptConnection
+	conn = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - t0
+		if t > OUT + held + BACK or not (arm.Parent and target.Parent) then
+			conn:Disconnect()
+			model:Destroy()
+			return
+		end
+		local reach = if t < OUT then 1 - (1 - t / OUT) ^ 3
+			elseif t < OUT + held then 1
+			else 1 - ((t - OUT - held) / BACK) ^ 2
+		local a = (arm.CFrame * CFrame.new(0, -arm.Size.Y / 2, 0)).Position -- the fingertips
+		for _, s in strands do
+			local span = target.Position + s.aim - a
+			local len = span.Magnitude
+			if len < 0.1 then
+				continue
+			end
+			local dir = span / len
+			local side = dir:Cross(Vector3.yAxis)
+			side = if side.Magnitude > 0.01 then side.Unit else Vector3.xAxis
+			local up = side:Cross(dir)
+			local bend = math.min(len / 10, 1) -- short reaches writhe less
+			local prev = a
+			local cfs = table.create(SEGS)
+			for i, p in s.parts do
+				local u = i / SEGS * reach
+				local env = math.sin(math.pi * u) -- pinned at the hand and where it bites
+				local w1 = math.sin(u * 7 + t * 9 + s.seed) * 1.1 * s.amp
+				local w2 = math.cos(u * 5 - t * 7 + s.seed) * 0.8 * s.amp + 1.2 -- +1.2: lashes over in an arc
+				local pt = a + span * u + (side * w1 + up * w2) * env * bend
+				local seg = pt - prev
+				local l = seg.Magnitude
+				p.Size = Vector3.new(l + p.Size.Y * 0.8, p.Size.Y, p.Size.Z) -- overlap hides the joints
+				cfs[i] = if l > 1e-3
+					then CFrame.lookAt((prev + pt) / 2, pt) * CFrame.Angles(0, math.pi / 2, 0) -- X along the segment
+					else CFrame.new(pt)
+				prev = pt
+			end
+			workspace:BulkMoveTo(s.parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
+		end
+	end)
 end)

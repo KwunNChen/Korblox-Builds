@@ -1,17 +1,17 @@
 --[[
 
-TREK VOICELINES
+TREK voicelines
 
-WHAT THIS IS:
+What this is:
 	Plays a voice clip out of a character's head when something happens to them:
 	they reload, they get low, they get hit, they get a kill, they die, an
 	explosion goes off near them, they land or whiff a bayonet thrust, or their
 	side takes an objective.
 
-	It does NOT modify TREK. Nothing in your TREK install is edited, replaced or
+	It does not modify TREK. Nothing in your TREK install is edited, replaced or
 	patched. If you uninstall this folder, TREK is exactly as it was.
 
-INSTALLING:
+Installing:
 	Three folders, each named after the service it goes into.
 
 		ReplicatedStorage   ->  game.ReplicatedStorage
@@ -24,8 +24,8 @@ INSTALLING:
 	The StarterPlayerScripts half is the preloader. Skip it and everything still
 	works, but the first use of each clip may be late or silent.
 
-ADDING YOUR CLIPS:
-	It ships SILENT. Every sound list in VoicelineConfig is empty, and an event
+Adding your clips:
+	It ships silent. Every sound list in VoicelineConfig is empty, and an event
 	with no clips is skipped.
 
 	Roblox audio is private to whichever place owns it. An id copied out of
@@ -49,7 +49,7 @@ ADDING YOUR CLIPS:
 	It picks uniformly among every clip except the one it just played, so you
 	never hear the same line twice running and no clip is favoured over another.
 
-THE EVENTS:
+The events:
 	Reload      the player started reloading
 	LowAmmo     a magazine dropped to LowAmmoFraction or less while firing,
 	            empty included
@@ -61,7 +61,7 @@ THE EVENTS:
 	Death       died
 	PointTaken  a capture point changed hands (needs TObjectiveSystem)
 
-CROWD MIXING:
+Crowd mixing:
 	Without a limiter, twenty people pushing an objective produce twenty
 	simultaneous voices. A bark is dropped if CrowdLimit others already started
 	within CrowdWindow seconds and CrowdRadius studs of the speaker.
@@ -78,11 +78,11 @@ CROWD MIXING:
 
 		LowAmmo = { Priority = 3, Cooldown = 12, Chance = 0.85, SharesWith = "Reload" }
 
-TUNING:
+Tuning:
 	Every event has Priority, Cooldown and Chance in VoicelineConfig.
 
 	Priority decides who wins when two things happen at once. A line already
-	playing is only cut off by something STRICTLY higher, so Death always lands
+	playing is only cut off by something strictly higher, so Death always lands
 	and a reload never talks over a low-health call.
 
 	Cooldown is per-event, per-character. Chance is a 0-1 roll, and is there so

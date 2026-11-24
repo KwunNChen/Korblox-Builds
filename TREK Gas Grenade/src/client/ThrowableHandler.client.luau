@@ -1,10 +1,10 @@
 --[[
-	Throwable -- TREK tool handler
+	Throwable, TREK tool handler
 
 	TREK clones this LocalScript into the tool itself. `checkForGun` reads
 	ToolType off the config in GunConfigs, finds the matching child of
 	ServerStorage.TREKToolHandlers, and parents a copy inside the Tool. Only this
-	script is cloned -- not its siblings -- so anything it needs comes from
+	script is cloned, not its siblings, so anything it needs comes from
 	ReplicatedStorage or is written inline.
 
 	It decides nothing. Press and release are reported to the server, which owns
@@ -22,7 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild in a require chain does not fail, it hangs -- and
+	An unbounded WaitForChild in a require chain does not fail, it hangs, and
 	every module waiting on this one hangs with it, silently. Ten seconds is far
 	longer than replication ever needs and far shorter than a playtest, so a
 	missing file announces itself instead of stalling the package.
@@ -68,7 +68,7 @@ local arcParts: { BasePart } = {}
 	Where the player is aiming.
 
 	mouse.Hit is used in preference to the raw camera look vector because it
-	accounts for the offset between the camera and the character -- aiming at a
+	accounts for the offset between the camera and the character, aiming at a
 	doorway from behind cover otherwise throws the grenade at the wall the camera
 	is looking over.
 ]]
@@ -245,7 +245,7 @@ local throwing = false
 	throw leaks a track per press.
 
 	Built from an id rather than an Animation instance in an Animations folder,
-	which is TREK's convention -- so nothing raises its priority for us and it is
+	which is TREK's convention, so nothing raises its priority for us and it is
 	set here explicitly. See the note in GasConfig.
 ]]
 local function loadThrowTrack(): AnimationTrack?
@@ -275,7 +275,7 @@ local function loadThrowTrack(): AnimationTrack?
 
 		LoadAnimation hands back a track straight away, but the animation data
 		behind it is still being downloaded. Playing that track does nothing
-		visible until the download lands -- so a throw animation loaded at the
+		visible until the download lands, so a throw animation loaded at the
 		moment of the throw fires late, after the grenade has already left, which
 		looks like the animation is reacting to the throw rather than causing it.
 
@@ -340,7 +340,7 @@ local function releaseThrow()
 
 	--[[
 		Guarded because a Speed of zero would freeze the animation on its first
-		frame AND make the release delay infinite, so the grenade would never
+		frame and make the release delay infinite, so the grenade would never
 		leave at all.
 	]]
 	local speed = math.max(Config.Animation.Speed or 1, 0.01)
@@ -362,7 +362,7 @@ local function releaseThrow()
 		end)
 	end
 
-	-- Scaled by playback rate so the release tracks the same FRAME of the
+	-- Scaled by playback rate so the release tracks the same frame of the
 	-- animation rather than the same wall-clock delay.
 	local wait = (track and (Config.Animation.ReleaseDelay / speed)) or 0
 
@@ -397,8 +397,8 @@ local function onEquip()
 	--[[
 		Warm the animation on equip as well as at startup.
 
-		Startup can be too early -- the Animator may not exist yet when TREK
-		clones this handler into the tool -- and loadThrowTrack returns nil
+		Startup can be too early: the Animator may not exist yet when TREK
+		clones this handler into the tool, and loadThrowTrack returns nil
 		without latching in that case, so this is the retry. By the time anyone
 		can throw, the track is resident and plays on the frame it is asked to.
 	]]
@@ -422,7 +422,7 @@ local function onUnequip()
 		A throw in flight is allowed to finish.
 
 		Spending your last grenade destroys the Tool, and destroying a Tool fires
-		Unequipped -- so the unconditional Stop() here was cutting the throw
+		Unequipped, so the unconditional Stop() here was cutting the throw
 		animation off a fraction of a second after it started, every single time.
 		The track lives on the character's Animator rather than the tool, so it
 		plays out perfectly well once nothing stops it.
@@ -444,7 +444,7 @@ tool.Unequipped:Connect(onUnequip)
 --[[
 	Reload, through TREK's own remote.
 
-	The server handler for this -- handleReload in TREKServerGeneral -- is fully
+	The server handler for this, handleReload in TREKServerGeneral, is fully
 	generic: it resolves the tool's config, reads TAmmo, and moves rounds from
 	Stored into Ammo. It never asks whether the tool is a gun. So firing the
 	remote TREK already owns is all a throwable has to do to get reloading, and
@@ -483,9 +483,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		startCook()
 	elseif input.KeyCode == reloadKey() then
 		--[[
-			Deliberately allowed mid-cook. The fuse is already burning on the
+			Allowed mid-cook. The fuse is already burning on the
 			server and reloading does not touch it, so this tops up the reserve
-			without cancelling the throw -- which is the same thing pressing R
+			without cancelling the throw, which is the same thing pressing R
 			does on a gun mid-burst.
 		]]
 		requestReload()
@@ -498,7 +498,7 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 
 	--[[
-		The gameProcessed flag is deliberately not taken, let alone checked.
+		The gameProcessed flag is not taken, let alone checked.
 
 		A release swallowed by the UI would otherwise leave the player holding a
 		live grenade with no way to let go of it, which is a far worse outcome

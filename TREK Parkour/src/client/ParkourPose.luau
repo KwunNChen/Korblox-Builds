@@ -2,7 +2,7 @@
 --[[
 	Plays the configured animation for a move, if there is one.
 
-	An empty slot in ParkourConfig.Animations plays nothing at all -- the move
+	An empty slot in ParkourConfig.Animations plays nothing at all: the move
 	still happens, the body still travels the arc, you just do not get a pose for
 	it. That is the shipping state: the slots are empty until an animator fills
 	them, and the package is playable meanwhile.
@@ -81,7 +81,7 @@ local function trackFor(humanoid: Humanoid, slot: string): AnimationTrack?
 
 	--[[
 		Action2 sits above TREK's weapon, crouch and run tracks, which all load
-		at default priority, and deliberately below Action4 -- which is what the
+		at default priority, and below Action4, which is what the
 		place's tempclimb script uses. If that ever plays, it should win.
 	]]
 	track.Priority = Config.AnimationPriority
@@ -97,7 +97,7 @@ end
 	Without this, the first time you vault is the first time LoadAnimation is
 	called, and a track whose asset has not downloaded yet has a Length of 0 and
 	plays nothing. The symptom is a move that is posed every time except the
-	first -- which reads as "the animation sometimes doesn't load", because that
+	first, which reads as "the animation sometimes doesn't load", because that
 	is exactly what is happening.
 
 	Called off the critical path; PreloadAsync yields for as long as the network
@@ -124,7 +124,7 @@ end
 
 	This is what stops a 0.6s pull-up ending halfway through a 1.1s climb and
 	dropping the character back to idle while they are still being dragged up
-	the wall -- an animation that is "too short" for its move.
+	the wall: an animation that is "too short" for its move.
 
 	Turn MatchAnimationSpeed off if the animator's timing should win instead, and
 	tune VaultDuration / MantleDuration to match their tracks by hand.
@@ -158,7 +158,7 @@ function ParkourPose.play(humanoid: Humanoid, slot: string, window: number?)
 		The number that explains why a borrowed animation looks wrong.
 
 		Anything much above 1 is the track being rushed to fit its slice, and a
-		cyclic animation -- a ladder climb, a run -- turns into flailing well
+		cyclic animation, a ladder climb, a run, turns into flailing well
 		before 2. Either lengthen the move, turn MatchAnimationSpeed off and let
 		it be cut short instead, or accept that the animation is not built for
 		the window it is in.
@@ -184,7 +184,7 @@ function ParkourPose.stop(humanoid: Humanoid, slot: string)
 	end
 end
 
--- Used on teardown, where we do not know which slot was playing -- and after an
+-- Used on teardown, where we do not know which slot was playing, and after an
 -- abort, may not be the one we started.
 function ParkourPose.stopAll(humanoid: Humanoid)
 	local animator = animatorFor(humanoid)

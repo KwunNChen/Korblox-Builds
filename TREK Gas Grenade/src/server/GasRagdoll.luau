@@ -2,8 +2,8 @@
 	GasRagdoll
 	A living ragdoll: a limp, disarmed body on a character that is still alive.
 
-	It started as SkiRagdoll's wipeout -- R6 Motor6Ds swapped for
-	BallSocketConstraints, PlatformStand on the Humanoid -- and playtesting took
+	It started as SkiRagdoll's wipeout, R6 Motor6Ds swapped for
+	BallSocketConstraints, PlatformStand on the Humanoid, and playtesting took
 	it somewhere else, because a wipeout lasts two seconds and this lasts the
 	twelve it takes someone to die. Everything below that Ski does not do was
 	added to fix something that was actually happening on screen:
@@ -16,7 +16,7 @@
 	                        Climbing are how a held key re-enters from the far
 	                        end.
 	    network ownership   all of the above is the server asking politely. For
-	                        a player's own character the CLIENT owns the physics
+	                        a player's own character the client owns the physics
 	                        and runs its own state machine, so it is free to
 	                        overrule any of it on the next frame.
 	    full-body collision including the Head and Torso, which Ski omits. Ski
@@ -27,11 +27,11 @@
 	                        alive long enough to actually use it.
 
 	Every one of those is recorded before it is taken, so stop() can hand it all
-	back. Nothing calls stop() today -- there is no recovery from the gas -- but
+	back. Nothing calls stop() today, there is no recovery from the gas, but
 	start() should not be a one-way trapdoor, and a gas mask would need it.
 
 	R6 only. TREK is an R6 framework, the joints below are R6 names, and on an
-	R15 rig this finds nothing and leaves the character standing -- which is the
+	R15 rig this finds nothing and leaves the character standing, which is the
 	right failure, because a nerve agent that silently did nothing is better than
 	one that half-rigged a skeleton it did not understand.
 ]]
@@ -47,11 +47,11 @@ local JOINTS = { "Neck", "Right Shoulder", "Left Shoulder", "Right Hip", "Left H
 
 	These two were briefly excluded, on the theory that a colliding Torso was
 	what held a dosed body hovering at chest height. That was wrong. The hover
-	was the Humanoid still driving the character -- the same fault that let a
-	player jump through their own ragdoll and stay standing -- and it is fixed
+	was the Humanoid still driving the character: the same fault that let a
+	player jump through their own ragdoll and stay standing, and it is fixed
 	where it actually lives, by putting the Humanoid into Physics and taking
 	network ownership. With the Humanoid genuinely off the body, the Torso is
-	simply the part the chest is supposed to land on, and without it the trunk
+	the part the chest is supposed to land on, and without it the trunk
 	and head have nothing to rest on and sink through the floor.
 
 	SkiRagdoll omits both, which is what the earlier version copied. Ski gets
@@ -78,7 +78,7 @@ local TAG = "GasRagdoll"
 
 	GettingUp is the one that actually stands a ragdoll up. Jumping and Climbing
 	are here because a key held down at the moment of the dose would otherwise
-	re-enter the state machine from the other end -- which is the exact bug this
+	re-enter the state machine from the other end, which is the exact bug this
 	list was added for.
 
 	FallingDown and Ragdoll are Roblox's own half-ragdoll states; left enabled
@@ -121,7 +121,7 @@ local active: { [Model]: Session } =
 	Take their weapons off them, and keep them off.
 
 	A limp body holding a rifle level is the single thing that breaks the
-	illusion hardest -- worse than a stiff pose, because it reads as a player
+	illusion hardest, worse than a stiff pose, because it reads as a player
 	still playing. And on a nerve agent it is not only cosmetic: the victim is
 	alive for twelve seconds, and without this they can fight the whole way down.
 
@@ -136,7 +136,7 @@ local active: { [Model]: Session } =
 		                system, and anything forced directly into the character
 
 	The stash hangs off the Player rather than the character, because a character
-	is destroyed on respawn and stop() may need to give these back -- there is no
+	is destroyed on respawn and stop() may need to give these back: there is no
 	recovery from the gas today, but a gas mask would want one.
 ]]
 local function disarm(character: Model, humanoid: Humanoid): (Folder?, { RBXScriptConnection })
@@ -194,7 +194,7 @@ local function disarm(character: Model, humanoid: Humanoid): (Folder?, { RBXScri
 		The stash dies with them.
 
 		Left alone it would sit under the Player holding a duplicate loadout,
-		and respawning refills the Backpack from StarterPack regardless -- so
+		and respawning refills the Backpack from StarterPack regardless, so
 		keeping it past death only ever produces two of everything.
 	]]
 	table.insert(guards, humanoid.Died:Connect(function()
@@ -209,8 +209,8 @@ end
 --[[
 	Go limp.
 
-	Returns the parts worth shaking for a convulsion, which is NOT the same as
-	the set made collidable -- see COLLIDE and LIMBS above. The caller would
+	Returns the parts worth shaking for a convulsion, which is not the same as
+	the set made collidable. See COLLIDE and LIMBS above. The caller would
 	otherwise have to re-derive the list.
 ]]
 function GasRagdoll.start(character: Model): { BasePart }
@@ -302,11 +302,11 @@ function GasRagdoll.start(character: Model): { BasePart }
 	end
 
 	--[[
-		The invisible root does NOT collide.
+		The invisible root does not collide.
 
 		HumanoidRootPart is a 2x2x1 block sitting coincident with the Torso and
 		in the same assembly, so while both collide they rest at the same height
-		and it changes nothing -- until the body lands on an edge or a slope,
+		and it changes nothing, until the body lands on an edge or a slope,
 		where the floor is being held off by a box nobody can see and the pose
 		reads as subtly wrong with no visible reason.
 
@@ -333,7 +333,7 @@ function GasRagdoll.start(character: Model): { BasePart }
 		PlatformStand alone is not enough, and the way it fails is specific:
 		jump on the same frame as the dose and the Humanoid is already in
 		Jumping. It lands, runs Landed -> Running, and Running stands the body
-		back up -- so the victim finishes the jump on their feet with limp limbs
+		back up, so the victim finishes the jump on their feet with limp limbs
 		hanging off a torso the Humanoid is still driving. PlatformStand is a
 		property the state machine is free to walk out of; Physics is a state it
 		cannot leave on its own.
@@ -345,7 +345,7 @@ function GasRagdoll.start(character: Model): { BasePart }
 			SetStateEnabled   shuts the doors back to standing. GettingUp is
 			                  the one that matters; Jumping and Climbing stop a
 			                  held key starting the trip again
-			PlatformStand     still wanted -- it is what stops movement input
+			PlatformStand     still wanted: it is what stops movement input
 			                  being applied at all
 			Physics           the actual ragdoll state. Nothing simulates the
 			                  character but the solver
@@ -380,9 +380,9 @@ function GasRagdoll.start(character: Model): { BasePart }
 		Take the body off the player's machine.
 
 		Everything above is the server asking politely. For a player's own
-		character the CLIENT owns the physics and runs its own copy of the state
+		character the client owns the physics and runs its own copy of the state
 		machine, so a server-side ChangeState is a request the client is free to
-		overrule on the very next frame -- which is precisely what a jump does,
+		overrule on the very next frame, which is precisely what a jump does,
 		because the client is mid-jump and knows it.
 
 		Handing ownership to the server ends the argument. It is also the only
@@ -425,7 +425,7 @@ end
 --[[
 	Stand back up.
 
-	Nothing in the nerve agent calls this -- once dosed you do not recover -- but
+	Nothing in the nerve agent calls this, once dosed you do not recover, but
 	it exists so the ragdoll is a complete thing rather than a one-way trapdoor,
 	and so a future gas mask or medic could undo it.
 ]]
@@ -456,11 +456,11 @@ function GasRagdoll.stop(character: Model)
 	end
 
 	--[[
-		Drop the guards BEFORE returning the tools.
+		Drop the guards before returning the tools.
 
 		The backpack guard moves any Tool that lands in the Backpack into the
 		stash. Restore in the other order and every tool handed back is caught
-		and put straight where it came from -- a loop that terminates only
+		and put straight where it came from: a loop that terminates only
 		because it runs out of tools to move, leaving the player empty-handed
 		and nothing anywhere saying why.
 	]]
@@ -492,8 +492,8 @@ function GasRagdoll.stop(character: Model)
 	--[[
 		Hand back exactly what was taken, in the reverse order it was taken in.
 
-		The states are re-enabled BEFORE the state change, because ChangeState
-		into a disabled state does nothing at all -- restoring in the other
+		The states are re-enabled before the state change, because ChangeState
+		into a disabled state does nothing at all, restoring in the other
 		order leaves the character in Physics with no way out, which is a more
 		thorough version of the bug this whole block exists to fix.
 	]]

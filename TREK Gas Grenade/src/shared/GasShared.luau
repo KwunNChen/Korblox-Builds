@@ -47,7 +47,7 @@ end
 
 	Checking only for the tag's existence is not enough. Re-rigging a model that
 	was assembled against a different anchor would find the old weld, skip, and
-	leave the part joined to something that is itself joined to nothing -- which
+	leave the part joined to something that is itself joined to nothing, which
 	looks exactly like the rig working right up until it is unanchored.
 ]]
 local function weldTo(anchor: BasePart, part: BasePart)
@@ -114,7 +114,7 @@ end
 	rooted on its largest part.
 
 	Returns that root, which is what attachToHand joins to the hand. Nothing here
-	touches the character -- the two steps are separate so a tool can be rigged
+	touches the character: the two steps are separate so a tool can be rigged
 	before it is ever equipped.
 ]]
 function GasShared.prepareHeldRig(tool: Tool, modelName: string): BasePart?
@@ -131,13 +131,13 @@ function GasShared.prepareHeldRig(tool: Tool, modelName: string): BasePart?
 	model.PrimaryPart = root
 
 	--[[
-		No AnimPart, deliberately, and any left by an older build is removed.
+		No AnimPart, and any left by an older build is removed.
 
-		AnimPart is how TREK hangs a tool off the TORSO: checkForGun sees one and
+		AnimPart is how TREK hangs a tool off the torso: checkForGun sees one and
 		calls updateMotor, which points the character's toolAnim Motor6D at it.
 		That is right for a rifle, whose animations keyframe the AnimPart track
 		to carry it into the hands. The grenade has no idle animation, so the
-		same arrangement leaves it parked at a fixed spot beside the chest --
+		same arrangement leaves it parked at a fixed spot beside the chest,
 		attached, moving with the body, but never following the arm. It reads as
 		floating in mid air.
 
@@ -200,7 +200,7 @@ end
 	A Motor6D from the hand rather than a WeldConstraint, and from the hand
 	rather than the torso. The hand is what actually needs following: it swings
 	on every walk cycle and is thrown by the throw animation, and a grenade
-	joined to the torso simply does not do either -- which is the whole
+	joined to the torso does not do either, which is the whole
 	complaint. Motor6D specifically because a joint driven by C0 can be offset
 	and re-offset without rebuilding it, and because it is the same class Roblox's
 	own RightGrip uses for exactly this job.
@@ -209,7 +209,7 @@ end
 	not stack Motor6Ds on the arm.
 
 	Waits for the hand, because a tool can be equipped before the character has
-	finished assembling -- and a single failed check would leave the grenade
+	finished assembling, and a single failed check would leave the grenade
 	unanchored with nothing holding it, with no error anywhere.
 ]]
 function GasShared.attachToHand(character: Model, root: BasePart, gripOffset: CFrame?, timeout: number?): boolean
@@ -316,7 +316,7 @@ end
 	caught by a later explosion's damage sweep.
 
 	Bounded rather than an open WaitForChild. This is called from inside the
-	throw handler, and an infinite yield there would not fail loudly -- it would
+	throw handler, and an infinite yield there would not fail loudly: it would
 	hang that one throw forever while the rest of the game carried on.
 ]]
 function GasShared.ignoreList(): Instance

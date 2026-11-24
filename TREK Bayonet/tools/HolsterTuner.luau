@@ -1,10 +1,10 @@
 --[[
-	HOLSTER TUNER
+	Holster tuner
 
-	NOT a lune script. Paste it into the Studio COMMAND BAR during a PLAYTEST,
-	with the weapon UNEQUIPPED so the holster exists.
+	Not a lune script. Paste it into the Studio command bar during a playtest,
+	with the weapon unequipped so the holster exists.
 
-	Run it once as-is: it MEASURES the holster and prints where it currently
+	Run it once as-is: it measures the holster and prints where it currently
 	sits, in the same numbers you would edit. Nothing moves.
 
 	Then set APPLY = true, change the numbers, and run it again to move it.
@@ -55,8 +55,8 @@ end
 
 	ToObjectSpace gives the holster's transform in the torso's frame, and
 	ToOrientation pulls that apart into the X/Y/Z angles CFrame.Angles expects.
-	The LEAN is not separable from them -- it is folded into the orientation --
-	so what prints is the COMBINED rotation.
+	The LEAN is not separable from them: it is folded into the orientation,
+	so what prints is the combined rotation.
 ]]
 local current = torso.CFrame:ToObjectSpace(root.CFrame)
 local rx, ry, rz = current:ToOrientation()

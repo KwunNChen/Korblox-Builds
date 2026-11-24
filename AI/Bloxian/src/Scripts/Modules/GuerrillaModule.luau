@@ -32,6 +32,7 @@ local Players = game:GetService("Players")
 local modules = script.Parent
 local core = require(modules.CoreModule)
 local status = require(modules.Status)
+local speed = require(modules.SpeedModule)
 local movement = require(modules.MovementModule)
 local tactics = require(modules.TacticsModule)
 local squad = require(modules.SquadModule)
@@ -177,7 +178,7 @@ local function reset(reason)
 	if state then
 		log("guerrilla","off ("..tostring(reason)..")")
 		setStealth(false)
-		myHuman.WalkSpeed = 16
+		speed.set(16)
 	end
 	state = nil
 	quarry = nil
@@ -422,9 +423,9 @@ local function fadeSpot()
 end
 
 local function rushTo(pos)
-	myHuman.WalkSpeed = FADE_SPEED
+	speed.set(FADE_SPEED)
 	movement.goToPosition(pos,function() return myHuman.Health > 0 end,MOVE_TIMEOUT)
-	myHuman.WalkSpeed = 16
+	speed.set(16)
 end
 
 local function shotSince(time)
@@ -550,7 +551,7 @@ local function stalkCover(now)
 	if state == "stalk" and not closing and sof.observes(distance,sight) and not sof.engaged(quarry) then
 		log("guerrilla","eyes on, holding the observation post",3)
 		currentStep = nil
-		myHuman.WalkSpeed = 16
+		speed.set(16)
 		movement.stop()
 		status:set("proneUntil",now + OBSERVE_PRONE)
 		return
@@ -560,12 +561,12 @@ local function stalkCover(now)
 	if currentStep then
 		if flat(currentStep - myRoot.Position).Magnitude > 4 and now < stepUntil then
 			if diving then
-				myHuman.WalkSpeed = FADE_SPEED
+				speed.set(FADE_SPEED)
 			end
 			return
 		end
 		currentStep = nil
-		myHuman.WalkSpeed = 16
+		speed.set(16)
 		movement.stop()
 		nextPlan = now + COVER_HOLD_MIN + math.random()*(COVER_HOLD_MAX - COVER_HOLD_MIN)
 	end
@@ -589,7 +590,7 @@ local function stalkCover(now)
 		stepStarted = now
 		stepUntil = now + COVER_HOP_TIME
 		diving = exposed or breaking or closing
-		myHuman.WalkSpeed = diving and FADE_SPEED or 16
+		speed.set(diving and FADE_SPEED or 16)
 		movement.navigate(spot)
 	else
 		lastPlan = now + COVER_HOLD_MIN

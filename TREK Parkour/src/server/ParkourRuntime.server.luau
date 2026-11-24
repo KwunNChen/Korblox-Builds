@@ -3,7 +3,7 @@
 	The only Script in this package. Everything else is a module.
 
 	If this file is not in ServerScriptService, nothing runs. If it is somewhere
-	the server does not execute scripts -- ServerStorage, for instance -- nothing
+	the server does not execute scripts, ServerStorage, for instance, nothing
 	runs and nothing complains, which is the single most common bad install.
 ]]
 

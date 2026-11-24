@@ -7,6 +7,8 @@ local status = require(modules.Status)
 local core = require(modules.CoreModule)
 local radioNet = require(modules.RadioModule)
 local lines = require(modules.ChatterLines)
+--Special operations (SofModule calls useTactical) speak only ChatterSof's clipped lines, and make no small talk.
+local tactical = false
 local banter = require(modules.ChatterBanter)
 
 local marine = modules.Parent.Parent
@@ -129,14 +131,15 @@ end
 local bubble
 local bubbleLabel
 local bubbleToken = 0
-local function showBubble(text)
+--Studs a speech bubble shows from (a radio report carries further, RADIO_HEARING).
+local BUBBLE_DISTANCE = 80
+local function showBubble(text,maxDistance)
 	if not bubble then
 		bubble = Instance.new("BillboardGui")
 		bubble.Name = "Chatter"
 		bubble.Adornee = myHead
 		bubble.Size = UDim2.fromOffset(220,40)
 		bubble.StudsOffset = Vector3.new(0,2.6,0)
-		bubble.MaxDistance = 80
 		bubble.ResetOnSpawn = false
 		bubble.Enabled = false
 
@@ -164,6 +167,7 @@ local function showBubble(text)
 	end
 
 	bubbleLabel.Text = text
+	bubble.MaxDistance = maxDistance or BUBBLE_DISTANCE
 	bubble.Enabled = true
 
 	bubbleToken += 1
@@ -260,7 +264,7 @@ local function hear(kind,packet,rank)
 	if kind == "manDown" then
 		answer = pick(rank == 1 and lines.calls.manDown.any or lines.replies.manDown)
 	else
-		local pool = type(packet.entry) == "table" and packet.entry.replies
+		local pool = not tactical and type(packet.entry) == "table" and packet.entry.replies
 		if not pool or #pool == 0 then
 			pool = lines.replies[kind]
 			if kind == "spotted" and pool then
@@ -396,11 +400,10 @@ function chatter.radio(kind,target)
 	radioSound:Play()
 
 	lastSpoke = os.clock()
-	showBubble(fill(textOf(pick(lines.calls[kind].any)),ctx))
-	bubble.MaxDistance = RADIO_HEARING
+	showBubble(fill(textOf(pick(lines.calls[kind].any)),ctx),RADIO_HEARING)
 end
 
---He sees an enemy vehicle (part is the part he sees). hasAT: an AT team on
+--He sees an enemy vehicle (part is the part he sees). hasAT: an at team on
 --his side is near enough to come for it.
 function chatter.armor(part,hasAT)
 	local kind = hasAT and "armorAT" or "armor"
@@ -507,7 +510,7 @@ task.spawn(function()
 	while myHuman.Health > 0 and marine.Parent do
 		task.wait(IDLE_MIN + math.random()*(IDLE_MAX - IDLE_MIN))
 
-		if enabled() and isIdle() and not chatting then
+		if enabled() and not tactical and isIdle() and not chatting then
 			local nearby = nearbyAllies(BANTER_RANGE * 2)
 			local partner
 			for _,heard in ipairs(nearby) do
@@ -525,5 +528,10 @@ task.spawn(function()
 		end
 	end
 end)
+
+function chatter.useTactical()
+	tactical = true
+	lines = require(modules.ChatterSof)
+end
 
 return chatter

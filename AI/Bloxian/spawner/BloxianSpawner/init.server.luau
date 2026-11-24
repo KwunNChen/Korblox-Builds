@@ -2,9 +2,9 @@
 	Bloxian Spawner
 
 	Serves the "Bloxian Spawner" tool in StarterPack. Clicking the ground drops
-	in a unit cloned from ServerStorage.BLOXIAN, standing in a wedge facing
+	in a unit cloned from ServerStorage.bloxian, standing in a wedge facing
 	where the player looks. The tool's panel picks the unit (infantry, or a
-	sniper team or AT team), and for infantry the group size, weapon and radioman.
+	sniper team or at team), and for infantry the group size, weapon and radioman.
 	Its Kinetic Events tab calls artillery or an airstrike on the clicked spot.
 ]]
 
@@ -204,29 +204,29 @@ local function spawnGroup(player,position,look,options)
 	local joined = not roster and unitAt(position,options.team)
 	local unitId = joined and joined:GetAttribute("SquadId") or squadId
 	local unitSize = joined and joined:GetAttribute("SquadSize") + count or count
-	if joined then
-		for _,model in ipairs(CollectionService:GetTagged(TAG)) do
-			if model:GetAttribute("SquadId") == unitId then
-				model:SetAttribute("SquadSize",unitSize)
-			end
-		end
-	end
 	--Special operations are labelled from the start: four random digits.
 	local sofName = roster and roster.squad and string.format("%04d",math.random(0,9999))
 
-	--Each squad brings an AT team, at the back of the wedge, when there is room.
+	--Each squad brings an at team, at the back of the wedge, when there is room.
 	local atTeam = UNITS["AT team"]
 	local atTeamId = nil
-	local atLabel = nil
 	local rosterLabel = roster and not roster.squad and pairLabel(options.unit)
 	if isUnit and not roster and room - count >= #atTeam then
 		nextTeamId += 1
 		atTeamId = nextTeamId
-		atLabel = pairLabel("AT team")
 		for index,slot in ipairs(atTeam) do
 			local ground = groundInWedge(size + index)
 			if ground then
 				spots[#spots+1] = {index = index, ground = ground, slot = slot}
+				unitSize += 1
+			end
+		end
+	end
+
+	if joined then
+		for _,model in ipairs(CollectionService:GetTagged(TAG)) do
+			if model:GetAttribute("SquadId") == unitId then
+				model:SetAttribute("SquadSize",unitSize)
 			end
 		end
 	end
@@ -251,7 +251,8 @@ local function spawnGroup(player,position,look,options)
 				kit.setValue(settings,"UseVehicles","BoolValue",false)
 				if not (roster and roster.squad) then
 					soldier:SetAttribute("PairId",spot.slot and atTeamId or squadId)
-					soldier:SetAttribute("TeamLabel",spot.slot and atLabel or rosterLabel)
+					--A squad's at team is part of the squad: it shows on the squad's tag, not its own.
+				soldier:SetAttribute("TeamLabel",not spot.slot and rosterLabel or nil)
 					soldier:SetAttribute("AttachedTo",spot.slot and unitId or nil)
 				end
 			else
@@ -262,7 +263,7 @@ local function spawnGroup(player,position,look,options)
 		end
 		soldier:SetAttribute("SpawnedBy",player.UserId)
 		--Set before he goes in, so his respawn copy is in the same squad.
-		if (isUnit or joined) and not spot.slot then
+		if isUnit or joined then
 			soldier:SetAttribute("SquadId",unitId)
 			soldier:SetAttribute("SquadSize",unitSize)
 			if sofName then

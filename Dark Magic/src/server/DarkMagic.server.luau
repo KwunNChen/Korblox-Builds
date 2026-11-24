@@ -25,7 +25,7 @@ assert(remote)
 do
 	local soul = script:FindFirstChild("Dark Magic Soul")
 	if soul then
-		-- shortcut: players already in the server when this runs miss it; fine, scripts run before anyone joins
+		-- Anyone already in the server misses this, but scripts run before the first player joins.
 		soul.Parent = game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts")
 	end
 	local tool = script:FindFirstChildWhichIsA("Tool")
@@ -52,6 +52,10 @@ fxRemote.Parent = ReplicatedStorage
 local function rumble(at: Vector3, radius: number, shake: number, dark: number)
 	fxRemote:FireAllClients(at, radius, shake, dark)
 end
+-- Shadow tendrils are drawn by each client (Dark Magic Soul) so they writhe smoothly at frame rate.
+local tendrilRemote = Instance.new("RemoteEvent")
+tendrilRemote.Name = "Dark Magic Tendril"
+tendrilRemote.Parent = ReplicatedStorage
 
 -- The tool is recognised by this attribute, not its name, so it can be renamed freely.
 local TOOL_ATTRIBUTE = "DarkMagic"
@@ -97,8 +101,8 @@ local function resolveTemplate(id: number?, className: string, prop: string): st
 			tpl = (item :: any)[prop]
 		end
 		asset:Destroy()
+		templateCache[key] = tpl -- failures aren't cached, so junk IDs can't grow the cache
 	end
-	templateCache[key] = tpl
 	return tpl
 end
 
@@ -204,7 +208,6 @@ end
 -- ===== Beyond particles: marks on the ground, beams, shockwaves, afterimages =====
 -- Our own textures (vfx/make_textures.py), uploaded to the group.
 local TEX_CHAIN = "rbxassetid://128829109917714"
-local TEX_TENDRIL = "rbxassetid://138082068081539"
 local TEX_CRACKS = "rbxassetid://121817789379823"
 local TEX_RUNES = "rbxassetid://110818878717565"
 local TEX_RING = "rbxassetid://109175035979792"
@@ -254,9 +257,8 @@ local function shockwave(at: Vector3, radius: number, made: { Instance }, dome: 
 	end
 end
 
--- A beam between two attachments: "chain" (taut iron links) or "tendril" (writhing shadow).
--- It lashes out from nothing; `drop` shrinks it away again over `over` seconds.
-local function link(a0: Attachment, a1: Attachment, kind: string, made: { Instance }): (over: number) -> ()
+-- An iron chain between two attachments. It lashes out from nothing; `drop` shrinks it away over `over` seconds.
+local function link(a0: Attachment, a1: Attachment, made: { Instance }): (over: number) -> ()
 	local b = Instance.new("Beam")
 	b.Attachment0, b.Attachment1 = a0, a1
 	b.FaceCamera = true
@@ -264,15 +266,8 @@ local function link(a0: Attachment, a1: Attachment, kind: string, made: { Instan
 	b.Segments = 24
 	b.TextureMode = Enum.TextureMode.Wrap
 	b.Color = ColorSequence.new(Color3.new(1, 1, 1)) -- the texture carries the colour
-	local w0, w1
-	if kind == "chain" then
-		b.Texture, b.TextureLength = TEX_CHAIN, 2.6 -- one tile is two links: keeps the links round at this width
-		w0, w1 = 1.3, 1.3
-	else
-		b.Texture, b.TextureLength, b.TextureSpeed = TEX_TENDRIL, 6, 2.5
-		b.Transparency = ns({ { 0, 0.05 }, { 0.8, 0 }, { 1, 0.5 } })
-		w0, w1 = 1.8, 0.6 -- thick at the hand, thin where it bites
-	end
+	b.Texture, b.TextureLength = TEX_CHAIN, 2.6 -- one tile is two links: keeps the links round at this width
+	local w0, w1 = 1.3, 1.3
 	b.Width0, b.Width1 = 0, 0
 	b.Parent = a0
 	table.insert(made, b)
@@ -280,13 +275,7 @@ local function link(a0: Attachment, a1: Attachment, kind: string, made: { Instan
 	local t0, seed = os.clock(), math.random() * 100
 	local conn = RunService.Heartbeat:Connect(function()
 		local t = os.clock() - t0
-		if kind == "chain" then -- a taut chain only shudders
-			b.CurveSize0 = math.noise(t * 25, seed) * 0.4
-			b.CurveSize1 = 0
-		else -- a tendril writhes like something alive
-			b.CurveSize0 = math.sin(t * 9 + seed) * 2.2
-			b.CurveSize1 = math.cos(t * 7 + seed) * 1.6
-		end
+		b.CurveSize0 = math.noise(t * 25, seed) * 0.4 -- a taut chain only shudders
 	end)
 	b.Destroying:Connect(function()
 		conn:Disconnect()
@@ -1011,7 +1000,7 @@ local function melt(model: Model, hum: Humanoid, root: BasePart, made: { Instanc
 	end
 	light.Brightness = 14
 	skeletonize(model)
-	model:SetAttribute("MeltCorpse", true) -- RAISE can bring these bones back up
+	model:SetAttribute("MeltCorpse", true) -- Raise can bring these bones back up
 
 	task.wait(0.3)
 	-- burn out: flames die head to feet, the char fades off the bones, smoke lingers
@@ -1085,7 +1074,7 @@ local function alive(model: Instance?): (Humanoid?, BasePart?)
 end
 
 -- Kill someone so they ragdoll. Players already ragdoll through the place's RagdollDeath
--- script; NPCs (and skeletons) don't, so they get the same R6 ragdoll MELT uses.
+-- script; NPCs (and skeletons) don't, so they get the same R6 ragdoll melt uses.
 local function killRagdoll(hum: Humanoid, health: number?)
 	local model = hum.Parent
 	local lethal = (health or 0) <= 0
@@ -1181,7 +1170,7 @@ local function solidSpot(center: Vector3, radius: number, preferred: Vector3?): 
 end
 
 -- A dark hole in the ground: a pool of soot, a slow sigil turning the wrong way, and dark-violet
--- flame licking up out of it. RAISE climbs out of these; SHADOW STEP sinks into and out of them.
+-- flame licking up out of it. Raise climbs out of these; shadow step sinks into and out of them.
 local function hole(at: Vector3, size: number, made: { Instance }): { ParticleEmitter }
 	local p = anchorPart(CFrame.new(at + Vector3.new(0, 0.12, 0)), Vector3.new(size * 0.55, 0.2, size * 0.55), made)
 	groundMark(at, size * 1.5, TEX_CRACKS, made, 2.4) -- the ground splits open around it
@@ -1299,7 +1288,7 @@ type Minion = {
 	swipe: AnimationTrack,
 }
 local minions: { Minion } = {} -- oldest first
-local hexUntil: { [Humanoid]: number } = {} -- filled by HEX; skeletons go for these first
+local hexUntil: { [Humanoid]: number } = {} -- filled by hex; skeletons go for these first
 
 local function loadTrack(hum: Humanoid, id: string, looped: boolean, priority: Enum.AnimationPriority): AnimationTrack
 	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator")
@@ -1489,7 +1478,7 @@ local function summon(owner: Player, at: Vector3, face: Vector3, assigned: Model
 	end
 end
 
--- An old MELT skeleton sinks back into the ground and a minion climbs out in its place.
+-- An old melt skeleton sinks back into the ground and a minion climbs out in its place.
 local function raiseCorpse(owner: Player, corpse: Model, face: Vector3)
 	corpse:SetAttribute("MeltCorpse", nil) -- one raise per corpse
 	local torso = corpse:FindFirstChild("Torso") or corpse:FindFirstChildWhichIsA("BasePart")
@@ -1974,7 +1963,7 @@ end
 
 -- ===== Hex: a crown of purple flames; for 10 seconds every hit lands twice =====
 -- One flame per second left. Each second a flame snuffs out in a puff of smoke, so everyone can
--- read how long the curse has; the last three burn white-hot, and the final one collapses the
+-- read how long the curse has; the last three burn hottest, and the final one collapses the
 -- crown inward in a burst. Re-hexing relights the whole crown.
 
 local HEX_TIME = 10
@@ -2009,7 +1998,7 @@ local function hex(model: Model, hum: Humanoid)
 
 	local ok, err = pcall(function()
 		local COOL = cs({ { 0, WHITE_HOT }, { 0.2, MAGENTA }, { 1, PURPLE } })
-		local HOT = cs({ { 0, Color3.new(1, 1, 1) }, { 0.35, WHITE_HOT }, { 1, MAGENTA } })
+		local HOT = cs({ { 0, Color3.fromRGB(185, 90, 255) }, { 0.35, WHITE_HOT }, { 1, MAGENTA } }) -- hottest, still violet
 		local flames: { ParticleEmitter } = {}
 		local puffs: { ParticleEmitter } = {}
 		for i = 1, HEX_TIME do
@@ -2120,7 +2109,9 @@ local function hex(model: Model, hum: Humanoid)
 		TweenService:Create(light, TweenInfo.new(0.8), { Brightness = 0 }):Play()
 		task.wait(1)
 	end)
-	hexUntil[hum] = nil
+	if not ok then
+		hexUntil[hum] = nil -- normal ends clear it inside; clearing here too would cancel a re-hex cast during the fade-out
+	end
 	cleanup(made)
 	if not ok then
 		error(err, 0)
@@ -2182,6 +2173,41 @@ local function handFlame(at: Attachment, made: { Instance }, size: number)
 	-- no light: the caster isn't lit up purple when casting
 end
 
+-- Anticipation: dark motes sucked in from all around into the hand while it charges.
+-- Shape emission needs a part, so an invisible ball rides on the hand.
+local function gather(at: Attachment, made: { Instance }, size: number)
+	local arm = at.Parent :: BasePart
+	local radius = 2.2 * size
+	local ball = Instance.new("Part")
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.one * radius * 2
+	ball.Transparency = 1
+	ball.CanCollide, ball.CanQuery, ball.CanTouch, ball.Massless = false, false, false, true
+	ball.CFrame = at.WorldCFrame
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0, weld.Part1 = ball, arm
+	weld.Parent = ball
+	ball.Parent = arm
+	table.insert(made, ball)
+	local life = 0.35
+	emitter(ball, made, {
+		LightEmission = 0.6, -- has to read against a black outfit
+		Texture = SPARK_TEX,
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward,
+		LockedToPart = true, -- the hand drags the whole swirl with it
+		Orientation = Enum.ParticleOrientation.VelocityParallel, -- streaks pointing at the palm
+		Rate = 40 * size,
+		Lifetime = NumberRange.new(life),
+		Speed = NumberRange.new(radius / life), -- they reach the palm as they die
+		Size = ns({ { 0, 0.15 }, { 1, 0.45 * size } }),
+		Transparency = ns({ { 0, 1 }, { 0.25, 0 }, { 1, 0.3 } }),
+		Color = cs({ { 0, MAGENTA }, { 1, WHITE_HOT } }),
+		Brightness = 3,
+	})
+end
+
 local lastHandFx: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 -- Lights the spell's hands for its window, then flings a spark burst off them and lets the fire die.
@@ -2194,6 +2220,15 @@ local function handEffect(char: Model, mode: string)
 	lastHandFx[char] = now
 	task.spawn(function()
 		local made: { Instance } = {}
+		-- anticipation: motes pour into the hands from the click until the release frame
+		local charge: { Instance } = {}
+		for _, arm in fx[1] do
+			local at = handAt(char, arm, charge)
+			if at then
+				gather(at, charge, fx[4])
+			end
+		end
+		task.delay(CAST_DELAY[mode], disableAll, charge)
 		task.wait(fx[2])
 		local hands = {}
 		for _, arm in fx[1] do
@@ -2219,23 +2254,58 @@ local function handEffect(char: Model, mode: string)
 		disableAll(made)
 		task.wait(1.4) -- the last wisps drift off
 		cleanup(made)
+		cleanup(charge)
 	end)
 end
 
--- At the release frame something lashes from the caster's hands into the target and holds while
--- the hands do: shadow tendrils, or for SOUL RIP a chain hooked into their chest until the soul tears.
--- kind, seconds held
-local LINK: { [string]: { any } } = {
-	uniform = { "tendril", 0.45 },
-	melt = { "tendril", 0.9 },
-	hex = { "tendril", 0.5 },
-	rip = { "chain", 0.3 },
-}
+-- At the release frame something lashes from the caster's hands into the target's chest and holds
+-- while the hands do: shadow tendrils, or for soul rip a chain that snaps as the soul tears. Seconds held:
+local LINK: { [string]: number } = { melt = 0.9, hex = 0.5, rip = 0.3 } -- uniform: no tendrils, the fire is hurled
 
 local function castLink(char: Model, target: Model, mode: string)
-	local spec = LINK[mode]
+	local hold = LINK[mode]
 	local torso = target:FindFirstChild("Torso") or target:FindFirstChild("UpperTorso") or target:FindFirstChild("HumanoidRootPart")
-	if not (spec and HAND_FX[mode] and torso and torso:IsA("BasePart")) then
+	if not (hold and HAND_FX[mode] and torso and torso:IsA("BasePart")) then
+		return
+	end
+	if mode ~= "rip" then
+		for _, arm in HAND_FX[mode][1] do
+			local part = char:FindFirstChild(arm)
+			if part and part:IsA("BasePart") then
+				tendrilRemote:FireAllClients(part, torso, hold)
+			end
+		end
+		-- impact: the tendrils bite (0.16 s = out in SoulControl) with a burst of soot and embers
+		task.delay(0.16, function()
+			if not torso.Parent then
+				return
+			end
+			local made: { Instance } = {}
+			burst(torso, made, {
+				Texture = SMOKE_TEX,
+				LightEmission = 0,
+				Color = cs({ { 0, DEEP }, { 1, SOOT } }),
+				Lifetime = NumberRange.new(0.4, 0.7),
+				Speed = NumberRange.new(4, 8),
+				SpreadAngle = Vector2.new(180, 180),
+				Drag = 5,
+				Size = ns({ { 0, 0.8 }, { 1, 2.2 } }),
+				Transparency = ns({ { 0, 0.3 }, { 1, 1 } }),
+				RotSpeed = NumberRange.new(-60, 60),
+			}, 10)
+			burst(torso, made, {
+				Texture = SPARK_TEX,
+				Color = cs({ { 0, WHITE_HOT }, { 1, MAGENTA } }),
+				Lifetime = NumberRange.new(0.25, 0.4),
+				Speed = NumberRange.new(7, 12),
+				SpreadAngle = Vector2.new(180, 180),
+				Drag = 4,
+				Size = ns({ { 0, 0.3 }, { 1, 0 } }),
+				Brightness = 4,
+			}, 10)
+			task.wait(0.8)
+			cleanup(made)
+		end)
 		return
 	end
 	task.spawn(function()
@@ -2247,14 +2317,14 @@ local function castLink(char: Model, target: Model, mode: string)
 		for _, arm in HAND_FX[mode][1] do
 			local at = char.Parent and handAt(char, arm, made)
 			if at then
-				table.insert(drops, link(at, bite, spec[1], made))
+				table.insert(drops, link(at, bite, made))
 			end
 		end
-		task.wait(spec[2])
+		task.wait(hold)
 		for _, drop in drops do
 			drop(0.15)
 		end
-		if spec[1] == "chain" then -- it snaps as the soul tears free
+		do -- the chain snaps
 			burst(bite, made, {
 				Texture = SPARK_TEX,
 				Color = cs({ { 0, WHITE_HOT }, { 1, MAGENTA } }),
@@ -2275,9 +2345,13 @@ end
 
 -- FireServer(mode, target, shirtId?, pantsId?)
 --   mode = "uniform" | "melt" | "rip" | "step" | "hex", target = one character
---   mode = "raise", target = a list of characters / MELT corpses (empty = bodyguards)
+--   mode = "raise", target = a list of characters / melt corpses (empty = bodyguards)
 local MODES = { uniform = true, melt = true, raise = true, rip = true, step = true, hex = true }
 local lastRaise: { [Player]: number } = {}
+local lastDownload: { [Player]: number } = {}
+Players.PlayerRemoving:Connect(function(p)
+	lastDownload[p] = nil
+end)
 
 local function raiseCommand(player: Player, myRoot: BasePart, targets: any)
 	if typeof(targets) ~= "table" then
@@ -2414,6 +2488,14 @@ remote.OnServerEvent:Connect(function(player, mode: any, target: any, shirtId: a
 		local sId, pId = validId(shirtId), validId(pantsId)
 		if not (sId or pId) then
 			return
+		end
+		-- one asset download per caster per second; IDs already cached (same uniform on many targets) are free
+		if (sId and not templateCache["Shirt" .. sId]) or (pId and not templateCache["Pants" .. pId]) then
+			local now = os.clock()
+			if now - (lastDownload[player] or 0) < 1 then
+				return
+			end
+			lastDownload[player] = now
 		end
 		run = function()
 			play(

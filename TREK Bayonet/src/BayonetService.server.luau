@@ -2,8 +2,8 @@
 --[[
 	The authoritative half of the bayonet.
 
-	Everything that decides the OUTCOME -- who is in front of you, team, health,
-	forcefields, how hard it hits -- is decided here, from instances the server
+	Everything that decides the outcome, who is in front of you, team, health,
+	forcefields, how hard it hits, is decided here, from instances the server
 	owns. The client sends nothing: the hitbox is the bayonet part itself, welded
 	to the character, so the server sweeps the real blade through space as the
 	thrust plays and asks what it overlapped.
@@ -33,15 +33,15 @@ local Config = require(package:WaitForChild("BayonetConfig"))
 local Geometry = require(package:WaitForChild("BayonetGeometry"))
 
 -- TREK's own damage module: setDamage applies falloff, the headshot multiplier
--- and armour resistance; DamagePlayer does the TakeDamage and -- the part that
--- matters -- lbmodule.tagPlr, which is the WeaponTag the kill feed reads.
+-- and armour resistance; DamagePlayer does the TakeDamage and: the part that
+-- matters, lbmodule.tagPlr, which is the WeaponTag the kill feed reads.
 local damagemodule = require(ServerStorage:WaitForChild("TREKDamageModule"))
 
 --[[
 	TREK's own effects, for the hitmarker.
 
 	Drawing a GUI effect from the server looks wrong until you notice TREK
-	already does it: TREKExplosionModule -- a ServerStorage module -- ends its
+	already does it: TREKExplosionModule, a ServerStorage module, ends its
 	damage path with
 
 		effects.Hitmark.DrawEffect(player, 'plr')
@@ -61,14 +61,14 @@ stabRemote.Name = "BayonetStab"
 stabRemote.Parent = package
 
 --[[
-	Outcome of an ACCEPTED thrust, as (attacker: Player, contact: boolean).
+	Outcome of an accepted thrust, as (attacker: Player, contact: boolean).
 
 	A BindableEvent, not a RemoteEvent: this is for other server code, and there
 	is nothing here a client needs or should be told. Firing it costs nothing when
 	nobody is listening.
 
 	It exists because the outcome is knowable only in here. BayonetStab is a
-	request -- it arrives before the rate limit, the equipment checks and the
+	request: it arrives before the rate limit, the equipment checks and the
 	sweep have run, so a listener on it cannot tell a hit from a miss, or either
 	from a thrust that was refused outright. TREK Voicelines uses this to pick
 	between its hit and miss barks.
@@ -84,7 +84,7 @@ outcomeEvent.Parent = package
 local lastStab: { [Player]: number } = {}
 
 -- How far past the hitbox to look when gathering candidates. Nothing here can
--- cause a hit -- it only widens what a MISS is able to tell you about, so the
+-- cause a hit: it only widens what a miss is able to tell you about, so the
 -- report can say "they were 0.8 studs outside" instead of "nothing found".
 local REPORT_MARGIN = 6
 
@@ -99,7 +99,7 @@ end
 
 	Reimplemented rather than called: TREK's CheckIfDamageAllowed is a local
 	inside TREKServerDamage and is not exported. Same rules, with two
-	differences that are corrections rather than drift -- TREK's version returns
+	differences that are corrections rather than drift, TREK's version returns
 	true when player == target (self damage), which cannot be what a bayonet
 	wants, and a victim with no Player at all is an NPC, which is always fair
 	game.
@@ -124,27 +124,27 @@ end
 --[[
 	Every character whose parts are in the box, plus every player.
 
-	Discovery is by spatial query and then walking UP to the owning character.
+	Discovery is by spatial query and then walking up to the owning character.
 	An earlier version of this function tried to be clever and enumerate
-	characters directly -- workspace's children, one level into Folders -- on the
+	characters directly, workspace's children, one level into Folders, on the
 	theory that a short deterministic list beats a query. It found nothing at
 	all: the NPC being stabbed was nested deeper than the scan looked, and the
 	report said "no living character within 20 studs" while the blade was inside
 	its chest.
 
-	The lesson is that HIERARCHY DEPTH IS A MODELLING CHOICE. An NPC may sit
+	The lesson is that hierarchy depth is a modelling choice. An NPC may sit
 	directly in workspace, in a Folder, or inside a Model grouping a whole squad,
 	and none of that should decide whether it can be stabbed. Only a query knows
 	where the parts really are.
 
-	What the query does not decide is whether a hit landed -- that is still an
+	What the query does not decide is whether a hit landed, that is still an
 	explicit box test on each candidate's parts, so crowding can cost discovery
 	but never accuracy, and MaxParts is set high to make even that unlikely.
 
 	Returns the characters found, and one part that is in the box but belongs to
 	no Humanoid, which the miss report uses to say "you stabbed a prop".
 
-	NPCs count deliberately. This is also why none of this goes through
+	NPCs count. This is also why none of this goes through
 	shared.S.trekFuncs.findPlrAndChar, which bails the moment the owning model
 	has no Player:
 
@@ -164,7 +164,7 @@ local function nearbyCharacters(
 ): BasePart?
 	-- The caller owns these two tables and reuses them across every sample of a
 	-- stab. Clearing beats reallocating eleven times, and the OverlapParams is
-	-- built once per stab for the same reason -- its filter never changes.
+	-- built once per stab for the same reason: its filter never changes.
 	table.clear(found)
 	table.clear(seen)
 	seen[attackerChar] = true
@@ -223,7 +223,7 @@ end
 	Sweep the blade and return the first thing it goes into.
 
 	This is the whole hit detection. There is no projected box and no
-	reconstruction of where the attacker was -- the bayonet is welded to the
+	reconstruction of where the attacker was: the bayonet is welded to the
 	character, so the server already knows where it is, and asking what overlaps
 	it is both simpler and unspoofable.
 
@@ -252,13 +252,13 @@ local function sweepForTarget(
 	local samples = 0
 
 	--[[
-		Collected ONCE, here, rather than on each of the eleven samples.
+		Collected once, here, rather than on each of the eleven samples.
 
 		Walking descendants is the most expensive thing this does, and the
 		blade's pieces do not change during the third of a second a thrust
 		lasts. The same applies to each character's limbs, cached below as they
 		are first encountered. A limb destroyed mid-sweep by handleGibs drops
-		out on its own -- deepestFromParts skips parts that have been unparented.
+		out on its own, deepestFromParts skips parts that have been unparented.
 	]]
 	local bladeParts = Geometry.collectParts(blade)
 
@@ -299,8 +299,8 @@ local function sweepForTarget(
 	--[[
 		How far past the hitbox to look for candidates.
 
-		Only with Debug on. The margin exists so a MISS can name who was
-		standing there and how far outside they were -- and it costs a great
+		Only with Debug on. The margin exists so a miss can name who was
+		standing there and how far outside they were, and it costs a great
 		deal: six studs on every axis turns a box of roughly 4.5 x 5.5 x 5.6
 		into 16.5 x 17.5 x 17.6, which is about thirty-six times the volume for
 		the engine to search, eleven times a stab.
@@ -325,23 +325,23 @@ local function sweepForTarget(
 		samples += 1
 
 		--[[
-			ONE measurement of the blade per sample, not two.
+			One measurement of the blade per sample, not two.
 
 			The frame is anchored at the attacker's root rather than at the
 			blade, which is what makes that possible: the blade's position is no
 			longer needed to build the frame it is measured in, so the world
 			centre falls out of the result instead of costing a second pass.
-			Only the frame's ROTATION matters to the hit test, and the root
+			Only the frame's rotation matters to the hit test, and the root
 			supplies that.
 
 			Written out longhand, and not for style. This was
 
 				local centre, half = frame and Geometry.bladeBox(blade, frame)
 
-			which is silently wrong: `x and f()` is adjusted to ONE value, so
+			which is silently wrong: `x and f()` is adjusted to one value, so
 			`half` was always nil, the guard below it never passed, and no box
 			was ever built. Every stab reported an empty box because there was
-			no box -- not because nothing was in it.
+			no box, not because nothing was in it.
 
 			Proven, not guessed: `local c, d = true and two()` gives d = nil.
 		]]
@@ -368,9 +368,9 @@ local function sweepForTarget(
 
 			lastQueryCF, lastQuerySize = frame * CFrame.new(centre), (box + margin) * 2
 
-			-- Called unconditionally, THEN folded into nearestOrphan. Writing it
+			-- Called unconditionally, then folded into nearestOrphan. Writing it
 			-- as `nearestOrphan = nearestOrphan or nearbyCharacters(...)` skips
-			-- the call outright once an orphan has been seen -- which would stop
+			-- the call outright once an orphan has been seen, which would stop
 			-- gathering candidates for the rest of the sweep.
 			local orphan = nearbyCharacters(attackerChar, lastQueryCF, lastQuerySize, params, candidates, seen)
 			nearestOrphan = nearestOrphan or orphan
@@ -406,7 +406,7 @@ local function sweepForTarget(
 						"%s: hit %s in the %s on sample %d",
 						attacker.Name, character.Name, bestPart.Name, samples
 					))
-					-- The blade's position AT THE MOMENT OF CONTACT, handed back
+					-- The blade's position at the moment of contact, handed back
 					-- so the damage origin is where the blade actually was
 					-- rather than wherever it has swung on to since.
 					return character, candidate.humanoid, bestPart, worldCentre
@@ -437,7 +437,7 @@ local function sweepForTarget(
 		completely different faults that look identical in game. If the blade
 		moved a stud or more, the server watched a real thrust and the box was
 		genuinely short. If it moved almost nothing, the server never saw the
-		thrust animate at all -- and no amount of padding is the fix for that.
+		thrust animate at all, and no amount of padding is the fix for that.
 	]]
 	if not Config.Debug then
 		return nil, nil, nil
@@ -525,8 +525,8 @@ end
 
 	All of these used to return silently, which is why "it rarely hits" was
 	impossible to act on: a stab refused here and a stab that swept and found
-	nothing produced exactly the same thing in game -- an animation and no
-	damage -- and exactly the same thing in the log, which was nothing.
+	nothing produced exactly the same thing in game: an animation and no
+	damage, and exactly the same thing in the log, which was nothing.
 
 	They are worth telling apart. A refusal means the weapon or the character
 	was not in the state this expects; a miss means the geometry was short. The
@@ -536,10 +536,10 @@ local function onStab(attacker: Player)
 	local now = os.clock()
 
 	--[[
-		The rate limit is NOT first any more, and that is deliberate.
+		The rate limit is not first any more, and that is deliberate.
 
-		It is derived from the weapon's own RoundsPerMinute -- the same number
-		the gun handler paces swings with -- so there is one figure to tune and
+		It is derived from the weapon's own RoundsPerMinute: the same number
+		the gun handler paces swings with, so there is one figure to tune and
 		no second one here to drift from it. That number lives in the [2] block,
 		which means the tool and its config have to be resolved before the limit
 		can be known.
@@ -652,13 +652,13 @@ local function onStab(attacker: Player)
 		Report the outcome exactly once per thrust.
 
 		A hit is knowable the instant the blade connects, and is reported then. A
-		miss is only PROVABLE once the whole sweep has run -- but waiting that long
+		miss is only provable once the whole sweep has run, but waiting that long
 		to say so puts the miss well after the swing it belongs to, so an
 		unresolved thrust is called a miss at MissAnnounceAfter instead.
 
 		Once, and only once. If a contact turns up after that early call, the
 		announcement stands: saying "miss" and then "hit" for one thrust is worse
-		than being wrong quietly. Damage is entirely unaffected either way -- this
+		than being wrong quietly. Damage is entirely unaffected either way: this
 		governs what listeners are told, never what the sweep does.
 	]]
 	local announced = false
@@ -685,7 +685,7 @@ local function onStab(attacker: Player)
 
 	local targetChar, _targetHum, targetPart, hitCentre = sweepForTarget(attacker, character, root, blade, cfg)
 
-	-- Contact is "the sweep found a humanoid". Deliberately reported before
+	-- Contact is "the sweep found a humanoid". Reported before
 	-- setDamage: a hit that armour reduces to zero still made contact, and the
 	-- swing still looked like a hit to both players.
 	local contact = targetChar ~= nil and targetPart ~= nil
@@ -744,10 +744,10 @@ local function onStab(attacker: Player)
 		A player who somehow has no GunHud would otherwise hang this handler
 		forever, and it would take the next stab's rate-limit slot with it. A
 		cosmetic effect must never be able to stall the thing that does the
-		damage -- so the damage is already applied by the time we get here.
+		damage, so the damage is already applied by the time we get here.
 
 		'plr' is the red marker. 'armr' is the blue one, for THealth props and
-		vehicles, which the bayonet deliberately cannot damage.
+		vehicles, which the bayonet cannot damage.
 	]]
 	task.spawn(function()
 		local ok, err = pcall(effects.Hitmark.DrawEffect, attacker, "plr")
@@ -767,13 +767,13 @@ end)
 	Below one sample interval, the announcement can only ever beat the blade.
 
 	Not quite as total as it sounds, and the reason is worth stating because it is
-	what makes very low values usable at all: the sweep's FIRST sample runs
+	what makes very low values usable at all: the sweep's first sample runs
 	synchronously, before the loop's first task.wait, so a contact found on sample
 	one is reported as a hit no matter how small this is. task.delay cannot fire
 	until the thread yields, and by then sample one has already returned.
 
-	So the real effect is: point-blank stabs -- the ones already overlapping before
-	the blade moves -- still say hit. Anything the blade has to TRAVEL to reach is
+	So the real effect is: point-blank stabs: the ones already overlapping before
+	the blade moves, still say hit. Anything the blade has to travel to reach is
 	resolved on a later sample and will say miss. Damage is unaffected either way.
 
 	That is a legitimate setting if your stabs are point-blank by nature. It is

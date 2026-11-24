@@ -12,7 +12,7 @@
 		- Builds a "Gas Grenade" Tool around the inactive model, welded into one
 		  body, and leaves it in StarterPack
 
-	It deliberately does NOT create an AnimPart. That part is how TREK hangs a
+	It does not create an AnimPart. That part is how TREK hangs a
 	tool off the torso, which is right for a rifle and wrong for a grenade: with
 	no idle animation to carry it into the hands, a torso-joined grenade hovers
 	at a fixed spot beside the chest. GasService joins it to the right hand at
@@ -23,7 +23,7 @@
 	re-export. Running this means you can see the result in Studio instead of
 	taking it on faith, and it gives you the Tool.
 
-	Self-contained on purpose -- it must work before Rojo has synced anything.
+	Self-contained: it must work before Rojo has synced anything.
 ]]
 
 local ServerStorage = game:GetService("ServerStorage")
@@ -33,7 +33,7 @@ local TOOL_NAME = "Gas Grenade"
 
 --[[
 	Must match GasConfig.Models. Restated rather than required because this runs
-	before Rojo has synced anything -- which is the whole point of the script.
+	before Rojo has synced anything, which is why the script exists.
 
 	Both naming the same model is normal: the grenade then looks identical in
 	the hand and in the air. The two rigs still differ, because held and thrown
@@ -107,9 +107,9 @@ local function prepareThrownRig(model)
 end
 
 --[[
-	The held model: one welded body, and deliberately NO AnimPart.
+	The held model: one welded body, and no AnimPart.
 
-	AnimPart is how TREK hangs a tool off the torso -- checkForGun sees one and
+	AnimPart is how TREK hangs a tool off the torso, checkForGun sees one and
 	points the character's toolAnim Motor6D at it. Right for a rifle, whose
 	animations carry it into the hands; wrong for a grenade with no idle pose,
 	which then hovers at a fixed spot beside the chest instead of following the
@@ -234,7 +234,7 @@ tool.CanBeDropped = false
 	Keeps TREK Bayonet's HolsterService from slinging it across the back.
 
 	That service treats any Tool with an AnimPart as a rifle. This tool has none,
-	so it is already excluded -- but the attribute states the intent outright and
+	so it is already excluded, but the attribute states the intent outright and
 	survives anyone adding an AnimPart later. Baked in here as well as set at
 	runtime so the tool is correct the moment it exists in the place.
 ]]

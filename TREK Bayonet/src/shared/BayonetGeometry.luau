@@ -4,7 +4,7 @@
 
 	Split out of BayonetService for one reason: so it can be run outside Roblox.
 	Every hit-detection fault in this system so far has been in these few
-	functions, and each one cost a Studio playtest to find -- including a
+	functions, and each one cost a Studio playtest to find, including a
 	`local centre, half = frame and bladeBox(...)` that silently truncated to one
 	value and made every stab miss. That is a ten-line test to catch and was
 	instead found by a player wondering why a blade through someone's chest did
@@ -65,12 +65,12 @@ end
 --[[
 	Every BasePart under an instance, with each one's bounding-sphere radius.
 
-	Gathered ONCE per stab and reused across all eleven samples. Walking an
+	Gathered once per stab and reused across all eleven samples. Walking an
 	instance's descendants is the single most expensive thing this module does,
 	and neither the blade's pieces nor a character's limbs change during the
 	third of a second a thrust lasts.
 
-	The radii are cached because they never change either -- a part's Size is
+	The radii are cached because they never change either: a part's Size is
 	fixed, so the sqrt behind Size.Magnitude is worth paying once rather than
 	once per part per sample.
 
@@ -78,7 +78,7 @@ end
 	limbs are collected: handleGibs destroys the part it is given, and that must
 	never be someone's rifle.
 
-	RETURNS TWO PARALLEL ARRAYS, parts and radii, indexed together.
+	Returns two parallel arrays, parts and radii, indexed together.
 ]]
 function Geometry.collectParts(instance: Instance, skipTools: boolean?): ({ BasePart }, { number })
 	local parts: { BasePart } = {}
@@ -108,7 +108,7 @@ end
 --[[
 	The box around a set of parts, expressed in `frame`.
 
-	RETURNS TWO VALUES, centre and half extents, or nil, nil when there are no
+	Returns two values, centre and half extents, or nil, nil when there are no
 	parts. Both of those matter to callers: a caller that drops the second value
 	gets a box with no size and silently stops hitting anything, which is
 	exactly the bug this module exists to prevent.
@@ -138,7 +138,7 @@ function Geometry.boxFromParts(parts: { BasePart }, frame: CFrame): (Vector3?, V
 end
 
 -- Convenience wrapper: collect and measure in one call. The service does not
--- use this in its sweep -- it collects once and calls boxFromParts per sample.
+-- use this in its sweep: it collects once and calls boxFromParts per sample.
 function Geometry.bladeBox(blade: Instance, frame: CFrame): (Vector3?, Vector3?)
 	local parts = Geometry.collectParts(blade)
 	return Geometry.boxFromParts(parts, frame)
@@ -155,7 +155,7 @@ end
 	How far apart two boxes are, in studs, in a frame they share.
 
 	Zero or less means they overlap, and the more negative the deeper. Positive
-	is the gap on the axis furthest from touching -- which is the number worth
+	is the gap on the axis furthest from touching, which is the number worth
 	printing on a miss, because it says exactly how much padding the stab was
 	short by.
 ]]
@@ -179,10 +179,10 @@ end
 	Takes the cached arrays from collectParts rather than a character, so the
 	descendant walk happens once per stab instead of once per sample.
 
-	TWO CHEAP TESTS GUARD THE EXPENSIVE ONE.
+	Two cheap tests guard the expensive one.
 
 	A part is skipped outright if it has been destroyed mid-sweep, which
-	handleGibs does to a limb the instant it is removed -- a cached array would
+	handleGibs does to a limb the instant it is removed: a cached array would
 	otherwise keep testing a limb that is no longer on the body.
 
 	Then a sphere check: if the distance between the part's centre and the box's
@@ -191,9 +191,9 @@ end
 	stab, and it costs one point transform instead of a CFrame multiply plus
 	nine absolute values.
 
-	For a part rejected that way the returned gap is a LOWER BOUND rather than
+	For a part rejected that way the returned gap is a lower bound rather than
 	the exact separation. That only ever applies to parts too far away to hit,
-	and the exact figure is still computed for anything close enough to matter --
+	and the exact figure is still computed for anything close enough to matter,
 	which is what the miss report quotes.
 ]]
 function Geometry.deepestFromParts(
@@ -212,21 +212,21 @@ function Geometry.deepestFromParts(
 		local part = parts[i]
 
 		--[[
-			The destroyed check comes FIRST, before any property is read.
+			The destroyed check comes first, before any property is read.
 
 			A cached array outlives the limbs in it: handleGibs destroys a limb
 			the instant it is removed, and a stab landing on a limb that is no
 			longer on the body is wrong.
 
-			Hoisting this out of the loop -- checking only the winner, once --
+			Hoisting this out of the loop, checking only the winner, once,
 			measured faster and was still wrong twice over: it reads properties
 			off a destroyed instance, and a destroyed limb could win the
 			comparison and void a legitimate hit on the limb beside it.
 		]]
 		if part.Parent then
 			-- Squared distance, so the reject costs a multiply rather than a
-			-- square root. This runs once per part per sample -- roughly a
-			-- thousand times a stab in a crowd -- so it must not be the thing
+			-- square root. This runs once per part per sample, roughly a
+			-- thousand times a stab in a crowd, so it must not be the thing
 			-- that pays for a sqrt.
 			local offset = (inverse * part.Position) - centre
 			local reach = radii[i] + boxRadius

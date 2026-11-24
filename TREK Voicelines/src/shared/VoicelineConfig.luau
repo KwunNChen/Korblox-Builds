@@ -72,14 +72,14 @@ function Config.toAssetUrl(id: AssetId): string
 		return "rbxassetid://" .. fromLibrary
 	end
 
-	-- Anything else -- an rbxasset:// path, say -- is passed through untouched.
+	-- Anything else, an rbxasset:// path, say, is passed through untouched.
 	-- Matching a trailing digit run here would mangle "sounds/uuhhh.mp3" into
 	-- asset id 3.
 	return text
 end
 
--- A slot that is deliberately empty and waiting for a real id. Placeholders are
--- skipped when picking, so an event holding only these is simply silent -- it
+-- A slot that is empty and waiting for a real id. Placeholders are
+-- skipped when picking, so an event holding only these is silent: it
 -- never plays a gap where a line should be.
 Config.Placeholder = "PLACEHOLDER"
 
@@ -91,7 +91,7 @@ end
 	Resolve a Sounds list down to the urls that can actually play.
 
 	Placeholders and malformed entries are dropped here rather than at playback,
-	so a half-filled list never costs you a silent voiceline -- the picker only
+	so a half-filled list never costs you a silent voiceline: the picker only
 	ever chooses between clips that exist.
 ]]
 -- Accepts nil: an event that borrows a voice through SharesWith has no list of
@@ -117,14 +117,14 @@ end
 
 	Sharing is deeper than copying ids between two lists. Events that share a
 	voice also share the no-repeat memory and the cooldown clock, so going low
-	and then reloading cannot say the same line twice in four seconds -- which is
+	and then reloading cannot say the same line twice in four seconds, which is
 	exactly what two separate lists holding the same ids would do.
 ]]
 --[[
 	Resolved answers, memoised on first use.
 
 	Both of these are pure functions of Config.Events, which does not change while
-	the server runs -- yet soundsFor was being called on every single bark request,
+	the server runs, yet soundsFor was being called on every single bark request,
 	re-running the whole string-matching normaliser over every id in the list. It
 	cost ~24us per request on a five-clip event and, because it sat above the
 	cooldown check, it was paid in full by requests that were then refused. At a
@@ -132,7 +132,7 @@ end
 	an answer that is identical every time.
 
 	Cached lazily rather than built at load, so editing the tables above before the
-	first bark still takes effect -- which is how live tuning in Studio works.
+	first bark still takes effect, which is how live tuning in Studio works.
 ]]
 local voiceKeyCache: { [string]: string } = {}
 local soundsCache: { [string]: { string } } = {}
@@ -168,7 +168,7 @@ end
 
 -- The playable clips for an event, following SharesWith.
 --
--- The returned table is SHARED and must be treated as read-only -- every caller
+-- The returned table is shared and must be treated as read-only: every caller
 -- gets the same one. Nothing mutates it today (the picker indexes it, the
 -- preloader and the startup check only read), and nothing should start.
 function Config.soundsFor(event: string): { string }
@@ -213,13 +213,13 @@ function Config.findBadEntries(): { { event: string, index: number, raw: string 
 	return bad
 end
 
--- Pause after a line ENDS before the next one may begin -- the breath between
+-- Pause after a line ends before the next one may begin: the breath between
 -- two consecutive callouts, whatever events they came from.
 --
--- 0 is safe. It does NOT let lines overlap: while a clip is playing the channel
+-- 0 is safe. It does not let lines overlap: while a clip is playing the channel
 -- is occupied and Priority decides, so an equal or lower event is refused and a
 -- higher one stops the current clip before starting. This value only controls
--- the gap AFTER a line finishes, so 0 means callouts can run back to back with
+-- the gap after a line finishes, so 0 means callouts can run back to back with
 -- no pause for breath. Raise it to about 0.4 if that sounds too rushed.
 Config.GlobalCooldown = 0
 
@@ -229,24 +229,24 @@ Config.GlobalCooldown = 0
 Config.MaxLineLength = 8
 
 -- Playback. Voicelines come out of the speaker's head so squadmates hear them
--- positionally -- that is the whole point of them.
+-- positionally. That is most of what they are for.
 Config.Volume = 0.85
 
 --[[
 	How the volume falls off with distance.
 
-	This MUST be set. Sound.RollOffMode defaults to "Inverse", and in that mode
-	RollOffMaxDistance is ignored entirely -- the curve is driven by MinDistance
+	This must be set. Sound.RollOffMode defaults to "Inverse", and in that mode
+	RollOffMaxDistance is ignored entirely: the curve is driven by MinDistance
 	alone and the clip stays faintly audible far past whatever you put in Max.
 	For the first release that meant barks carried across the map while the
 	config claimed a 140 stud limit.
 
-	"InverseTapered" behaves like real sound near the source -- roughly inverse
-	square -- then tapers so it actually reaches silence at MaxDistance. That is
+	"InverseTapered" behaves like real sound near the source, roughly inverse
+	square, then tapers so it actually reaches silence at MaxDistance. That is
 	the combination worth having: natural close up, genuinely bounded far away.
 
 	The other options, if you want to experiment:
-	  Inverse        natural, but NO maximum. Do not use here.
+	  Inverse        natural, but no maximum. Do not use here.
 	  Linear         hard straight ramp to silence. Predictable, unnatural.
 	  LinearSquare   quieter sooner than Linear, still bounded.
 	  InverseTapered natural near, bounded far.  <- default
@@ -257,24 +257,24 @@ Config.RollOffMode = "InverseTapered"
 Config.RollOffMinDistance = 10
 
 -- Silent beyond this. A shout should reach the people you are fighting
--- alongside, not someone across the compound -- and since barks have no team
+-- alongside, not someone across the compound, and since barks have no team
 -- filter, anything you say is heard by enemies in range too, so range is a
 -- tactical setting as much as an audio one.
 Config.RollOffMaxDistance = 70
 
 -- Bind NPCs, dummies and admin-spawned clones as well as player characters.
--- They get their own Hurt and Death lines, and -- the useful part -- killing one
+-- They get their own Hurt and Death lines, and, the useful part, killing one
 -- can credit a Kill, since attribution is read off the victim's WeaponTag rather
 -- than requiring the victim to be a player.
 Config.IncludeNPCs = true
 
 -- Print a line on every humanoid death saying whether a WeaponTag was present
 -- and who it named. Turn on when a Kill is not firing and you want to know
--- whether the kill simply was not attributed.
+-- whether the kill was not attributed.
 Config.Debug = false
 
 -- Minimum damage in a single hit before Hurt is considered. 1 means any damage
--- at all counts -- chip hits, bleed ticks, explosion falloff, fall damage.
+-- at all counts, chip hits, bleed ticks, explosion falloff, fall damage.
 -- Raise it if you want only solid hits to register.
 Config.HurtDamageThreshold = 1
 
@@ -321,14 +321,14 @@ Config.CrowdLimit = 2      -- nearby speakers allowed inside the window
 --   Concurrent  true lifts the event out of the one-voice-at-a-time rule: it
 --             layers over whatever is already speaking rather than waiting for
 --             it or cutting it off. Priority stops meaning anything for such an
---             event -- it neither blocks nor is blocked -- but Cooldown and
+--             event, it neither blocks nor is blocked, but Cooldown and
 --             Chance still apply.
 --   Chance    0-1 probability the line actually plays. 1.0 = every time. 0.5 =
 --             half the time, silent the rest. Below 1 keeps a repeated action
---             from producing the same bark every single time -- but note a
---             FAILED roll still starts the cooldown, so the real gap between
+--             from producing the same bark every single time, but note a
+--             Failed roll still starts the cooldown, so the real gap between
 --             lines is roughly Cooldown / Chance, not Cooldown.
---   StartOffset  seconds of the clip to skip. For trimming LEADING SILENCE off
+--   StartOffset  seconds of the clip to skip. For trimming leading silence off
 --             a recording, which is the one kind of lateness no amount of work
 --             on this side can fix: if the file opens with a third of a second
 --             of room tone, the bark is a third of a second late however fast
@@ -338,7 +338,7 @@ Config.CrowdLimit = 2      -- nearby speakers allowed inside the window
 --
 --             To find the value, drop a Sound with the id into Workspace in
 --             Studio, run it, and step TimePosition until the line starts
---             immediately. See "MEASURING A LEAD-IN" below.
+--             immediately. See "Measuring a lead-in" below.
 Config.Events = {
 	-- Reload owns the ammo voice; LowAmmo borrows it below.
 	Reload = {
@@ -384,22 +384,22 @@ Config.Events = {
 	--[[
 		Bayonet thrusts, split by outcome.
 
-		Both are the swing, not the kill. A bayonet KILL already speaks through
+		Both are the swing, not the kill. A bayonet kill already speaks through
 		Kill below: the bayonet damages through TREK's own DamagePlayer, which
 		calls lbmodule.tagPlr, which writes the WeaponTag the Kill hook reads. So
 		a fatal stab says its contact line and then its kill line, which is the
-		right pair -- the kill bark is Concurrent and layers over it.
+		right pair: the kill bark is Concurrent and layers over it.
 
 		"Contact" means the sweep found a humanoid, which is reported before
 		armour is applied: a hit reduced to zero damage still connected, and still
 		looked like a hit to both players.
 
-		Only ACCEPTED thrusts speak. A thrust the bayonet refuses -- rate limited,
-		no blade fitted, seated in a vehicle -- reports no outcome at all, so
+		Only accepted thrusts speak. A thrust the bayonet refuses, rate limited,
+		no blade fitted, seated in a vehicle, reports no outcome at all, so
 		neither of these can fire for a swing that never happened. That also means
 		a client spamming the stab remote gets nothing extra out of it.
 
-		EVERY thrust speaks, and it takes all four of these to guarantee that:
+		Every thrust speaks, and it takes all four of these to guarantee that:
 
 		  Cooldown 0     no gap to fall inside. The weapon's own 1.2s cooldown is
 		                 the real rate limit, and only accepted thrusts report an
@@ -407,7 +407,7 @@ Config.Events = {
 		  Chance 1.0     never rolls itself out.
 		  Concurrent     layers instead of queueing. Without it a thrust during a
 		                 Hurt line (priority 6) loses the channel and says nothing.
-		  IgnoresCrowd   a melee is crowded by definition -- your own fight is
+		  IgnoresCrowd   a melee is crowded by definition, your own fight is
 		                 exactly the situation the limiter would silence.
 
 		Priority is therefore decorative here, as it is for Kill: a concurrent
@@ -449,7 +449,7 @@ Config.Events = {
 		-- victim's Hurt bark when you first hit them, then the victim's Death bark
 		-- an instant before this one. Both are within CrowdRadius of the killer at
 		-- any normal engagement range, so a Kill request routinely saw the limit
-		-- already reached and was refused -- by the very death that earned it.
+		-- already reached and was refused, by the very death that earned it.
 		-- Kills only landed when the victim took longer than CrowdWindow to die
 		-- after their last Hurt bark, which reads exactly like "it works sometimes".
 		--
@@ -473,7 +473,7 @@ Config.Events = {
 	},
 }
 
--- MEASURING A LEAD-IN
+-- Measuring a lead-in
 --
 -- A bark that is consistently late by the same amount, every single time, is
 -- not a timing bug. Timing bugs vary with ping, load and distance. A fixed

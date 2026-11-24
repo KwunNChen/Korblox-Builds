@@ -9,7 +9,7 @@
 local ArtilleryConfig = {}
 
 -- ============================================================
--- BARRAGE CYCLE  (server only)
+-- Barrage cycle  (server only)
 -- ============================================================
 
 ArtilleryConfig.Enabled = true
@@ -31,10 +31,10 @@ ArtilleryConfig.ShellsPerBarrage = NumberRange.new(15, 25)
 ArtilleryConfig.ShellSpacing = NumberRange.new(0.2, 1)
 
 --[[
-	Seconds of audible warning before the first shell lands. THIS IS THE
-	MECHANIC, not decoration -- it is the only reason a barrage is survivable.
+	Seconds of audible warning before the first shell lands. This is the
+	Mechanic, not decoration: it is the only reason a barrage is survivable.
 
-	Your real reaction time is this PLUS ShellFlightTime, because the shells are
+	Your real reaction time is this plus ShellFlightTime, because the shells are
 	visible arcing in for the whole flight. At 12 + 6.5 that is eighteen-odd
 	seconds between the guns going off and the first crater, which is enough to
 	cross open ground and get behind something.
@@ -48,8 +48,8 @@ ArtilleryConfig.BarrageWarningLead = 12
 	Players below this count skip the barrage entirely. Shelling an empty server
 	is wasted work, and shelling a single person is just bullying.
 
-	THIS IS THE #1 REASON BARRAGES "ONLY WORK VIA DEBUG". DebugBarrageNow does
-	not check this at all -- it always fires -- so testing solo or with a small
+	This is the #1 reason barrages "only work via debug". DebugBarrageNow does
+	not check this at all, it always fires, so testing solo or with a small
 	group makes the natural timer look broken when it is just never satisfied.
 	The natural loop now logs when it skips a cycle for this reason (DebugLog),
 	so check Output before assuming it is not running.
@@ -59,12 +59,12 @@ ArtilleryConfig.BarrageWarningLead = 12
 ArtilleryConfig.MinPlayersForBarrage = 4
 
 -- ============================================================
--- TARGETING  (server only)
+-- Targeting  (server only)
 -- ============================================================
 
 -- Players within this of each other count as a cluster. The barrage epicenter
 -- is picked weighted by cluster size, so crowds draw fire the way they do in
--- Centaura -- but a lone player is never immune, just less likely.
+-- Centaura, but a lone player is never immune, just less likely.
 ArtilleryConfig.ClusterRadius = 120
 
 -- How far the epicenter is thrown off the player it was picked from. Keep this
@@ -80,7 +80,7 @@ ArtilleryConfig.ShellScatterRadius = 90
 ArtilleryConfig.ScatterCenterBias = 0.7
 
 -- Impacts are snapped to whatever surface is under them. This is how far up the
--- snap ray starts -- it has to clear the tallest thing on your map or shells
+-- snap ray starts: it has to clear the tallest thing on your map or shells
 -- will detonate inside rooftops.
 ArtilleryConfig.GroundSnapHeight = 2000
 
@@ -96,20 +96,20 @@ ArtilleryConfig.GroundSnapDepth = 400
 ArtilleryConfig.SafeZoneTag = "ArtillerySafeZone"
 
 -- How many times a single shell retries before giving up on avoiding a safe
--- zone and simply being skipped.
+-- zone and being skipped.
 ArtilleryConfig.SafeZoneRetries = 6
 
 --[[
-	PLAYERS UNDER A ROOF ARE NOT AIMED AT.
+	Players under a roof are not aimed at.
 
 	A battery a kilometre away cannot see through a bunker, so a player indoors
-	is dropped from the list the epicenter is picked from -- and stops counting
+	is dropped from the list the epicenter is picked from, and stops counting
 	toward anyone else's cluster weight along with it.
 
-	THIS IS NOT A SHIELD, and the difference matters. It only decides where the
-	guns AIM. A shell aimed at the squad outside your door still lands outside
+	This is not a shield. It only decides where the
+	guns aim. A shell aimed at the squad outside your door still lands outside
 	your door, and the blast that follows does not care what you are standing
-	under -- the roof only helps you there through the damage cover check, which
+	under: the roof only helps you there through the damage cover check, which
 	is a separate thing further down and does not apply in the kill sphere at
 	all.
 
@@ -119,7 +119,7 @@ ArtilleryConfig.SafeZoneRetries = 6
 ArtilleryConfig.SkipShelteredPlayers = true
 
 -- How far up the shelter rays look for a roof. It only has to clear the tallest
--- interior on your map -- not the sky -- so this can stay well under
+-- interior on your map, not the sky, so this can stay well under
 -- GroundSnapHeight.
 ArtilleryConfig.ShelterCheckHeight = 300
 
@@ -134,7 +134,7 @@ ArtilleryConfig.ShelterSampleRadius = 6
 ArtilleryConfig.ShelterBlockedThreshold = 0.5
 
 -- ============================================================
--- TRAJECTORY  (shared -- both sides must agree or visuals miss the crater)
+-- Trajectory  (shared, both sides must agree or visuals miss the crater)
 -- ============================================================
 
 -- Seconds from launch to impact. Also how long the trail is visible arcing
@@ -156,18 +156,18 @@ ArtilleryConfig.GunshipShellSpacing = NumberRange.new(0.08, 0.18)
 ArtilleryConfig.GunshipScatterRadius = 12
 
 --[[
-	Downward acceleration on the shell, studs/sec^2. NOT workspace.Gravity and
-	it does not have to match it -- the shell is drawn, never simulated.
+	Downward acceleration on the shell, studs/sec^2. not workspace.Gravity and
+	it does not have to match it: the shell is drawn, never simulated.
 
-	CHANGE THIS WHENEVER YOU CHANGE ShellFlightTime. The launch velocity is
-	SOLVED so the shell lands exactly on target, and its upward component works
+	Change this whenever you change ShellFlightTime. The launch velocity is
+	Solved so the shell lands exactly on target, and its upward component works
 	out to roughly 0.5 * gravity * flightTime. Double the flight time at fixed
-	gravity and the shell is fired twice as hard upward -- it climbs out of
+	gravity and the shell is fired twice as hard upward: it climbs out of
 	sight and drops back in, instead of arcing.
 
-	To keep the same arc SHAPE at a new flight time, scale gravity by the
+	To keep the same arc shape at a new flight time, scale gravity by the
 	inverse square of the change: going from 3.8s to 7.25s is 1.9x longer, so
-	gravity drops by 1.9^2 -- from 180 to about 50.
+	gravity drops by 1.9^2, from 180 to about 50.
 ]]
 ArtilleryConfig.ShellGravity = 20
 
@@ -180,7 +180,7 @@ ArtilleryConfig.ShellLaunchDistance = NumberRange.new(900, 1300)
 ArtilleryConfig.ShellLaunchHeight = NumberRange.new(550, 800)
 
 -- Compass heading the guns fire from, in degrees. Every shell in one barrage
--- shares it, so the trails arc in roughly parallel -- that is what makes it
+-- shares it, so the trails arc in roughly parallel, that is what makes it
 -- read as guns at a position rather than random junk falling out of the sky.
 ArtilleryConfig.BatteryHeading = 45
 
@@ -193,7 +193,7 @@ ArtilleryConfig.RandomBatteryHeading = false
 ArtilleryConfig.BatteryHeadingSpread = 15
 
 -- ============================================================
--- SHELL LOOK  (client only)
+-- Shell look  (client only)
 -- ============================================================
 
 ArtilleryConfig.ShellSize = Vector3.new(0.8, 0.8, 2.4)
@@ -234,7 +234,7 @@ ArtilleryConfig.TrailTextureLength = 3
 -- no trail to watch.
 ArtilleryConfig.MaxRenderedShells = 32
 
--- Shells landing further than this are not drawn at all. Deliberately huge:
+-- Shells landing further than this are not drawn at all. Huge:
 -- watching a barrage arc down onto someone else's position across the map is
 -- most of the point, so this should exceed your map's diagonal.
 ArtilleryConfig.ShellRenderDistance = 10000
@@ -244,7 +244,7 @@ ArtilleryConfig.EnableShellSmoke = true
 ArtilleryConfig.ShellSmokeRate = 24
 
 -- ============================================================
--- IMPACT LOOK  (client only)
+-- Impact look  (client only)
 -- ============================================================
 
 -- Impacts further than this draw no particles. Unlike the trail, debris and
@@ -253,55 +253,55 @@ ArtilleryConfig.ShellSmokeRate = 24
 ArtilleryConfig.ImpactEffectDistance = 900
 
 --[[
-	THE THREE STAGES
+	The three stages
 
 	An impact is a sequence, not one burst. Everything firing on the same frame
 	is what makes an explosion read as a single flat pop instead of something
 	violent happening to the ground.
 
-	    0.00s   DUST     a cloud appearing over the crater and opening out
-	    0.04s   DEBRIS   the ground thrown out
-	    0.22s   SMOKE    what is left hanging over it
+	    0.00s   dust     a cloud appearing over the crater and opening out
+	    0.04s   debris   the ground thrown out
+	    0.22s   smoke    what is left hanging over it
 
-	These are the delays for the second and third. Small numbers -- the gap only
+	These are the delays for the second and third. Small numbers: the gap only
 	has to be long enough to read as an order of events.
 ]]
 ArtilleryConfig.ImpactDebrisDelay = 0.04
 ArtilleryConfig.ImpactSmokeDelay = 0.22
 
 --[[
-	============ [STAGE 1] DUST ============
+	============ [Stage 1] dust ============
 
-	ONE flat image per crater, not particles and not a field of geometry --
+	One flat image per crater, not particles and not a field of geometry,
 	both were tried, and both read as many separate pieces instead of one cloud.
 	It grows and sinks over its life instead of sitting static, which is what
 	actually reads as dust settling rather than a stain appearing on the ground.
 
-	IT NEEDS AN IMAGE, and it is the only impact effect left that does. If dust
-	is missing entirely, it is this texture -- see the note at DustDecalTexture.
+	It needs an image, and it is the only impact effect left that does. If dust
+	is missing entirely, it is this texture. See the note at DustDecalTexture.
 ]]
 ArtilleryConfig.EnableDustDecal = true
 ArtilleryConfig.DustDecalTexture = "rbxassetid://14688493591"
 
 -- Ceiling on how many can exist across a whole barrage at once. A dozen-plus
 -- shells landing inside a few seconds could otherwise stack a dozen-plus of
--- these; excess impacts simply draw no dust rather than pushing the count up
+-- these; excess impacts draw no dust rather than pushing the count up
 -- further.
 ArtilleryConfig.MaxLiveDust = 24
 
 -- How big the image is at the moment it appears, and what it grows to, studs
--- across. Both rolled once per impact. THE GAP BETWEEN THEM IS THE EFFECT --
+-- across. Both rolled once per impact. The gap between them is the effect,
 -- a cloud that does not visibly open out just looks like a mark that faded in.
 ArtilleryConfig.DustDecalStartSize = NumberRange.new(14, 20)
 ArtilleryConfig.DustDecalEndSize = NumberRange.new(52, 78)
 
 -- Shape of the growth over the cloud's life. 1 is linear. Below 1 (0.5 here)
--- most of the growth happens immediately and the rest is a slow creep -- the
+-- most of the growth happens immediately and the rest is a slow creep: the
 -- punch of the burst followed by the drift of settling dust. Above 1 would
 -- start slow and accelerate, which reads backwards.
 ArtilleryConfig.DustDecalGrowthCurve = 0.5
 
--- Studs above the surface at birth, and where it ends up. THIS IS THE SINK --
+-- Studs above the surface at birth, and where it ends up. This is the sink,
 -- the image visibly settling down onto the ground is as much the effect as the
 -- growth is. EndHeight stays just off zero so the image never sits exactly on
 -- the surface it is lying on, which would flicker (z-fighting).
@@ -309,12 +309,12 @@ ArtilleryConfig.DustDecalStartHeight = 4
 ArtilleryConfig.DustDecalEndHeight = 0.08
 
 -- Degrees/sec the cloud slowly turns, direction rolled per impact. Not enough
--- to read as spinning -- enough that the mass appears to churn rather than
+-- to read as spinning, enough that the mass appears to churn rather than
 -- scale in place.
 ArtilleryConfig.DustDecalSpin = 4
 
 -- Seconds fully visible before it starts fading, then how long the fade itself
--- takes. Growth and sink run across BOTH added together; the hold is what
+-- takes. Growth and sink run across both added together; the hold is what
 -- makes it read as a cloud hanging there rather than a flash.
 ArtilleryConfig.DustDecalHoldTime = 1.4
 ArtilleryConfig.DustDecalFadeTime = 2.8
@@ -324,7 +324,7 @@ ArtilleryConfig.DustDecalFadeTime = 2.8
 ArtilleryConfig.DustDecalStartTransparency = 0.1
 
 -- How far the image colour is pulled toward black, after the surface tint.
--- Airborne dust does not go as dark as thrown debris -- see DebrisDarken.
+-- Airborne dust does not go as dark as thrown debris. See DebrisDarken.
 ArtilleryConfig.DustDecalDarken = 0.2
 
 -- A brief light at the crater. No visible ball, but it lifts the scene for a
@@ -339,8 +339,8 @@ ArtilleryConfig.ImpactLightRange = 60
 -- smoke is cut off in mid-air.
 ArtilleryConfig.ImpactEffectLifetime = 10
 
--- ============ [STAGE 2] DEBRIS ============
--- Nothing is left behind. A shell throws the ground up and that is all -- no
+-- ============ [Stage 2] debris ============
+-- Nothing is left behind. A shell throws the ground up and that is all: no
 -- decal, no scorch, no part of any kind still sitting there afterwards.
 
 -- Colour the debris from whatever the shell actually landed on: one downward
@@ -355,7 +355,7 @@ ArtilleryConfig.DebrisFallbackColor = Color3.fromRGB(92, 76, 58)
 	Two separate throws. The plume goes up and comes back down; the splash is
 	the low, wide sheet that fans out across the ground.
 
-	THREE THINGS SET THE RADIUS, and they fight each other:
+	Three things set the radius, and they fight each other:
 
 	    Speed      how hard it is thrown
 	    Lifetime   how long it has to travel before it vanishes
@@ -363,15 +363,15 @@ ArtilleryConfig.DebrisFallbackColor = Color3.fromRGB(92, 76, 58)
 
 	Reach is roughly speed x lifetime, but only if gravity lets it stay up that
 	long. Winding speed up on its own just makes chunks disappear mid-flight,
-	because they die at Lifetime no matter where they are. To go WIDER, raise
-	lifetime and LOWER gravity. To go more violent without going wider, raise
+	because they die at Lifetime no matter where they are. To go wider, raise
+	lifetime and lower gravity. To go more violent without going wider, raise
 	speed and gravity together.
 ]]
 --[[
-	DEBRIS IS REAL PARTS, NOT PARTICLES.
+	Debris is real parts, not particles.
 
 	Sprites depend on a texture asset, and every way that can go wrong fails
-	silently and identically -- a moderated id, a decal id where an image id was
+	silently and identically: a moderated id, a decal id where an image id was
 	needed, no texture at all (which falls back to Roblox's white sparkle). None
 	of it prints anything, so you get glitter or nothing and no way to tell which
 	knob is at fault.
@@ -379,17 +379,17 @@ ArtilleryConfig.DebrisFallbackColor = Color3.fromRGB(92, 76, 58)
 	A Part has a size, a colour and a position. It renders, full stop, and if it
 	ends up somewhere wrong you can see exactly where it went.
 
-	They are Anchored and moved by hand each frame -- nothing under the Camera is
+	They are Anchored and moved by hand each frame: nothing under the Camera is
 	physically simulated. Reach is therefore exactly predictable from the numbers
 	below instead of depending on collisions.
 ]]
 ArtilleryConfig.EnableDebrisChunks = true
 
--- Chunks thrown per shell. The main density knob, and the main cost -- this
+-- Chunks thrown per shell. The main density knob, and the main cost: this
 -- many parts are created, animated and destroyed per impact.
 ArtilleryConfig.ChunkCount = 46
 
--- Ceiling across ALL live chunks at once. A barrage is a dozen-plus shells
+-- Ceiling across all live chunks at once. A barrage is a dozen-plus shells
 -- landing within a few seconds, so without this a heavy one could put well over
 -- a thousand parts on screen. Bursts over budget are trimmed, not queued.
 ArtilleryConfig.MaxLiveChunks = 400
@@ -406,16 +406,16 @@ ArtilleryConfig.ChunkAspect = NumberRange.new(0.45, 1.4)
 ArtilleryConfig.ChunkMaterial = Enum.Material.Slate
 
 --[[
-	THE SPEED RANGE MUST START LOW. This is the one that bites.
+	The speed range must start low. This is the one that bites.
 
-	Every chunk rolls its own speed inside the range. Set the MINIMUM high --
-	say 200 -- and nothing travels slower than that, so within half a second the
-	whole burst is hundreds of studs away and there is a visible HOLE where the
+	Every chunk rolls its own speed inside the range. Set the minimum high,
+	say 200, and nothing travels slower than that, so within half a second the
+	whole burst is hundreds of studs away and there is a visible hole where the
 	explosion just was. It reads as "the debris disappeared".
 
 	A wide range starting low gives the real thing: a dense pile of material at
 	the crater thinning out to chunks arcing away to the edges. Look at any
-	explosion photo -- that gradient is the whole look.
+	explosion photo, that gradient is the whole look.
 ]]
 ArtilleryConfig.ChunkSpeed = NumberRange.new(25, 190)
 
@@ -423,7 +423,7 @@ ArtilleryConfig.ChunkSpeed = NumberRange.new(25, 190)
 ArtilleryConfig.ChunkLifetime = NumberRange.new(1.2, 2.6)
 
 -- Downward acceleration, studs/sec^2. Lower keeps chunks airborne longer and
--- therefore throws them WIDER; this and ChunkSpeed together set the radius.
+-- therefore throws them wider; this and ChunkSpeed together set the radius.
 ArtilleryConfig.ChunkGravity = 95
 
 -- Angle above horizontal that chunks are thrown at, in degrees. This one range
@@ -438,16 +438,16 @@ ArtilleryConfig.ChunkSpin = 14
 --[[
 	How far the debris colour is pulled toward black, after the surface tint.
 
-	Thrown earth is shadowed and reads nearly as a silhouette against the sky --
+	Thrown earth is shadowed and reads nearly as a silhouette against the sky,
 	look at any real explosion photo and the chunks are almost black. Taking the
-	surface colour raw means snow throws BRIGHT WHITE specks, which is the other
+	surface colour raw means snow throws bright white specks, which is the other
 	half of why an impact can look like sparkles rather than dirt.
 
 	0 keeps the surface colour exactly. 1 throws pure black chunks.
 ]]
 ArtilleryConfig.DebrisDarken = 0.55
 
--- ============ [STAGE 3] SMOKE ============
+-- ============ [Stage 3] smoke ============
 -- What hangs over the crater once the ground has come back down.
 
 ArtilleryConfig.ImpactSmokeSize = NumberRange.new(80,120)
@@ -455,31 +455,31 @@ ArtilleryConfig.ImpactSmokeCount = 60
 ArtilleryConfig.ImpactSmokeLifetime = NumberRange.new(5, 9)
 ArtilleryConfig.ImpactSmokeColor = Color3.fromRGB(74, 68, 62)
 
--- How fast the cloud climbs. Small positive values only -- smoke that races
+-- How fast the cloud climbs. Small positive values only, smoke that races
 -- upward reads as rocket exhaust rather than something settling.
 ArtilleryConfig.ImpactSmokeRise = 1
 
 --[[
 	The smoke image, and the fallback for the ground dust decal. Smoke is now the
-	LAST sprite in the system -- debris and the dust wave are both geometry -- so
+	Last sprite in the system, debris and the dust wave are both geometry, so
 	this one slot carries all the asset risk that both of those used to.
 
-	IT SHIPS AS AN ENGINE PATH, NOT AN ID, ON PURPOSE. An engine path cannot be
+	It ships as an engine path, not an ID. An engine path cannot be
 	moderated, cannot be a decal id by mistake, and renders on every client with
 	no upload. Ids kept going in here and kept coming out invisible. Put your own
-	back if you have one that works -- but if the smoke or the ground mark ever
+	back if you have one that works, but if the smoke or the ground mark ever
 	vanishes again, put this line back first and you have your answer in one
 	playtest.
 
-	NEVER LEAVE IT EMPTY. A ParticleEmitter with no Texture falls back to
-	Roblox's default, which is a WHITE SPARKLE.
+	Never leave it empty. A ParticleEmitter with no Texture falls back to
+	Roblox's default, which is a white sparkle.
 
-	TWO FORMS ARE VALID, and mixing them is the classic mistake:
+	Two forms are valid, and mixing them is the classic mistake:
 
 	    rbxassetid://13623094740                       an uploaded image
 	    rbxasset://textures/particles/smoke_main.dds   an engine file
 
-	"rbxasset://13623094740" is NEITHER -- it asks the engine for a file named
+	"rbxasset://13623094740" is neither: it asks the engine for a file named
 	after a number, finds nothing, and renders blank with no error. The config
 	repairs that case rather than passing it through, but it is worth knowing
 	because every other system you paste an id into will not.
@@ -491,14 +491,14 @@ ArtilleryConfig.ImpactSmokeRise = 1
 ArtilleryConfig.SmokeTexture = "rbxasset://textures/particles/smoke_main.dds"
 
 -- ============================================================
--- AUDIO  (client only)
+-- Audio  (client only)
 -- ============================================================
 
 ArtilleryConfig.EnableAudio = true
 
 -- All four ship empty. Roblox audio is private by default, so an id lifted from
--- another game is silent here with no error at all -- upload or source your
--- own. Any left empty simply does not play, and the system warns once.
+-- another game is silent here with no error at all, upload or source your
+-- own. Any left empty does not play, and the system warns once.
 --
 -- BatteryReport   distant thump of the guns firing, the warning
 -- ShellWhistle    the incoming scream, looped, rides on the shell itself
@@ -512,7 +512,7 @@ ArtilleryConfig.ImpactFarSoundId = "rbxassetid://94838292975473"
 ArtilleryConfig.BatteryReportVolume = 1.1
 
 -- The whistle is parented to the moving shell part, so Roblox's own 3D audio
--- handles panning and falloff -- the rise as it bears down on you is free.
+-- handles panning and falloff: the rise as it bears down on you is free.
 ArtilleryConfig.WhistleVolume = 1.3
 ArtilleryConfig.WhistleRollOffMax = 10000
 
@@ -522,7 +522,7 @@ ArtilleryConfig.WhistlePitchStart = 0.6
 ArtilleryConfig.WhistlePitchEnd = 1.35
 
 -- Whistle only becomes audible in the last stretch of flight, as a fraction of
--- total flight time. 0.6 means you hear it for the last 40% of the descent --
+-- total flight time. 0.6 means you hear it for the last 40% of the descent,
 -- about 3 seconds at the current flight time, which is a scream you can place
 -- and react to. Lower it and the whistle runs so long it stops reading as
 -- something incoming and turns into ambience.
@@ -541,12 +541,12 @@ ArtilleryConfig.ImpactNearDistance = 250
 ArtilleryConfig.SoundSpeed = 340
 
 -- Ceiling on overlapping impact sounds. Past this, extra ones are dropped
--- rather than layering into mud -- and a barrage will absolutely try to layer
+-- rather than layering into mud, and a barrage will absolutely try to layer
 -- twenty of them.
 ArtilleryConfig.MaxConcurrentSounds = 15
 
 -- ============================================================
--- CAMERA SHAKE  (client only)
+-- Camera shake  (client only)
 -- ============================================================
 
 ArtilleryConfig.EnableCameraShake = true
@@ -570,11 +570,11 @@ ArtilleryConfig.ShakeDustStrength = 0.4
 ArtilleryConfig.ShakeDustColor = Color3.fromRGB(148, 132, 108)
 
 -- ============================================================
--- DAMAGE  (server only -- must be, or clients could ignore it)
+-- Damage  (server only, must be, or clients could ignore it)
 -- ============================================================
 
 --[[
-	THE ONION
+	The onion
 
 	Four spheres around the crater, each one wholly inside the next. A victim is
 	measured once, lands in exactly one layer, and that layer decides everything.
@@ -584,29 +584,29 @@ ArtilleryConfig.ShakeDustColor = Color3.fromRGB(148, 132, 108)
 	    3  DamageRadius      46   damage only
 	    4  ConcussionRadius  70   dazed, no damage
 
-	These MUST be in ascending order. Out of order, an inner sphere swallows an
-	outer one and that band simply never happens -- the server checks at startup
+	These must be in ascending order. Out of order, an inner sphere swallows an
+	outer one and that band never happens: the server checks at startup
 	and warns rather than leaving you to work it out from behaviour.
 
-	LAYER 1 IS PURE DISTANCE. Nothing modifies it: not cover, not a wall, not a
+	Layer 1 is pure distance. Nothing modifies it: not cover, not a wall, not a
 	bunker roof. If the shell lands within KillRadius of you, you are dead. Cover
 	only scales the damage in layers 2 and 3.
 ]]
 
 --[[
-	How much the VERTICAL gap counts when measuring distance to a victim.
+	How much the vertical gap counts when measuring distance to a victim.
 
-	1 is a true sphere -- and a true sphere is why a shell can land six studs in
+	1 is a true sphere, and a true sphere is why a shell can land six studs in
 	front of you on a slope and leave you standing. Height spends exactly the
 	same radius budget as horizontal distance, so a 25-stud drop turns a 6-stud
 	miss into a 28-stud one, which is out past the damage radius entirely.
 
 	Below 1 the blast becomes a flattened, ground-hugging ellipsoid: it reaches
 	up and down slopes, ledges and stairwells, while staying honest about how far
-	it goes ACROSS the ground. At 0.6 that same shell measures 17.8 and kills.
+	it goes across the ground. At 0.6 that same shell measures 17.8 and kills.
 
 	Raise it toward 1 if your map is flat and you want strict spherical falloff.
-	Do not go to 0 -- the blast would then reach infinitely far vertically and
+	Do not go to 0: the blast would then reach infinitely far vertically and
 	shell people through floors.
 ]]
 ArtilleryConfig.BlastVerticalScale = 0.6
@@ -614,19 +614,19 @@ ArtilleryConfig.BlastVerticalScale = 0.6
 -- Layer 1: inside this you die, always, and always come apart.
 ArtilleryConfig.KillRadius = 22
 
--- Layer 2: falloff damage, and limbs are torn off -- off a corpse if it killed
+-- Layer 2: falloff damage, and limbs are torn off, off a corpse if it killed
 -- you, off you if it did not. Must sit between KillRadius and DamageRadius.
 ArtilleryConfig.DismemberRadius = 30
 
--- Layer 3: falloff damage only. Damage falls off from the KILL radius out to
+-- Layer 3: falloff damage only. Damage falls off from the kill radius out to
 -- here, so layer 2 is the punishing half of the same curve.
 ArtilleryConfig.DamageRadius = 67
 
 --[[
 	Damage at the edge of the kill radius, falling to 0 at DamageRadius.
 
-	KEEP THIS COMFORTABLY ABOVE A FULL HEALTH BAR. Setting it TO full health --
-	100, the obvious-looking choice -- means a healthy player can never quite die
+	Keep this comfortably above a full health bar. Setting it to full health,
+	100, the obvious-looking choice, means a healthy player can never quite die
 	outside the kill sphere: at one tenth of a stud past the boundary the curve
 	deals 99.3, and they walk away on 1 HP. The only thing that decides whether a
 	layer-2 hit kills is then how chewed-down they already were, which is
@@ -651,12 +651,12 @@ ArtilleryConfig.MaxFalloffDamage = 180
 ArtilleryConfig.FalloffExponent = 1.9
 
 --[[
-	Walls work IN LAYERS 2 AND 3 ONLY. The kill sphere ignores cover entirely --
+	Walls work in layers 2 and 3 only. The kill sphere ignores cover entirely,
 	see the onion note above.
 
-	Cover is SAMPLED, not switched: three rays go from the crater to the victim's
+	Cover is sampled, not switched: three rays go from the crater to the victim's
 	head, torso and legs, and the damage scales by how many of them are blocked.
-	A single ray to one point is a coin flip at any partial cover -- shuffle a
+	A single ray to one point is a coin flip at any partial cover, shuffle a
 	stud sideways and the whole hit swings between full damage and a quarter of
 	it, with nothing in between. Multiplier at full cover:
 ]]
@@ -665,9 +665,9 @@ ArtilleryConfig.CoverDamageReduction = 0.4
 
 -- How far the cover ray is lifted off the ground before it is cast.
 --
--- Impact points come from a downward raycast, so they sit EXACTLY on the
+-- Impact points come from a downward raycast, so they sit exactly on the
 -- surface. A ray starting there hits the floor it is standing on immediately
--- and every shell in the open reads as fully covered -- which caps damage at
+-- and every shell in the open reads as fully covered, which caps damage at
 -- MaxFalloffDamage * CoverDamageReduction and stops artillery killing anyone.
 -- Must stay above zero. Raise it if your ground is bumpy.
 ArtilleryConfig.CoverRayLift = 3
@@ -676,9 +676,14 @@ ArtilleryConfig.CoverRayLift = 3
 -- dismemberment on exactly the same terms players do.
 --
 -- Costs one spatial query per impact, which is nothing at a dozen shells every
--- couple of minutes. Turn it off if your map genuinely has no NPCs -- the query
+-- couple of minutes. Turn it off if your map genuinely has no NPCs: the query
 -- still runs and still walks whatever it returns.
 ArtilleryConfig.AffectNPCs = true
+
+-- Damage to a vehicle (anything tagged BloxianVehicle or MarineVehicle) at the
+-- crater, falling off to nothing at DamageRadius. An Abrams has 3000 health, a
+-- Warthog 400.
+ArtilleryConfig.VehicleDamage = 600
 
 -- Blast also throws ragdolls and loose parts around. Purely physical.
 ArtilleryConfig.BlastImpulse = 250
@@ -691,7 +696,7 @@ ArtilleryConfig.BlastImpulse = 250
 ArtilleryConfig.FlingKillSpeed = 70
 
 -- ============================================================
--- CONCUSSION  (server only)
+-- Concussion  (server only)
 -- ============================================================
 
 -- Survivors near a blast are dazed for a moment. Goes through SpeedService, so
@@ -705,14 +710,14 @@ ArtilleryConfig.ConcussionSpeedMultiplier = 0.55
 ArtilleryConfig.ConcussionJumpMultiplier = 0.6
 
 -- ============================================================
--- GORE  (server only)
+-- Gore  (server only)
 -- ============================================================
 
 -- Master switch. False turns every artillery kill into an ordinary death with
--- no limbs severed and no ragdoll -- the rest of the system is unaffected.
+-- no limbs severed and no ragdoll: the rest of the system is unaffected.
 ArtilleryConfig.EnableGore = true
 
--- R6 ONLY. R15 characters take damage normally and skip dismemberment with a
+-- R6 only. R15 characters take damage normally and skip dismemberment with a
 -- warning, because the joint names below do not exist on them.
 --
 -- How many limbs come off. A direct hit takes the high end, the edge of the
@@ -720,18 +725,18 @@ ArtilleryConfig.EnableGore = true
 ArtilleryConfig.MinLimbsSevered = 1
 ArtilleryConfig.MaxLimbsSevered = 4
 
--- A kill out in layer 3 -- past DismemberRadius -- normally dies intact, which
+-- A kill out in layer 3, past DismemberRadius, normally dies intact, which
 -- is what makes the onion readable: you can tell which layer caught someone by
 -- what is left of them.
 --
--- True instead makes EVERY artillery kill come apart at any distance, which is
+-- True instead makes every artillery kill come apart at any distance, which is
 -- what Centaura itself does. It costs you the visual distinction.
 ArtilleryConfig.DismemberOnAnyKill = true
 
 -- ---- Layer 2 survivors ----
 --
 -- Shrapnel from a shell that only wounded you still takes an arm. Bounded by
--- DismemberRadius up in the DAMAGE section, so surviving a near miss is not the
+-- DismemberRadius up in the damage section, so surviving a near miss is not the
 -- same as walking away from it.
 ArtilleryConfig.EnableMaiming = true
 
@@ -742,7 +747,7 @@ ArtilleryConfig.MaimChance = 0.65
 ArtilleryConfig.MaxLimbsMaimed = 2
 
 -- Legs are excluded by default. An R6 Humanoid works out how high to stand from
--- its leg parts, so a living character with none hovers and walks oddly -- fine
+-- its leg parts, so a living character with none hovers and walks oddly, fine
 -- on a corpse, bad on someone still playing. Arms are purely cosmetic to lose.
 ArtilleryConfig.MaimIncludesLegs = false
 
@@ -760,20 +765,20 @@ ArtilleryConfig.GoreLifetime = 20
 	Seconds before the ragdolled corpse is removed. A player's corpse also goes
 	the instant they respawn or leave, whichever happens first.
 
-	THIS CANNOT BE SET TO "NEVER", deliberately. 0 falls back to GoreLifetime
-	rather than disabling cleanup -- a corpse with no timer is a leak, not a
+	This cannot be set to "never". 0 falls back to GoreLifetime
+	rather than disabling cleanup: a corpse with no timer is a leak, not a
 	feature, and it is invisible until the map is a boneyard.
 
 	Nothing else will do it for you. Respawning only points player.Character at
-	a NEW Model; the old corpse sits in Workspace untouched forever unless
+	a new Model; the old corpse sits in Workspace untouched forever unless
 	something destroys it.
 
-	IF CORPSES ARE PILING UP ANYWAY, the timer is not the thing to check --
+	If corpses are piling up anyway, the timer is not the thing to check:
 	it is whether cleanup was ever armed. Every kill path runs inside a pcall,
 	so anything throwing between the kill and the cleanup call used to skip it
-	entirely and swallow the error into a warn. Cleanup is now armed BEFORE any
+	entirely and swallow the error into a warn. Cleanup is now armed before any
 	of that work, and logs "corpse X removed (timer|respawn|left)" under
-	DebugLog -- no line means the kill path never reached it at all.
+	DebugLog: no line means the kill path never reached it at all.
 
 	Raise it if you want bodies lying around after the player has respawned and
 	moved on.
@@ -781,7 +786,7 @@ ArtilleryConfig.GoreLifetime = 20
 ArtilleryConfig.CorpseLifetime = 10
 
 -- Exposed bone in the socket, the way Centaura does it. A small white cylinder
--- welded into the stump -- no asset needed.
+-- welded into the stump: no asset needed.
 ArtilleryConfig.ShowStumps = true
 ArtilleryConfig.StumpColor = Color3.fromRGB(232, 226, 208)
 
@@ -790,7 +795,7 @@ ArtilleryConfig.EnableBlood = true
 ArtilleryConfig.BloodColor = Color3.fromRGB(112, 12, 12)
 
 -- ============================================================
--- DEBUG
+-- Debug
 -- ============================================================
 
 -- Prints the whole barrage lifecycle to Output, server and client.

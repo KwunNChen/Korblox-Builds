@@ -2,7 +2,7 @@
 	GasDisorient
 	Renders being gassed: blurred, tinted vision and muffled hearing with a ring.
 
-	LocalScript in StarterPlayerScripts. It decides nothing -- it reads one
+	LocalScript in StarterPlayerScripts. It decides nothing: it reads one
 	number, GasExposure, off the local character's Humanoid and maps it onto
 	effects. The server writes that number, so a tampered client can only blind
 	itself.
@@ -26,7 +26,7 @@ local SoundService = game:GetService("SoundService")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild in a require chain does not fail, it hangs -- and
+	An unbounded WaitForChild in a require chain does not fail, it hangs, and
 	every module waiting on this one hangs with it, silently. Ten seconds is far
 	longer than replication ever needs and far shorter than a playtest, so a
 	missing file announces itself instead of stalling the package.
@@ -61,7 +61,7 @@ local player = Players.LocalPlayer
 local NO_TINT = Color3.new(1, 1, 1)
 
 -- ---------------------------------------------------------------------------
--- EFFECTS
+-- Effects
 -- ---------------------------------------------------------------------------
 
 local blur = Instance.new("BlurEffect")
@@ -75,7 +75,7 @@ blur.Parent = Lighting
 
 	Every channel starts at its no-effect value so the instant it is enabled it
 	renders whatever the loop sets that same frame. Built holding the gas colour
-	-- as this was -- it would flash full orange for one frame on the first
+	-- as this was: it would flash full orange for one frame on the first
 	exposure, before the lerp took over.
 ]]
 local tint = Instance.new("ColorCorrectionEffect")
@@ -91,8 +91,8 @@ tint.Parent = Lighting
 	The ring.
 
 	Prefers TREK's own staged Tinnitus sound so gas and blasts ring with the same
-	tone, and falls back to a configured id. If neither exists there is simply no
-	ring -- the blur and tint carry it.
+	tone, and falls back to a configured id. If neither exists there is no
+	ring: the blur and tint carry it.
 ]]
 local ring: Sound? = nil
 
@@ -126,7 +126,7 @@ end
 	The muffle.
 
 	Parented into SoundService.Muffle rather than created alongside it, because
-	an EqualizerSoundEffect only affects the SoundGroup it lives in -- one
+	an EqualizerSoundEffect only affects the SoundGroup it lives in: one
 	parented to SoundService itself would silently do nothing.
 ]]
 local muffle: EqualizerSoundEffect? = nil
@@ -147,7 +147,7 @@ do
 end
 
 -- ---------------------------------------------------------------------------
--- DRIVE
+-- Drive
 -- ---------------------------------------------------------------------------
 
 local shown = 0
@@ -189,11 +189,11 @@ RunService.RenderStepped:Connect(function(dt)
 		blur.Size = settings.MaxBlur * shown
 
 		--[[
-			Lerped from white, NOT assigned.
+			Lerped from white, not assigned.
 
 			TintColor multiplies the frame, so white is "no tint" and the gas
-			colour is full strength. Assigning the gas colour directly -- which
-			this did -- meant the orange slammed to maximum the instant any
+			colour is full strength. Assigning the gas colour directly, which
+			this did, meant the orange slammed to maximum the instant any
 			exposure existed and stayed pinned there for the whole fade, while
 			the blur decayed around it. The only thing that ever removed it was
 			`active` flicking false at the very end, so it switched off rather
@@ -225,7 +225,7 @@ end)
 	Respawning clears it instantly rather than fading.
 
 	The server drops the attribute on death, but the local value is still part
-	way through its fade -- and a fresh character blinking into a blur reads as
+	way through its fade, and a fresh character blinking into a blur reads as
 	spawning already gassed.
 ]]
 player.CharacterAdded:Connect(function()

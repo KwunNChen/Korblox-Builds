@@ -3,7 +3,7 @@
 Vaulting and ledge mantling for TREK 4.
 
 Sprint into low cover and go over it. Jump at a wall, press jump again, and haul
-yourself up — with your weapon slung and your sprint gone until you are standing.
+yourself up - with your weapon slung and your sprint gone until you are standing.
 
 **Requires TREK 4.** It adds listeners to values and remotes TREK already owns and
 modifies nothing. Removing the folders leaves your install byte-for-byte as it was.
@@ -18,7 +18,7 @@ modifies nothing. Removing the folders leaves your install byte-for-byte as it w
 | 3 | Ledge mantle, the lockout, and the fail-safes | **done** |
 | 4 | Animator handoff, config test, docs | **done** |
 
-Wall climbing, grappling, sliding and stamina are deliberately out of scope for
+Wall climbing, grappling, sliding and stamina are out of scope for
 v1. See the roadmap for why.
 
 ## Install
@@ -30,7 +30,7 @@ v1. See the roadmap for why.
 | `ReplicatedStorage/` | `TREKParkour` | ReplicatedStorage |
 | `ServerScriptService/` | `TREKParkour` | ServerScriptService |
 | `StarterPlayerScripts/` | `TREKParkour` | SPS |
-| `Tools/` | `ParkourRig` | *optional* — leave it in ServerStorage |
+| `Tools/` | `ParkourRig` | *optional* - leave it in ServerStorage |
 
 Then delete the empty wrapper folder.
 
@@ -40,7 +40,7 @@ at the right paths itself. The table above is for people installing the `.rbxm`.
 Unlike Ski, Random Arty and Variable Snowstorm, **there is no `Common` folder**.
 Those three ship one because they all hold a *sustained* `Humanoid.WalkSpeed`
 modifier and would fight each other over it. This package writes WalkSpeed in
-exactly one place — the 1.2s vault boost — and it multiplies whatever value is
+exactly one place - the 1.2s vault boost - and it multiplies whatever value is
 already there, then restores it. So another package's slow still gets its say:
 you get 1.3× of the slowed speed, and the slowed speed back afterwards.
 
@@ -48,13 +48,13 @@ Turn `EnableVaultBoost` off and the package touches WalkSpeed nowhere at all.
 
 ## Config
 
-`ReplicatedStorage.TREKParkour.ParkourConfig` — the only file you should need to
+`ReplicatedStorage.TREKParkour.ParkourConfig` - the only file you should need to
 open. Turn on `DebugLog` while tuning; every refusal prints its reason, and
 "too high" and "no room up there" are fixed by different numbers.
 
 ## Checking the detector against your own geometry
 
-`tools/ParkourProbe.luau` is a command-bar script — not installed with the
+`tools/ParkourProbe.luau` is a command-bar script - not installed with the
 package, paste it in. Press Play, **switch the command bar to Client**, paste,
 and walk at things. It draws both probes, where they hit, the top surface they
 found and the box it checks for headroom, labelled with the classification and
@@ -74,7 +74,7 @@ before changing anything:
 
 **TREK rewrites `Humanoid.WalkSpeed` every 100ms.** `MovementHandler` runs a
 `while true … task.wait(.1)` loop that flips `Sprinting`, and each flip writes the
-speed. So this package never sets WalkSpeed to hold a player still — it uses
+speed. So this package never sets WalkSpeed to hold a player still - it uses
 `PlatformStand`, which makes those writes irrelevant.
 
 The vault boost is the one thing that does write WalkSpeed, and it only works
@@ -85,7 +85,7 @@ and holding a boost through them would be wrong.
 **TREK rewrites `HumanoidRootPart.CFrame` every frame while a weapon is out.**
 `HeadAndArmsController` forces the yaw to the mouse and flattens pitch and roll.
 Position survives; rotation does not. That asymmetry is why the two moves differ:
-the vault only translates and keeps the weapon out, while the mantle unequips —
+the vault only translates and keeps the weapon out, while the mantle unequips -
 which makes TREK's own gun handler call `HeadArmsModule:Stop()` and hand the
 rotation back.
 
@@ -96,7 +96,7 @@ start a move on a character that already has it set, and only ever restores it t
 
 ## Animations
 
-Three slots in the config — `Vault`, `MantleCatch`, `MantlePull` — all shipping
+Three slots in the config - `Vault`, `MantleCatch`, `MantlePull` - all shipping
 empty. An empty slot plays nothing; the move still happens, it just isn't posed.
 
 For whoever animates, build an R6 Block Rig and run:
@@ -123,7 +123,7 @@ lune run tools/configtest.luau
 Checks the config's bands are ordered and contiguous, that the easing curves
 actually reach their endpoints, and that the classifiers agree with the config at
 every band boundary. Ends with a static scrape asserting every `Config.X` the
-source reads is defined — delete a key and it names both the key and every file
+source reads is defined - delete a key and it names both the key and every file
 that wanted it, before anything can crash on the nil.
 
 `tools/ParkourProbe.luau` is a command-bar visualiser for the detector. Paste it
@@ -139,7 +139,7 @@ rokit install
 rojo build package.project.json -o TREKParkour.rbxm
 ```
 
-`default.project.json` is the dev project — `rojo serve` it into a Studio place
+`default.project.json` is the dev project - `rojo serve` it into a Studio place
 with TREK already installed. It marks the shared services `$ignoreUnknownInstances`
 so syncing does not strip TREK out.
 

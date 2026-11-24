@@ -3,9 +3,9 @@
 	Rattles the camera when a shell lands near you, and washes dust over the
 	screen if it lands very near.
 
-	Bound at Camera priority + 1 on purpose. The default camera module writes
+	Bound at Camera priority + 1. The default camera module writes
 	Camera.CFrame every frame at Camera priority, so anything that runs before
-	it gets silently overwritten and the shake simply never appears.
+	it gets silently overwritten and the shake never appears.
 ]]
 
 local Players = game:GetService("Players")

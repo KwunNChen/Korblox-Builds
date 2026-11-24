@@ -18,6 +18,12 @@
     },
     "Gunship": {
       "$path": "src/Gunship.server.luau"
+    },
+    "Sides": {
+      "$path": "../Shared/Sides.luau"
+    },
+    "VehicleKit": {
+      "$path": "../Shared/VehicleKit.luau"
     }
   }
 }

@@ -6,7 +6,7 @@
 	standing in gas. It is published as an attribute on the victim's Humanoid,
 	which the client reads to drive the blur, tint, ring and muffle. Publishing a
 	value rather than firing effect remotes means a client cannot be told to
-	blind someone else -- the worst a tampered client can do is blind itself.
+	blind someone else: the worst a tampered client can do is blind itself.
 
 	It also makes the state readable by anything else in the game. A HUD, a medic
 	system, a spectator overlay or a future gas mask can all watch the same

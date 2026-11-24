@@ -1,14 +1,14 @@
 --[[
-	STRIP LEG TRACKS
+	STRIP leg tracks
 
-	NOT a lune script. Paste it into the Studio COMMAND BAR in EDIT MODE.
+	Not a lune script. Paste it into the Studio command bar in edit mode.
 
 	Downloads a published animation, deletes the leg poses from it, and drops the
 	result where the Clip Editor's Load menu reads from. Load it, check it,
 	publish it, and use the new id as 2SprintHold.
 
 	--------------------------------------------------------------------------
-	WHY THIS MAKES THE LEGS RUN
+	Why this makes the legs run
 	--------------------------------------------------------------------------
 
 	An animation only overrides the joints it actually keyframes. Roblox's own
@@ -17,10 +17,10 @@
 
 	So an upper-body-only animation gives you the bayonet stance on the torso and
 	arms while the legs keep running normally. Keep the leg poses in and they
-	freeze mid-stride instead -- the animation is pinning them.
+	freeze mid-stride instead: the animation is pinning them.
 
-	The torso pose is KEPT. Legs hang off the torso, so they still swing with it
-	physically -- what matters is that their own joints are left unanimated.
+	The torso pose is kept. Legs hang off the torso, so they still swing with it
+	physically: what matters is that their own joints are left unanimated.
 ]]
 
 local SOURCE_ID = 84114589119244
@@ -40,10 +40,10 @@ print("=== STRIP LEG TRACKS ===")
 print("source asset: " .. SOURCE_ID)
 
 --[[
-	The rig must be SELECTED. There is no fallback scan on purpose.
+	The rig must be selected. There is no fallback scan.
 
 	Scanning for "a model with a Torso and a Humanoid" picked the wrong rig
-	three separate times in this project -- it takes whichever match comes last,
+	three separate times in this project: it takes whichever match comes last,
 	which is a respawn dummy as often as the rig you are working on. Silently
 	acting on the wrong one is worse than refusing.
 ]]
@@ -84,9 +84,9 @@ for _, keyframe in ipairs(sequence:GetChildren()) do
 		if pose:IsA("Pose") then
 			if STRIP[pose.Name] then
 				--[[
-					Destroying a Pose removes its CHILDREN too, and in the R6
+					Destroying a Pose removes its children too, and in the R6
 					hierarchy the limbs hang off the Torso. Legs are leaves, so
-					this is safe -- but never add "Torso" to STRIP, or you take
+					this is safe, but never add "Torso" to STRIP, or you take
 					the arms and head with it.
 				]]
 				pose:Destroy()
@@ -106,8 +106,8 @@ table.sort(names)
 
 --[[
 	Saves live in ServerStorage.RBX_ANIMSAVES.<rig name> in this Studio version,
-	NOT in Rig > AnimSaves. If your Load menu comes up empty, that is the first
-	thing to check -- the other location exists in some versions and an empty
+	Not in Rig > AnimSaves. If your Load menu comes up empty, that is the first
+	thing to check: the other location exists in some versions and an empty
 	menu usually means the sequence went to the one the editor is not reading.
 ]]
 local root = game:GetService("ServerStorage"):FindFirstChild("RBX_ANIMSAVES")

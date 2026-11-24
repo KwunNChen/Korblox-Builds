@@ -4,7 +4,7 @@
 		lune run tools/geometrytest.luau
 
 	Run this after touching anything in src/shared/BayonetGeometry.luau. It
-	builds real Instances in memory -- no Studio, no place file, no playtest.
+	builds real Instances in memory: no Studio, no place file, no playtest.
 
 	It exists because every hit-detection fault in this system was in that
 	module and every one of them was found by a person in a playtest wondering
@@ -44,7 +44,7 @@ local Geometry = luau.load(
 )()
 
 --[[
-	A Part with CFrame AND Position set.
+	A Part with CFrame and Position set.
 
 	Roblox derives one from the other; lune stores them separately and errors on
 	reading a Position that was never assigned. Every fixture below goes through
@@ -86,7 +86,7 @@ local function makeBlade(at: CFrame): Instance
 	return model
 end
 
--- An R6 character, limbs nested one level deeper than usual on purpose: depth
+-- An R6 character, limbs nested one level deeper than usual: depth
 -- is a modelling choice and must not decide whether someone can be stabbed.
 local function makeCharacter(at: Vector3): Model
 	local model = Instance.new("Model")

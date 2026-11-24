@@ -1,5 +1,5 @@
 -- Single owner of Humanoid.WalkSpeed and jump height. Register named modifiers
--- instead of assigning either directly -- see the README for the full API.
+-- instead of assigning either directly. See the README for the full API.
 
 local SpeedService = {}
 

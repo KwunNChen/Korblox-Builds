@@ -3,24 +3,24 @@
 	A short speed boost for landing a vault.
 
 	--------------------------------------------------------------------------
-	WHY THIS IS NOT ONE LINE
+	Why this is not one line
 	--------------------------------------------------------------------------
 
 	Setting Humanoid.WalkSpeed does not stick. TREK's MovementHandler runs a
 	`while true ... task.wait(.1)` loop that flips Sprinting, and every flip
 	writes WalkSpeed; ControlsModule writes it again on every crouch toggle. A
 	boost applied once is gone inside a tenth of a second, and worse, it is gone
-	INTERMITTENTLY -- it survives if you happen not to change state, which reads
+	Intermittently: it survives if you happen not to change state, which reads
 	as "the boost sometimes doesn't work".
 
 	So the boost re-asserts every frame. That wins, because a frame is shorter
 	than TREK's poll.
 
 	--------------------------------------------------------------------------
-	AND WHY IT GIVES UP
+	And why it gives up
 	--------------------------------------------------------------------------
 
-	Winning every frame means we would also overwrite TREK's LEGITIMATE writes --
+	Winning every frame means we would also overwrite TREK's legitimate writes:
 	the crouch that should slow you to 6, the sprint that should take you to 24.
 	Holding a boost through those would be a bug wearing a feature's clothes.
 
@@ -31,7 +31,7 @@
 
 	The multiplier is applied to whatever WalkSpeed was at the moment the vault
 	landed, not to a constant. That matters if another package is already
-	slowing the player -- Variable Snowstorm's storm, say -- because the boost
+	slowing the player, Variable Snowstorm's storm, say, because the boost
 	then scales their value rather than replacing it, and restores it on exit.
 ]]
 
@@ -50,7 +50,7 @@ local BIND_NAME = "TREKParkourBoost"
 -- write that follows is TREK's business and not ours to contest.
 local WATCHED = { "Sprinting", "SprintEnabled", "Crouching" }
 
--- Same epsilon Ski's SpeedService uses -- writing a property to the value it
+-- Same epsilon Ski's SpeedService uses, writing a property to the value it
 -- already holds is not free, and this runs every frame.
 local WRITE_EPSILON = 0.05
 
@@ -88,7 +88,7 @@ end
 --[[
 	Give WalkSpeed back. Safe to call twice, and safe on a dead character.
 
-	The restore is deliberately unconditional rather than "only if it still
+	The restore is unconditional rather than "only if it still
 	holds our value": we have been overwriting every frame, so our value is what
 	it holds, and there is nothing else it could be.
 ]]
@@ -151,7 +151,7 @@ function ParkourBoost.apply(character: Model, humanoid: Humanoid)
 			return
 		end
 
-		-- Crouched, sprinted, or stopped sprinting -- TREK owns the speed again.
+		-- Crouched, sprinted, or stopped sprinting, TREK owns the speed again.
 		if flagsMoved(current) then
 			ParkourBoost.cancel("state changed")
 			return

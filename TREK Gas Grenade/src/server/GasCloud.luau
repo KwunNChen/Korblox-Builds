@@ -3,13 +3,13 @@
 	The lingering volume, and everything it does to the people standing in it.
 
 	Server-only, and it will stay that way. The client draws nothing here and is
-	never asked what it is standing in -- a client that simply declined to report
+	never asked what it is standing in: a client that declined to report
 	being in the gas would be immune to it.
 
 	The cloud takes a snapshot of its configuration when it spawns and never
 	looks at the thrower's tool again. It has to: TREK resolves a tool's config
 	through `returnTool`, which is `FindFirstChildOfClass('Tool')` on the
-	character -- the *currently equipped* tool. A grenade's whole life happens
+	character: the *currently equipped* tool. A grenade's whole life happens
 	after it left the hand, by which point that lookup returns a rifle, or
 	nothing at all.
 ]]
@@ -20,7 +20,7 @@ local ServerStorage = game:GetService("ServerStorage")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild in a require chain does not fail, it hangs -- and
+	An unbounded WaitForChild in a require chain does not fail, it hangs, and
 	every module waiting on this one hangs with it, silently. Ten seconds is far
 	longer than replication ever needs and far shorter than a playtest, so a
 	missing file announces itself instead of stalling the package.
@@ -51,17 +51,25 @@ local GasCloud = {}
 	way BayonetService does it.
 
 	DamagePlayer is used rather than Humanoid:TakeDamage because it also tags the
-	victim for kill credit -- a WeaponTag ObjectValue the leaderboard reads -- and
+	victim for kill credit, a WeaponTag ObjectValue the leaderboard reads, and
 	records the damage against the thrower's stats. A raw TakeDamage kills people
 	and credits nobody.
 
-	Note this deliberately avoids TREKDamageModule.setDamage and the explosion
+	Note this avoids TREKDamageModule.setDamage and the explosion
 	module's calcDamage. Both run damage through an armour-resist branch whose
 	math.clamp arguments are in the wrong order (value and min are swapped), so
 	any part carrying an ArmourDamageResist takes exactly zero. Falloff here is
 	computed locally instead, which sidesteps that entirely.
 ]]
-local damageModule = require(expect(ServerStorage, "TREKDamageModule"))
+-- Without TREK (an SPH place using the cloud for AI throwers), fall back to plain TakeDamage.
+local damageModule = if ServerStorage:FindFirstChild("TREKDamageModule") or game:GetService("ReplicatedStorage"):FindFirstChild("TREK_INSTALLED")
+	then require(expect(ServerStorage, "TREKDamageModule"))
+	else {
+		DamagePlayer = function(_, character: Model, amount: number)
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid then humanoid:TakeDamage(amount) end
+		end,
+	}
 
 --[[
 	How many times a raycast may pass through a body before giving up.
@@ -93,7 +101,7 @@ end
 	Damage multiplier by distance.
 
 	Full strength out to FullDamageRadius, then a straight taper to nothing at
-	the edge. Deliberately gentler than a blast curve: the rim of a gas cloud
+	the edge. Gentler than a blast curve: the rim of a gas cloud
 	should be unpleasant enough to move people out of it, not a safe place to
 	stand and shoot from.
 ]]
@@ -115,7 +123,7 @@ end
 
 	Bodies are transparent to gas, so a hit on another character is skipped and
 	the ray re-fired from the same origin with that character excluded. Anything
-	else -- a wall, a crate, a vehicle hull -- blocks.
+	else, a wall, a crate, a vehicle hull, blocks.
 ]]
 local function hasLineOfSight(origin: Vector3, target: BasePart, ignore: Instance?): boolean
 	local params = RaycastParams.new()
@@ -152,7 +160,7 @@ end
 
 	Ref-counted, because two overlapping clouds must not have the first one to
 	expire clear a condition the second one is still applying. The BoolValue name
-	follows TREK's own convention for status -- TBleedCondition, TParalCondition
+	follows TREK's own convention for status, TBleedCondition, TParalCondition
 	-- so anything else in the game that wants to react to "this player is in
 	gas" has a consistent place to look.
 ]]
@@ -192,11 +200,17 @@ end
 	Should this character be affected at all?
 
 	Mirrors TREK's explosion rule that a character sitting in a VehicleSeat is
-	skipped -- being buttoned up protects you from gas the same way it protects
+	skipped, being buttoned up protects you from gas the same way it protects
 	you from a shell, and having the two disagree would be the kind of
 	inconsistency nobody can reason about mid-fight.
 ]]
 local function isProtected(humanoid: Humanoid, config): boolean
+	-- a masked character (attribute GasMask, e.g. Tower Assault's CBRN squad) breathes nothing in
+	local character = humanoid.Parent
+	if character and character:GetAttribute("GasMask") then
+		return true
+	end
+
 	if not config.VehicleSeatProtects then
 		return false
 	end
@@ -219,7 +233,7 @@ local function isFriendly(thrower: Player?, character: Model): boolean
 end
 
 --[[
-	How close a character got to the cloud's centre BETWEEN two samples.
+	How close a character got to the cloud's centre between two samples.
 
 	Testing where someone stands at the instant of a tick is the reason a fast
 	player can cross a cloud untouched: at eighteen studs of radius and a tick
@@ -227,9 +241,9 @@ end
 	that clips the edge can begin and end outside the sphere having gone
 	straight through it.
 
-	So the test is against the SEGMENT they travelled, not the point they
+	So the test is against the segment they travelled, not the point they
 	finished at. Returns the closest the path came, which the caller uses both
-	as the hit test and as the distance for falloff -- someone caught on the way
+	as the hit test and as the distance for falloff, someone caught on the way
 	through should take the damage for how deep they actually went, not for
 	where they happened to be standing when the clock ticked.
 ]]
@@ -238,7 +252,7 @@ local function closestApproach(from: Vector3, to: Vector3, centre: Vector3): num
 	local lengthSq = segment:Dot(segment)
 
 	-- Standing still. The segment has no direction to project onto, and the
-	-- answer is simply where they are.
+	-- answer is where they are.
 	if lengthSq < 1e-6 then
 		return (to - centre).Magnitude
 	end
@@ -251,7 +265,7 @@ end
 --[[
 	Spawn a cloud and run it to completion.
 
-	`thrower` may be nil -- a cloud with no owner still damages, it just credits
+	`thrower` may be nil: a cloud with no owner still damages, it just credits
 	nobody, which matches how TREK's own vehicle explosions pass a nil player.
 ]]
 function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: Instance?)
@@ -260,7 +274,7 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 	task.spawn(function()
 		local elapsed = 0
 
-		-- Humanoids currently marked by THIS cloud, so the condition can be
+		-- Humanoids currently marked by this cloud, so the condition can be
 		-- released the moment someone walks out rather than when the gas expires.
 		local marked: { [Humanoid]: boolean } = {}
 
@@ -295,16 +309,16 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 				Detection runs on every tick, including the first.
 
 				It used to be skipped while density was zero, which handed away
-				the cloud's opening moment -- the one tick where someone is most
+				the cloud's opening moment: the one tick where someone is most
 				likely to be standing on top of it. Irritant damage still scales
 				by density and so is still nothing at zero; the nerve agent does
 				not scale, and should not.
 			]]
 			do
 				--[[
-					Queried wider than the cloud on purpose.
+					Queried wider than the cloud.
 
-					GetPartBoundsInRadius only returns who is inside RIGHT NOW,
+					GetPartBoundsInRadius only returns who is inside right now,
 					so a player who was outside at both samples but crossed the
 					middle between them would never be handed to the swept test
 					at all. The margin is how far someone can travel in a tick.
@@ -324,6 +338,13 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 					seen[character] = true
 
 					if humanoid.Health <= 0 or isProtected(humanoid, config) then
+						continue
+					end
+
+					-- Crew sealed inside a Korblox vehicle (InVehicle, as Random Arty honours),
+					-- and the vehicle itself, whose Humanoid is only its health.
+					if character:GetAttribute("InVehicle") or character:HasTag("BloxianVehicle")
+						or character:HasTag("MarineVehicle") then
 						continue
 					end
 
@@ -371,7 +392,7 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 						As a nerve agent the cloud deals no damage at all: it
 						only reports that this character breathed it, and
 						GasNerve owns everything from there. Distance is
-						deliberately not passed -- the whole radius doses at the
+						deliberately not passed: the whole radius doses at the
 						same rate, so the falloff that shapes irritant damage
 						has nothing to shape.
 
@@ -402,7 +423,7 @@ function GasCloud.spawn(position: Vector3, thrower: Player?, config, grenade: In
 
 						Someone who caught a whisker of the cloud and got out
 						should not be topped over the line by a different cloud
-						an hour later. Does nothing to anyone already dosed --
+						an hour later. Does nothing to anyone already dosed:
 						there is no clearing that.
 					]]
 					local body = humanoid.Parent

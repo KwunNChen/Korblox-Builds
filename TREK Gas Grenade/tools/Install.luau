@@ -1,11 +1,11 @@
 --[[
-	INSTALL
+	Install
 
 	Command-bar script. Paste it into Studio with TREKGasGrenade.rbxm sitting in
-	ServerStorage, in EDIT mode, not a playtest.
+	ServerStorage, in edit mode, not a playtest.
 
-	It moves everything out of the staging folder into the real services, and --
-	the part that matters -- deletes any previous install at each destination
+	It moves everything out of the staging folder into the real services, and:
+	the part that matters, deletes any previous install at each destination
 	first.
 
 	This exists because installing by hand stopped being safe. The package now
@@ -48,7 +48,7 @@ end
 
 	Both are called TREKGasGrenade and both live in ServerStorage. The staging
 	one is the only one carrying a "ReplicatedStorage" signpost child, which is
-	what tells them apart -- and getting this wrong would move the grenade
+	what tells them apart, and getting this wrong would move the grenade
 	meshes into ReplicatedStorage and leave the real package untouched.
 ]]
 local function findStaging(): Folder?
@@ -128,7 +128,7 @@ say("staging folder:", staging:GetFullName())
 	The destinations, in the order the README lists them.
 
 	`merge` marks the one case where the destination folder is TREK's own and
-	must be kept -- only the Throwable inside it is ours to replace. Everything
+	must be kept, only the Throwable inside it is ours to replace. Everything
 	else is a folder this package owns end to end.
 ]]
 local PLAN = {
@@ -160,7 +160,7 @@ for _, step in ipairs(PLAN) do
 	if step.merge then
 		--[[
 			TREK's own handler folder. It is place content the installer does not
-			recreate, so it must be found rather than made -- creating a second
+			recreate, so it must be found rather than made, creating a second
 			one would leave the real Gun handler somewhere TREK stops looking,
 			and every gun in the place would stop equipping.
 		]]

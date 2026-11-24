@@ -5,7 +5,7 @@
 -- play the clip -> hold until it ends -> fade the skull out -> ask the server
 -- to respawn -> fade the black away once the new character exists.
 --
--- Everything is built ONCE at startup and reused for every death: the GUI, the
+-- Everything is built once at startup and reused for every death: the GUI, the
 -- rig, the camera shots, the Sound and every tween. A death only flips the GUI
 -- on and plays what is already there. Between deaths the GUI is disabled, so
 -- the ViewportFrame costs nothing to render.
@@ -26,8 +26,8 @@ local template = Folder:WaitForChild(Config.ModelName) :: Model
 local player = Players.LocalPlayer
 
 -- Anything that only matters to a live, animated character. The rig here is a
--- still image in a ViewportFrame, so these are dead weight -- and the Animate
--- LocalScript would actually RUN under PlayerGui if it were left in.
+-- still image in a ViewportFrame, so these are dead weight, and the Animate
+-- LocalScript would actually run under PlayerGui if it were left in.
 -- The Humanoid itself stays: clothing only renders on a rig that has one.
 local STRIP = { "BaseScript", "Animator", "Animation", "ValueBase", "BindableFunction", "HumanoidDescription", "JointInstance", "Attachment" }
 

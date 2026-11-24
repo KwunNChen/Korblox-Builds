@@ -3,22 +3,22 @@
 	Drives the body along a path, and puts everything back afterwards.
 
 	Both moves share this. The vault and the mantle differ in their curve and in
-	whether they own the character's rotation; everything else -- taking the
-	body, zeroing velocity, the frame loop, the deadline, the teardown -- is the
+	whether they own the character's rotation; everything else, taking the
+	body, zeroing velocity, the frame loop, the deadline, the teardown, is the
 	same problem twice, so it is solved once here.
 
 	--------------------------------------------------------------------------
-	WHY A KINEMATIC CFRAME WRITE AND NOT A CONSTRAINT
+	Why A kinematic CFRAME write and not a constraint
 	--------------------------------------------------------------------------
 
 	TREK's HeadAndArmsController writes HumanoidRootPart.CFrame every frame
-	while a weapon with TurnToTarget is equipped. Anything that CONVERGES on a
-	goal -- AlignPosition, a tween, a BodyMover -- loses that argument, because
+	while a weapon with TurnToTarget is equipped. Anything that converges on a
+	goal, AlignPosition, a tween, a BodyMover, loses that argument, because
 	a direct assignment beats a force every time. So we assign too, and we
 	assign last in the frame.
 
 	Ski solves the same problem the same way and its comments are worth reading
-	if this ever needs changing. The one thing we do NOT copy from it is the
+	if this ever needs changing. The one thing we do not copy from it is the
 	VectorForce gravity-cancel: Ski integrates velocity and so has to remove
 	gravity from its integrator, whereas we overwrite the velocity outright
 	every frame. Gravity has nowhere to accumulate, so there is no force to
@@ -35,7 +35,7 @@ local Pose = require(script.Parent:WaitForChild("ParkourPose"))
 
 local ParkourMotion = {}
 
--- R6. Arms and legs only -- the torso and head have to keep colliding or the
+-- R6. Arms and legs only: the torso and head have to keep colliding or the
 -- character falls through the world.
 local LIMBS = { "Right Arm", "Left Arm", "Right Leg", "Left Leg" }
 
@@ -111,7 +111,7 @@ local function restoreLimbs(current: Run)
 end
 
 --[[
-	Every exit goes through here, and it must be safe to call twice -- under a
+	Every exit goes through here, and it must be safe to call twice, under a
 	bad enough frame the deadline and the completion can land together.
 ]]
 function ParkourMotion.stop(reason: string)
@@ -133,7 +133,7 @@ function ParkourMotion.stop(reason: string)
 		Only give PlatformStand back if we were the ones who took it.
 
 		TREK sets PlatformStand on a player who has lost both legs and never
-		clears it -- that is its paralysis marker. Writing false unconditionally
+		clears it, that is its paralysis marker. Writing false unconditionally
 		here would cure them, which is a gameplay bug wearing a movement bug's
 		clothes. blockReason refuses to start a move on such a character, so if
 		we took it, it was ours to give back.
@@ -201,14 +201,14 @@ local function step(current: Run)
 	--[[
 		Two rules in one line.
 
-		A move with no facing writes POSITION ONLY, keeping whatever rotation the
+		A move with no facing writes position only, keeping whatever rotation the
 		character already has. That is what lets the vault coexist with an
 		equipped weapon: TREK stays free to point the root at the mouse, we never
 		contest it, and you vault forward while still aiming.
 
-		A move that DOES want the rotation only gets it once the weapon has
+		A move that does want the rotation only gets it once the weapon has
 		actually gone. The client starts moving the instant it decides to, but
-		the unequip is the server's and lands a round trip later -- until then
+		the unequip is the server's and lands a round trip later, until then
 		TREK is still writing rotation every frame and contesting it looks like a
 		fight. Testing for the Tool each frame rather than waiting on an
 		acknowledgement means the climb takes over the moment it is free, and
@@ -224,8 +224,8 @@ local function step(current: Run)
 		Cancel the animation's neck track, if asked to.
 
 		Writing Transform rather than C0 is the whole trick: an animation drives
-		joints through Transform, and this binding runs at Character + 1 -- after
-		the animator has had its turn -- so identity here wins for the frame. C0
+		joints through Transform, and this binding runs at Character + 1, after
+		the animator has had its turn, so identity here wins for the frame. C0
 		is left alone, which is why the head ends up at its rest pose relative to
 		the torso rather than pinned to the world.
 

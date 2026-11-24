@@ -22,7 +22,7 @@ local ServerStorage = game:GetService("ServerStorage")
 --[[
 	Bounded, and loud when it fails.
 
-	An unbounded WaitForChild in a require chain does not fail, it hangs -- and
+	An unbounded WaitForChild in a require chain does not fail, it hangs, and
 	every module waiting on this one hangs with it, silently. Ten seconds is far
 	longer than replication ever needs and far shorter than a playtest, so a
 	missing file announces itself instead of stalling the package.
@@ -55,7 +55,7 @@ local throwRemote = expect(package, "ThrowGrenade") :: RemoteEvent
 	Per-player cook state.
 
 	Keyed by player, cleared on throw, death, unequip and disconnect. `token`
-	exists so a watchdog that has already been superseded can tell -- comparing
+	exists so a watchdog that has already been superseded can tell, comparing
 	the token it captured against the current one is cheaper and more reliable
 	than trying to cancel a sleeping thread.
 ]]
@@ -66,16 +66,16 @@ local nextToken = 0
 --[[
 	Find the two grenade models in ServerStorage.
 
-	Deliberately not a single FindFirstChild on a fixed folder. Installing the
-	package drags in a staging folder that is ALSO called TREKGasGrenade -- the
-	signpost wrapper the README tells you to delete afterwards -- and until it is
+	Not a single FindFirstChild on a fixed folder. Installing the
+	package drags in a staging folder that is also called TREKGasGrenade: the
+	signpost wrapper the README tells you to delete afterwards, and until it is
 	deleted ServerStorage holds two children with that name. FindFirstChild
 	returns whichever it reaches first, and half the time that is the empty
 	staging folder, which would leave the grenade silently unthrowable with a
 	"model is missing" warning pointing at a folder that plainly exists.
 
 	So: preferred folder first, then a recursive sweep of ServerStorage. The
-	sweep also covers anyone who simply parked the models somewhere else.
+	sweep also covers anyone who parked the models somewhere else.
 ]]
 local function resolveModels(): (Model?, Model?)
 	local active, inactive
@@ -96,7 +96,7 @@ end
 --[[
 	The grenade tool the player currently has out, or nil.
 
-	Deliberately not TREK's `returnTool`: that resolves through GunConfigs and is
+	Not TREK's `returnTool`: that resolves through GunConfigs and is
 	fine for a gun, but here we want a flat identity check against the tool name
 	with no dependency on the config lookup succeeding.
 ]]
@@ -141,8 +141,8 @@ end
 --[[
 	Spend one grenade, and take the tool away if that was the last.
 
-	Both of the places ammo is spent -- a throw, and a cook that went off in the
-	hand -- go through here, so "out of grenades" means the same thing in both.
+	Both of the places ammo is spent: a throw, and a cook that went off in the
+	hand, go through here, so "out of grenades" means the same thing in both.
 
 	Destroying the tool is what makes a one-shot grenade read as one. Left in the
 	hotbar at zero it still selects, still puts a grenade in your hand, and
@@ -180,7 +180,7 @@ local function consumeAmmo(tool: Tool)
 		Empty the hand now, remove the slot shortly after.
 
 		The grenade is in the air, so continuing to show one in the hand is
-		simply wrong -- and it is the same frame the thrown model appears, which
+		wrong, and it is the same frame the thrown model appears, which
 		would otherwise put two grenades on screen at once. The Tool itself
 		survives a little longer because destroying it fires Unequipped, and
 		having the slot disappear out of the hotbar mid-swing reads badly even
@@ -226,7 +226,7 @@ end
 --[[
 	Put a live grenade into the world.
 
-	Returns the model so the fuse can read its resting position later -- the
+	Returns the model so the fuse can read its resting position later: the
 	whole point of a bouncing grenade is that where it detonates is not where it
 	was thrown.
 ]]
@@ -269,7 +269,7 @@ end
 	Run a fuse, then leave a cloud wherever the grenade ended up.
 
 	`grenade` may be nil, which is the cook-in-hand case: there is nothing in the
-	world to track, and the cloud simply appears on the player.
+	world to track, and the cloud appears on the player.
 ]]
 local function detonateAfter(delaySeconds: number, grenade: Model?, fallback: () -> Vector3?, thrower: Player?)
 	task.delay(math.max(delaySeconds, 0), function()
@@ -407,8 +407,8 @@ local function onThrow(player: Player, direction: Vector3)
 	--[[
 		Spend it only once one is actually in the world.
 
-		Decrementing before the spawn meant any failure past that point -- a
-		model with no BaseParts, a missing template -- still cost the player
+		Decrementing before the spawn meant any failure past that point: a
+		model with no BaseParts, a missing template, still cost the player
 		their grenade and handed them nothing for it. At a capacity of one that
 		is the whole loadout gone to a warning in the output.
 	]]
@@ -424,8 +424,8 @@ end
 	Prepare the held model the moment a grenade tool appears on a character.
 
 	Doing it here rather than asking anyone to bake it into the asset means a
-	re-export of GasGrenades.rbxm -- which arrives anchored, unwelded and with no
-	AnimPart every single time -- still produces a tool that hangs correctly off
+	re-export of GasGrenades.rbxm, which arrives anchored, unwelded and with no
+	AnimPart every single time, still produces a tool that hangs correctly off
 	the hand.
 ]]
 local function onToolAdded(tool: Instance)
@@ -447,7 +447,7 @@ local function onToolAdded(tool: Instance)
 		TREK Bayonet's HolsterService slings any Tool carrying an AnimPart,
 		because until now an AnimPart only ever meant "rifle". The grenade needs
 		one to be held at all, so without this it gets slung across the back like
-		a weapon -- and worse, its spawn scan stops at the first match, so a
+		a weapon, and worse, its spawn scan stops at the first match, so a
 		grenade sorting before the rifle would take the rifle's place entirely.
 
 		Harmless if that package is not installed; it is just an unread
@@ -473,7 +473,7 @@ local function onToolAdded(tool: Instance)
 
 		TREK's updateMotor is not involved and cannot be: it joins the torso, and
 		prepareHeldRig has just removed the AnimPart it keys off, so checkForGun
-		skips it entirely. That is the point -- a torso joint is what made the
+		skips it entirely. That is the point: a torso joint is what made the
 		grenade hover beside the chest instead of following the arm.
 	]]
 	if not GasShared.attachToHand(character, root, offset) then
@@ -490,7 +490,7 @@ end
 
 	The require chain that reaches this point is four modules deep and gated on
 	TREK_INSTALLED, and every way it can stall is silent. This is the one
-	unambiguous signal that the server half is actually alive -- without it,
+	unambiguous signal that the server half is actually alive, without it,
 	"nothing happens" and "the service never started" look identical from inside
 	Studio.
 ]]
@@ -544,7 +544,7 @@ function GasService.start()
 
 			This service starts behind the TREK_INSTALLED gate, and TREK's
 			installer routinely takes longer to finish than the player takes to
-			spawn -- in Studio solo it is not close. Binding only to
+			spawn, in Studio solo it is not close. Binding only to
 			CharacterAdded means that on the very life you are standing in, the
 			ChildAdded hook is never connected: the tool is never rigged, the
 			motor is never attached, and the grenade does not appear in your hand
@@ -575,7 +575,7 @@ function GasService.start()
 	--[[
 		One startup check that the art is actually installed.
 
-		Rigging itself happens on equip, so nothing here prepares anything -- but
+		Rigging itself happens on equip, so nothing here prepares anything, but
 		without this the first sign of missing models is a player equipping a
 		grenade and finding nothing in their hand, which reads as a code fault
 		rather than an incomplete install.

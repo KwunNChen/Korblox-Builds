@@ -1,17 +1,17 @@
 --[[
-	PARKOUR PROBE -- see what the detector sees.
+	Parkour probe. See what the detector sees.
 
-	NOT a lune script, and not installed with the package. Paste it into the
-	Studio COMMAND BAR.
+	Not a lune script, and not installed with the package. Paste it into the
+	Studio command bar.
 
 	--------------------------------------------------------------------------
-	USING IT
+	Using it
 	--------------------------------------------------------------------------
 
 	1. Press Play.
-	2. Switch the command bar to CLIENT. That is the dropdown at the left of the
+	2. Switch the command bar to client. That is the dropdown at the left of the
 	   command bar, which says "Server" by default. This will not work on Server
-	   -- the detector runs on the player's own machine and casts against what
+	  : the detector runs on the player's own machine and casts against what
 	   that machine can see.
 	3. Paste this whole file in and press enter.
 	4. Walk at things.
@@ -19,23 +19,23 @@
 	To stop it: _G.__ParkourProbeStop()
 
 	--------------------------------------------------------------------------
-	READING IT
+	Reading it
 	--------------------------------------------------------------------------
 
 	Two probes are drawn at once, because the game uses different ones depending
 	on whether you are on the ground or in the air:
 
-	    VAULT    fired from shin height, measured up from your soles
-	    MANTLE   fired from chest height, measured from your root
+	    Vault    fired from shin height, measured up from your soles
+	    Mantle   fired from chest height, measured from your root
 
 	Each gets a ray, a marker where it hit the wall, a marker on the top surface
 	it found, and a label.
 
-	    GREEN    a move would happen here
-	    YELLOW   found something, but it is not a move -- the label says why
-	    RED      refused
+	    Green    a move would happen here
+	    Yellow   found something, but it is not a move: the label says why
+	    Red      refused
 
-	The commonest surprise is a YELLOW "no room up there". That is the clearance
+	The commonest surprise is a yellow "no room up there". That is the clearance
 	box hitting something above the ledge, and no amount of changing the height
 	bands will fix it.
 ]]

@@ -19,8 +19,6 @@ local clone = script.Parent:Clone()
 --Respawns go back where the Apache was placed, not straight into Workspace.
 local homeParent = script.Parent.Parent
 
-local players = game:GetService("Players")
-local teams = game:GetService("Teams")
 local runService = game:GetService("RunService")
 local debris = game:GetService("Debris")
 local collectionService = game:GetService("CollectionService")
@@ -78,16 +76,11 @@ local BAIL_HEALTH = 0.3
 --Anyone leaving higher than this above the ground (studs) gets a parachute.
 local CHUTE_ABOVE = 12
 --Thrown out sideways and up (studs/s), the canopy opening after CHUTE_DELAY
---seconds. Under it he sinks at FALL_SPEED and drifts outward at DRIFT_SPEED.
+--seconds. Under it he sinks at FALL_SPEED, drifting outward (VehicleKit).
 local EJECT_SPEED = 30
 local EJECT_UP = 12
 local CHUTE_DELAY = 0.6
 local FALL_SPEED = 14
-local DRIFT_SPEED = 4
-local CHUTE_SIZE = Vector3.new(14,5,14)
-local CHUTE_HEIGHT = 10
-local CHUTE_COLOR = Color3.fromRGB(96,104,72)
-local CHUTE_FADE = 1.5
 
 --Placed in the world (not from the Vehicle Spawner) with Settings.AutoCrew on,
 --it brings its own pilot and gunner: Bloxians cloned from ServerStorage, in the
@@ -97,11 +90,8 @@ local CREW_UNIT = "Pilot"
 local CREW_WEAPON = "Rifle"
 local CREW_DELAY = 0.5
 
---Engulfed: how many of its parts burn and the biggest fire on one (studs; 30
---is Roblox's limit), and how much bigger than a shell's impact the blast is
---when it hits the ground (Random Arty's ArtilleryBlast).
-local ENGULF_PARTS = 30
-local ENGULF_MAX_FIRE = 25
+--How much bigger than a shell's impact the blast is when it hits the ground
+--(Random Arty's ArtilleryBlast).
 local CRASH_SCALE = 4
 
 --Going down: spin (radians/s), the colour the wreck is charred to, how long
@@ -241,74 +231,7 @@ end)
 
 ---------------------------------------------------------------- who gets hurt
 
---A player's team name, or the Team value an NPC carries. nil for no side.
-local function sideOf(model)
-	local player = players:GetPlayerFromCharacter(model)
-	if player then
-		return not player.Neutral and player.Team and player.Team.Name or nil
-	end
-	local settings = model:FindFirstChild("Settings")
-	local tag = model:FindFirstChild("Team") or (settings and settings:FindFirstChild("Team"))
-	if tag and tag.Value ~= "" then
-		return tag.Value
-	end
-	return nil
-end
-
---Whether an NPC leaves this player alone: Hostile never does, one on a Roblox
---team's name fights other teams, and any other follows its AttackPlayers.
-local function sparesPlayer(npcModel,npcSide,player)
-	if npcSide == "Hostile" then return false end
-	local robloxTeam = npcSide and teams:FindFirstChild(npcSide)
-	if robloxTeam and robloxTeam:IsA("Team") and player.Team and not player.Neutral then return false end
-	local settings = npcModel:FindFirstChild("Settings")
-	local attackPlayers = settings and settings:FindFirstChild("AttackPlayers")
-	return attackPlayers ~= nil and not attackPlayers.Value
-end
-
---Never the crew or the attacker's own side, and an NPC spares the players it
---would not shoot.
-local function canHurt(attacker,victim)
-	local victimModel = victim.Parent
-	if not victimModel or victim.Health <= 0 or victimModel:IsDescendantOf(heli) then return false end
-	if victim.SeatPart and victim.SeatPart:IsDescendantOf(heli) then return false end
-	if not attacker then return true end
-	if attacker == victimModel then return false end
-	local attackerSide = sideOf(attacker)
-	if attackerSide and attackerSide == sideOf(victimModel) then return false end
-	local victimPlayer = players:GetPlayerFromCharacter(victimModel)
-	if not players:GetPlayerFromCharacter(attacker) and victimPlayer and sparesPlayer(attacker,attackerSide,victimPlayer) then
-		return false
-	end
-	return true
-end
-
-local function hurt(attacker,victim,damage)
-	--Kill credit for a player, the way Roblox weapons tag it.
-	local player = attacker and players:GetPlayerFromCharacter(attacker)
-	if player then
-		local creator = Instance.new("ObjectValue")
-		creator.Name = "creator"
-		creator.Value = player
-		creator.Parent = victim
-		debris:AddItem(creator,2)
-	end
-	victim:TakeDamage(damage)
-	--A Bloxian crew watches this to know they got one.
-	if victim.Health <= 0 then
-		heli:SetAttribute("GunKills",(heli:GetAttribute("GunKills") or 0) + 1)
-	end
-end
-
---A live character (not a vehicle that happens to have a Humanoid).
-local function personOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	local victim = model and model:FindFirstChildOfClass("Humanoid")
-	if victim and victim.RootPart and not model:IsDescendantOf(heli) then
-		return victim
-	end
-	return nil
-end
+local kit = require(script.Parent:WaitForChild("VehicleKit"))
 
 local function crew()
 	local list = {heli}
@@ -320,62 +243,26 @@ local function crew()
 	return list
 end
 
---The vehicle (tagged BloxianVehicle or MarineVehicle) a part belongs to, other than this one.
-local function vehicleOf(part)
-	local model = part:FindFirstAncestorOfClass("Model")
-	while model do
-		if model ~= heli and (model:HasTag("BloxianVehicle") or model:HasTag("MarineVehicle")) then
-			return model
-		end
-		model = model:FindFirstAncestorOfClass("Model")
-	end
-	return nil
-end
-
---A vehicle on the other side from the attacker: crewed by an enemy of his and no
---friend, or kept to another team. The wreck going up (no attacker) hurts any.
-local function canHurtVehicle(attacker,car)
-	local human = car:FindFirstChildOfClass("Humanoid")
-	if not human or human.Health <= 0 then return false end
-	if not attacker then return true end
-	local enemyAboard = false
-	for _,name in ipairs({"VehicleSeat","Seat"}) do
-		local seat = car:FindFirstChild(name)
-		local occupant = seat and seat.Occupant
-		if occupant and occupant.Health > 0 then
-			if not canHurt(attacker,occupant) then
-				return false
-			end
-			enemyAboard = true
-		end
-	end
-	if enemyAboard then return true end
-	local settings = car:FindFirstChild("Settings")
-	local team = settings and settings:FindFirstChild("Team")
-	local side = sideOf(attacker)
-	return team ~= nil and team.Value ~= "" and side ~= nil and team.Value ~= side
-end
-
 --Damage is a plain radius check rather than an Explosion, which would also blow
 --a crater in terrain. What players see is drawn by Effects on each client.
 local function explode(position,attacker,kind,hitPart)
 	local damaged = {}
-	local direct = hitPart and vehicleOf(hitPart)
+	local direct = hitPart and kit.vehicleOf(heli,hitPart)
 	for _,part in ipairs(workspace:GetPartBoundsInRadius(position,BLAST_RADIUS)) do
-		local victim = personOf(part)
+		local victim = kit.personOf(heli,part)
 		if victim and not damaged[victim] then
 			damaged[victim] = true
-			if canHurt(attacker,victim) then
+			if kit.canHurt(heli,attacker,victim) then
 				local distance = (victim.RootPart.Position - position).Magnitude
 				local share = math.clamp(distance/BLAST_RADIUS,0,1)
-				hurt(attacker,victim,BLAST_DAMAGE + (BLAST_EDGE_DAMAGE - BLAST_DAMAGE)*share)
+				kit.hurt(heli,attacker,victim,BLAST_DAMAGE + (BLAST_EDGE_DAMAGE - BLAST_DAMAGE)*share,"GunKills")
 			end
 		end
 
-		local car = not victim and vehicleOf(part)
+		local car = not victim and kit.vehicleOf(heli,part)
 		if car and not damaged[car] then
 			damaged[car] = true
-			if canHurtVehicle(attacker,car) then
+			if kit.canHurtVehicle(heli,attacker,car) then
 				local human = car:FindFirstChildOfClass("Humanoid")
 				human:TakeDamage(MISSILE_VEHICLE_DAMAGE*(car == direct and 1 or MISSILE_VEHICLE_SPLASH))
 				if human.Health <= 0 then
@@ -511,7 +398,7 @@ local function cast(fn)
 	for _ = 1,4 do
 		local result = fn()
 		if not result then return nil end
-		local person = personOf(result.Instance)
+		local person = kit.personOf(heli,result.Instance)
 		if not person then return result end
 		castParams:AddToFilter(person.Parent)
 	end
@@ -616,112 +503,6 @@ end
 
 ---------------------------------------------------------------- crew
 
---The crew are not hurt while inside: nothing gets to them until they get out or
---it goes down with them. A hidden ForceField stops anything that uses
---TakeDamage, damage that sets Health directly is undone, and the InVehicle
---attribute tells the Random Arty barrages to pass them over.
-local protected = {}
-
-local function protect(human)
-	local character = human.Parent
-	if protected[human] or not character then return end
-	local shield = Instance.new("ForceField")
-	shield.Name = "VehicleArmor"
-	shield.Visible = false
-	shield.Parent = character
-	character:SetAttribute("InVehicle",true)
-	local kept = human.Health
-	local guard = human.HealthChanged:Connect(function(health)
-		if health >= kept then
-			kept = health
-		elseif health > 0 then
-			human.Health = kept
-		end
-	end)
-	protected[human] = {shield = shield,guard = guard}
-end
-
-local function unprotect(human)
-	local entry = protected[human]
-	if not entry then return end
-	protected[human] = nil
-	entry.guard:Disconnect()
-	entry.shield:Destroy()
-	if human.Parent then
-		human.Parent:SetAttribute("InVehicle",nil)
-	end
-end
-
-local function parachute(character,outward)
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-	local human = character:FindFirstChildOfClass("Humanoid")
-	if not root or not torso or not human or human.Health <= 0 then return end
-
-	local canopy = Instance.new("Part")
-	canopy.Name = "Parachute"
-	canopy.Size = CHUTE_SIZE
-	canopy.Color = CHUTE_COLOR
-	canopy.Material = Enum.Material.Fabric
-	canopy.CanCollide = false
-	canopy.CanQuery = false
-	canopy.CanTouch = false
-	canopy.Massless = true
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = canopy
-	canopy.CFrame = torso.CFrame * CFrame.new(0,CHUTE_HEIGHT,0)
-	local weld = Instance.new("Weld")
-	weld.Part0 = torso
-	weld.Part1 = canopy
-	weld.C0 = CFrame.new(0,CHUTE_HEIGHT,0)
-	weld.Parent = canopy
-
-	local harness = Instance.new("Attachment")
-	harness.Name = "Harness"
-	harness.Position = Vector3.new(0,1,0)
-	harness.Parent = torso
-	for _,corner in ipairs({Vector3.new(1,0,1),Vector3.new(-1,0,1),Vector3.new(1,0,-1),Vector3.new(-1,0,-1)}) do
-		local rim = Instance.new("Attachment")
-		rim.Position = Vector3.new(corner.X*CHUTE_SIZE.X*0.4,-CHUTE_SIZE.Y*0.2,corner.Z*CHUTE_SIZE.Z*0.4)
-		rim.Parent = canopy
-		local line = Instance.new("RopeConstraint")
-		line.Attachment0 = harness
-		line.Attachment1 = rim
-		line.Length = CHUTE_HEIGHT + 2
-		line.Visible = true
-		line.Thickness = 0.05
-		line.Color = BrickColor.new("Light stone grey")
-		line.Parent = canopy
-	end
-	canopy.Parent = character
-
-	local drag = Instance.new("LinearVelocity")
-	drag.Name = "ParachuteDrag"
-	drag.Attachment0 = harness
-	drag.RelativeTo = Enum.ActuatorRelativeTo.World
-	drag.VectorVelocity = outward*DRIFT_SPEED - Vector3.new(0,FALL_SPEED,0)
-	drag.MaxForce = root.AssemblyMass*workspace.Gravity*3
-	drag.Parent = root
-
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {character,heli}
-	local falling = 0
-	while character.Parent and human.Health > 0 and falling < 60 do
-		if human.FloorMaterial ~= Enum.Material.Air or workspace:Raycast(root.Position,Vector3.new(0,-3.5,0),params) then
-			break
-		end
-		falling += task.wait()
-	end
-
-	drag:Destroy()
-	harness:Destroy()
-	canopy.Anchored = true
-	weld:Destroy()
-	tweenService:Create(canopy,TweenInfo.new(CHUTE_FADE),{Transparency = 1}):Play()
-	debris:AddItem(canopy,CHUTE_FADE)
-end
-
 local function heightAboveGround()
 	local below = groundY(body.Position)
 	return below and body.Position.Y - below or math.huge
@@ -762,13 +543,13 @@ for _,entry in ipairs(seats) do
 		local leaving = inside
 		inside = entry.seat.Occupant
 		if inside then
-			protect(inside)
+			kit.protect(inside)
 		end
 		if not leaving or leaving == inside then return end
 		--Moving seats (the gunner taking the controls) is not leaving.
 		task.delay(0.1,function()
 			if leaving.SeatPart and leaving.SeatPart:IsDescendantOf(heli) then return end
-			unprotect(leaving)
+			kit.unprotect(leaving)
 			local root = leaving.RootPart
 			if leaving.SeatPart or not root or not root.Parent or (dead and not bailed[leaving]) then return end
 			local door = entry.door.WorldPosition
@@ -778,7 +559,7 @@ for _,entry in ipairs(seats) do
 			if bailed[leaving] or heightAboveGround() > CHUTE_ABOVE then
 				root.AssemblyLinearVelocity = body.AssemblyLinearVelocity + outward*EJECT_SPEED + Vector3.new(0,EJECT_UP,0)
 				task.wait(CHUTE_DELAY)
-				parachute(leaving.Parent,outward)
+				kit.parachute(leaving.Parent,FALL_SPEED,outward,heli)
 			end
 		end)
 	end)
@@ -851,38 +632,6 @@ local function respawn()
 	heli:Destroy()
 end
 
---Sets the whole airframe alight: a fire on each visible part (the biggest
---ENGULF_PARTS of them, sized to the part) and black smoke off the largest.
-local function engulf(model)
-	local parts = {}
-	for _,part in ipairs(model:GetDescendants()) do
-		if part:IsA("BasePart") and part.Transparency < 1 and not part:FindFirstChild("EngulfFire") then
-			parts[#parts+1] = part
-		end
-	end
-	table.sort(parts,function(a,b)
-		return a.Size.Magnitude > b.Size.Magnitude
-	end)
-	for index = 1,math.min(#parts,ENGULF_PARTS) do
-		local part = parts[index]
-		local fire = Instance.new("Fire")
-		fire.Name = "EngulfFire"
-		fire.Size = math.clamp(math.max(part.Size.X,part.Size.Y,part.Size.Z)*0.4,4,ENGULF_MAX_FIRE)
-		fire.Heat = 20
-		fire.Color = Color3.fromRGB(255,120,30)
-		fire.SecondaryColor = Color3.fromRGB(255,220,80)
-		fire.Parent = part
-		if index <= 3 then
-			local smoke = Instance.new("Smoke")
-			smoke.Size = ENGULF_MAX_FIRE
-			smoke.RiseVelocity = 12
-			smoke.Opacity = 0.7
-			smoke.Color = Color3.fromRGB(30,30,30)
-			smoke.Parent = part
-		end
-	end
-end
-
 local function char()
 	for _,part in ipairs(heli:GetDescendants()) do
 		if part:IsA("BasePart") and part.Transparency < 1 then
@@ -913,7 +662,7 @@ local function destroyed()
 	for _,seat in ipairs({pilotSeat,gunnerSeat}) do
 		local occupant = seat.Occupant
 		if occupant and not bailed[occupant] then
-			unprotect(occupant)
+			kit.unprotect(occupant)
 			occupant.Health = 0
 		end
 	end
@@ -926,7 +675,7 @@ local function destroyed()
 		end
 	end)
 
-	engulf(heli)
+	kit.engulf(heli)
 	alignPosition.Enabled = false
 	alignOrientation.Enabled = false
 	pcall(claimPhysics)

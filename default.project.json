@@ -18,12 +18,33 @@
         },
         "SpecOps": {
           "$path": "AI/Bloxian/assets/morphs/SpecOps.rbxm"
+        },
+        "KorbloxInfantry": {
+          "$path": "AI/Bloxian/assets/morphs/KorbloxInfantry.rbxm"
+        },
+        "KorbloxRadioman": {
+          "$path": "AI/Bloxian/assets/morphs/KorbloxRadioman.rbxm"
+        },
+        "NavalRaider": {
+          "$path": "AI/Bloxian/assets/morphs/NavalRaider.rbxm"
+        },
+        "NavalRaiderVest": {
+          "$path": "AI/Bloxian/assets/morphs/NavalRaiderVest.rbxm"
         }
       },
       "BloxianGuns": {
         "$className": "Folder",
         "AR18": {
           "$path": "AI/Bloxian/assets/guns/AR18.rbxm"
+        },
+        "FNFAL": {
+          "$path": "AI/Bloxian/assets/guns/FNFAL.rbxm"
+        },
+        "NavalRifle": {
+          "$path": "AI/Bloxian/assets/guns/NavalRifle.rbxm"
+        },
+        "KZW-A-4": {
+          "$path": "AI/Bloxian/assets/guns/KZW-A-4.rbxm"
         },
         "Benelli": {
           "$path": "AI/Bloxian/assets/guns/Benelli.rbxm"

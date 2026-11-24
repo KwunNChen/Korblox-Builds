@@ -9,12 +9,12 @@
 	BallSocketConstraints, the same trick SkiRagdoll uses for a wipeout. The
 	difference is that this one never recovers.
 
-	ORDER MATTERS. BreakJointsOnDeath has to be turned off BEFORE the humanoid
+	Order matters. BreakJointsOnDeath has to be turned off before the humanoid
 	dies. Roblox's default is to break every joint at once on death, which drops
-	the character into an anonymous pile of parts -- deciding which joints break
+	the character into an anonymous pile of parts, deciding which joints break
 	is the whole difference between dismemberment and a heap.
 
-	LIMB SEVERING IS R6 ONLY -- the joint names below do not exist on R15, so an
+	Limb severing is R6 only: the joint names below do not exist on R15, so an
 	R15 character is detected and keeps all its limbs. It still gets
 	PlatformStand and falls over rather than standing there dead, just not a
 	jointed ragdoll: there is no R15 joint table here to swap onto ball sockets.
@@ -41,14 +41,14 @@ local LIMB_JOINTS = {
 -- way, so there is nothing to protect by ordering these.
 local SEVER_ORDER = { "Right Arm", "Left Arm", "Right Leg", "Left Leg" }
 
--- What a SURVIVOR can lose. Arms only unless MaimIncludesLegs is on -- an R6
+-- What a survivor can lose. Arms only unless MaimIncludesLegs is on: an R6
 -- Humanoid derives its hip height from the leg parts, so someone still walking
 -- around without them hovers.
 local MAIM_ARMS = { "Right Arm", "Left Arm" }
 
 local warnedNonR6 = false
 
--- Joints that go limp on whatever is left. RootJoint is absent on purpose: it
+-- Joints that go limp on whatever is left. RootJoint is absent: it
 -- holds the Torso to the HumanoidRootPart, and freeing it separates the corpse
 -- from the part the respawn logic tracks.
 local RAGDOLL_JOINTS = { "Neck", "Right Shoulder", "Left Shoulder", "Right Hip", "Left Hip" }
@@ -174,7 +174,7 @@ local function severLimb(character: Model, limbName: string, blastPosition: Vect
 		addStump(torso, socket)
 	end
 
-	-- task.delay, not Debris:AddItem -- see the note on cleanupCorpse. Debris
+	-- task.delay, not Debris:AddItem. See the note on cleanupCorpse. Debris
 	-- shares one global queue with a MaxItems ceiling, and a barrage severing
 	-- limbs on every kill fills it fast; anything pushed out past the cap is
 	-- never destroyed at all. An owned delay per limb can't be evicted.
@@ -187,7 +187,7 @@ local function severLimb(character: Model, limbName: string, blastPosition: Vect
 end
 
 -- Shuffles `pool` and takes up to `count` of it off. Returns how many actually
--- came away -- a limb already missing from an earlier shell severs nothing.
+-- came away: a limb already missing from an earlier shell severs nothing.
 local function severSome(character: Model, blastPosition: Vector3, pool: { string }, count: number): number
 	local order = table.clone(pool)
 	for index = #order, 2, -1 do
@@ -242,31 +242,31 @@ local function ragdollRemains(character: Model)
 end
 
 --[[
-	Makes sure a corpse actually goes away. NOTHING DOES THIS BY DEFAULT, and
-	getting it wrong is invisible -- corpses just accumulate until the server
+	Makes sure a corpse actually goes away. Nothing does this by default, and
+	getting it wrong is invisible, corpses just accumulate until the server
 	is a boneyard.
 
-	ARM THIS FIRST, BEFORE ANY OTHER KILL WORK. That is the whole reason it is
+	Arm this first, before any other kill work. That is the whole reason it is
 	written to be callable before the character has even been touched. Every
 	caller runs inside ImpactService's pcall, so anything that throws between
-	the kill and this call -- a malformed rig, a missing Torso, a joint that
-	is not what it claims -- silently skips cleanup and leaves that corpse
+	the kill and this call: a malformed rig, a missing Torso, a joint that
+	is not what it claims, silently skips cleanup and leaves that corpse
 	standing forever, with the error swallowed into a warn nobody reads. It
 	must not be possible to lose the corpse timer to an unrelated failure.
 
 	Three mechanisms, and a corpse only needs one to fire:
 
-	  THE TIMER. task.delay rather than Debris:AddItem. Debris shares one
+	  The timer. task.delay rather than Debris:AddItem. Debris shares one
 	  global queue with a MaxItems ceiling, and severed limbs are already
-	  filling it -- a heavy barrage can push corpses out of that queue
+	  filling it: a heavy barrage can push corpses out of that queue
 	  entirely. An owned delay per corpse cannot be evicted by anything.
 
-	  RESPAWN. Destroyed the instant CharacterAdded fires for the player who
+	  Respawn. Destroyed the instant CharacterAdded fires for the player who
 	  died. Roblox's own respawn usually clears the old character, but only
 	  when CharacterAutoLoads is on and nothing custom has taken over the
-	  respawn -- so this is belt and braces, not a duplicate.
+	  respawn, so this is belt and braces, not a duplicate.
 
-	  DISCONNECT. PlayerRemoving, so a corpse whose owner left never waits out
+	  Disconnect. PlayerRemoving, so a corpse whose owner left never waits out
 	  a respawn that is not coming.
 
 	All three can be armed on the same corpse; whichever fires first destroys
@@ -332,28 +332,28 @@ local function cleanupCorpse(character: Model)
 end
 
 --[[
-	Everything a corpse needs BEFORE Health hits 0, and everything it needs
-	AFTER, exposed separately so ImpactService's layer-3 "killed intact" path
-	can ragdoll a kill it deliberately routes around Dismember.apply -- it
+	Everything a corpse needs before Health hits 0, and everything it needs
+	After, exposed separately so ImpactService's layer-3 "killed intact" path
+	can ragdoll a kill it routes around Dismember.apply: it
 	wants no limbs off even when gore is otherwise on, specifically so an
 	intact corpse is what tells you the layer that caught them. "Intact"
 	should still mean limp, not stiff.
 
-	ORDER MATTERS, same as everywhere else in this module: BreakJointsOnDeath
-	has to go false BEFORE Health hits 0, or Roblox breaks every joint itself
+	Order matters, same as everywhere else in this module: BreakJointsOnDeath
+	has to go false before Health hits 0, or Roblox breaks every joint itself
 	first and there is nothing left to hand to ragdollRemains.
 ]]
 function Dismember.prepareRagdoll(humanoid: Humanoid)
 	humanoid.BreakJointsOnDeath = false
 	humanoid.PlatformStand = true
 
-	-- BEFORE Health hits 0, not after. The moment PlatformStand goes true the
+	-- Before Health hits 0, not after. The moment PlatformStand goes true the
 	-- assembly becomes physics-live, and Roblox auto-assigns ownership to
-	-- whichever client is nearest -- almost always the player who is about to
+	-- whichever client is nearest, almost always the player who is about to
 	-- die, standing right on top of their own corpse. Claim it here, first,
 	-- or that window is already closed by the time ragdollRemains runs.
 	-- ModelStreamingMode is claimed at spawn time now (ArtilleryRuntime), not
-	-- here -- reactively setting it moments before death was too late to
+	-- here, reactively setting it moments before death was too late to
 	-- matter, since the character had already been streaming under the
 	-- default mode for however long it was alive.
 	local character = humanoid.Parent :: Model?
@@ -369,9 +369,9 @@ Dismember.finishRagdoll = ragdollRemains
 Dismember.cleanupCorpse = cleanupCorpse
 
 --[[
-	Takes limbs off someone the blast did NOT kill.
+	Takes limbs off someone the blast did not kill.
 
-	No ragdoll and no death -- they keep playing, one arm short. Nothing here
+	No ragdoll and no death: they keep playing, one arm short. Nothing here
 	touches BreakJointsOnDeath either: when they eventually die of something
 	else, they should come apart normally.
 
@@ -403,8 +403,8 @@ end
 	`severity` is 0 at the edge of the kill radius and 1 at the crater, and only
 	decides how many limbs come off.
 
-	EVERY ARTILLERY KILL RAGDOLLS. Gore only decides whether pieces come off
-	first -- BreakJointsOnDeath goes false and PlatformStand goes true on every
+	Every artillery kill ragdolls. Gore only decides whether pieces come off
+	first. BreakJointsOnDeath goes false and PlatformStand goes true on every
 	branch below, including the two that never sever anything, or a "no gore"
 	kill is a corpse frozen under the humanoid's own state control instead of
 	one gone limp. Roblox does not hand you a ragdoll for free just because
@@ -416,7 +416,7 @@ function Dismember.apply(character: Model, humanoid: Humanoid, blastPosition: Ve
 		return
 	end
 
-	-- FIRST, before anything that can throw. See cleanupCorpse -- every path
+	-- First, before anything that can throw. See cleanupCorpse: every path
 	-- below this runs inside ImpactService's pcall, and a corpse that loses
 	-- its timer to an unrelated error stands there for the rest of the round.
 	cleanupCorpse(character)
@@ -449,7 +449,7 @@ function Dismember.apply(character: Model, humanoid: Humanoid, blastPosition: Ve
 			)
 		end
 		-- ragdollRemains needs "Torso" and the named Motor6Ds to do anything,
-		-- and a non-R6 rig has neither -- findJoint just returns nil for each
+		-- and a non-R6 rig has neither, findJoint just returns nil for each
 		-- and the loop is a no-op. PlatformStand above is still in effect
 		-- though, which is what stops an R15 corpse standing there stiffly;
 		-- it just falls and topples as one rigid piece instead of a jointed

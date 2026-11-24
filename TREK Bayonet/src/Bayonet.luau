@@ -8,15 +8,15 @@
 	and reference it from the weapon's [2] block as BulletType = "Bayonet".
 
 	--------------------------------------------------------------------------
-	WHAT THIS DOES, AND WHAT IT DELIBERATELY DOES NOT
+	What this does, and what it does not
 	--------------------------------------------------------------------------
 
 	It sends one empty message to the server and restores your sprint. That is
 	the whole client half.
 
-	It does NOT decide who was hit. The pack's own Melee type uses ShapecastHitbox
+	It does not decide who was hit. The pack's own Melee type uses ShapecastHitbox
 	on the client and then calls the handler's damage function, which fires
-	TREK_Remotes.Damage with a client-supplied origin -- and TREK does not check
+	TREK_Remotes.Damage with a client-supplied origin, and TREK does not check
 	it, because ServerRays is false in GlobalConfigs. That is fine for a rifle
 	you can see down the sights of; for a melee attack whose entire balance is
 	its reach, it means the reach is enforced on the attacker's machine.
@@ -26,19 +26,19 @@
 	claimed position here, so there is nothing to validate and nothing to spoof.
 
 	--------------------------------------------------------------------------
-	THIS MODULE MUST NEVER THROW AT REQUIRE TIME
+	This module must never throw at require time
 	--------------------------------------------------------------------------
 
 	BulletModule requires every module in BulletTypes at load. If this one
 	errors, that require fails, the gun handler's `bulletTypes` is never built,
-	and -- worse -- the handler's setup loop
+	and, worse, the handler's setup loop
 
 		for i,mode in pairs(modeStuff) do
 			local bulletType = bulletTypes[config[i].BulletType]
 			if not(bulletType) then return end
 
-	does `return` at SCRIPT scope. It exits before UIS.InputBegan is connected,
-	so EVERY weapon in the place silently stops responding to the mouse.
+	does `return` at script scope. It exits before UIS.InputBegan is connected,
+	so every weapon in the place silently stops responding to the mouse.
 
 	So: no unbounded waits, no assumptions, nothing outside a pcall that could
 	fail. A broken bayonet must cost you the bayonet and nothing else.
@@ -50,7 +50,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local bayonet = {}
 
 -- Bounded, because an unbounded WaitForChild here would hang the require and
--- take the handler down with it -- see the note above.
+-- take the handler down with it. See the note above.
 local WAIT = 10
 
 local package = ReplicatedStorage:WaitForChild("TREKBayonet", WAIT)
@@ -95,8 +95,8 @@ end
 
 --[[
 	bulletData carries Config, ModeStuff, Character, Player, Mode, Tool and
-	DamageFunction. This type uses none of them at fire time -- the server reads
-	everything it needs from the attacker -- but Character is kept for the sprint
+	DamageFunction. This type uses none of them at fire time: the server reads
+	everything it needs from the attacker, but Character is kept for the sprint
 	flag, which lives on the character rather than the player.
 ]]
 function bayonet.new(data: any)
@@ -108,7 +108,7 @@ function bayonet.new(data: any)
 		that mode, and nothing in the weapon config will show you why. Working
 		that out from symptoms alone took most of an evening.
 
-		One line per bayonet mode per spawn, not per swing -- the handler builds
+		One line per bayonet mode per spawn, not per swing: the handler builds
 		one of these per mode when it loads.
 	]]
 	print(string.format(
@@ -117,8 +117,8 @@ function bayonet.new(data: any)
 	))
 
 	function object.fire(barrel: any, _spread: any)
-		-- Per swing, so it is behind Debug. Proves handleRays reached THIS type
-		-- rather than Hitscan, and names the barrel GFX will fire from -- which
+		-- Per swing, so it is behind Debug. Proves handleRays reached this type
+		-- rather than Hitscan, and names the barrel GFX will fire from, which
 		-- is how a missing 2Barrel shows up, as the rifle's muzzle flashing on
 		-- a melee swing.
 		if Config and Config.Debug then
@@ -150,7 +150,7 @@ function bayonet.new(data: any)
 
 			which is correct for firing a rifle and wrong for a bayonet charge.
 			Restoring it here keeps the charge without touching the gun handler,
-			and only while the player is genuinely still sprinting -- checking
+			and only while the player is genuinely still sprinting, checking
 			`sprinting` rather than forcing the flag on means letting go of the
 			sprint key still stops you.
 		]]
@@ -165,7 +165,7 @@ function bayonet.new(data: any)
 
 		-- Both flags live on the character, not the player. Sprinting is the
 		-- player's intent, SprintEnabled is whether the movement handler is
-		-- acting on it -- shoot() clears the second and leaves the first alone,
+		-- acting on it, shoot() clears the second and leaves the first alone,
 		-- which is exactly what makes this recoverable.
 		local plrconfig = character:FindFirstChild("TREK_PlrConfig")
 		if not plrconfig then

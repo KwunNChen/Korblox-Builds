@@ -27,7 +27,7 @@ local watchedCounters: { [Instance]: boolean } = setmetatable({}, { __mode = "k"
 --[[
 	Watch one weapon's magazines.
 
-	TREK stores ammo as a DoubleConstrainedValue, NOT a NumberValue -- see
+	TREK stores ammo as a DoubleConstrainedValue, not a NumberValue. See
 	TREKServerGeneral's createAmmoStore, which does
 	Instance.new('DoubleConstrainedValue') and then sets MaxValue = MagCapacity.
 	The two are sibling subclasses of ValueBase, so an IsA("NumberValue") test is
@@ -57,7 +57,7 @@ local function watchTool(tool: Instance)
 
 		--[[
 			This fires on every round leaving every weapon, which makes it the
-			highest-frequency hook in the system -- so it decides whether there is
+			highest-frequency hook in the system, so it decides whether there is
 			anything to say using nothing but arithmetic, and only then goes
 			looking for the character.
 
@@ -75,8 +75,8 @@ local function watchTool(tool: Instance)
 			end
 
 			-- MaxValue is MagCapacity straight from the weapon config. Falls back
-			-- to the largest value seen if some other system made this counter --
-			-- which is why it needs the value from BEFORE this shot: comparing
+			-- to the largest value seen if some other system made this counter,
+			-- which is why it needs the value from before this shot: comparing
 			-- against the post-shot value made the fallback max(current, current,
 			-- 1), so it could never exceed the current reading and the ratio below
 			-- was always 1.
@@ -87,9 +87,9 @@ local function watchTool(tool: Instance)
 
 			-- Zero is not special-cased. It used to branch off to OutOfAmmo for a
 			-- dry-click line of its own; with that event gone, an empty magazine
-			-- is simply the bottom of the low-ammo threshold and speaks the same
+			-- is the bottom of the low-ammo threshold and speaks the same
 			-- line the rest of it does. Going silent at exactly zero would be the
-			-- odd result -- one round left speaks, none left says nothing.
+			-- odd result: one round left speaks, none left says nothing.
 			if current / capacity > Config.LowAmmoFraction then
 				return
 			end
@@ -111,7 +111,7 @@ local bound: { [Humanoid]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
 --[[
 	Bind one humanoid. `player` is nil for anything that is not a player's
-	character -- an NPC, a dummy, an admin-spawned clone.
+	character: an NPC, a dummy, an admin-spawned clone.
 
 	Non-players get Hurt/Death of their own and, more to the point, can credit a
 	Kill: whatever damaged them is read off the same WeaponTag TREK writes, so
@@ -142,7 +142,7 @@ local function onCharacter(player: Player?, character: Model)
 	-- Died is not raised by the damage that kills you. It is raised when the
 	-- humanoid's state machine transitions to Dead, which is a separate step
 	-- from the health write and, for a player's character, one the server does
-	-- not own. HealthChanged fires from the write itself, inside TakeDamage --
+	-- not own. HealthChanged fires from the write itself, inside TakeDamage,
 	-- the earliest instant at which a kill exists at all. That gap is what made
 	-- the kill bark land noticeably behind the shot.
 	--
@@ -152,8 +152,8 @@ local function onCharacter(player: Player?, character: Model)
 	-- loses the race finds `spoke` already true and does nothing.
 	local spoke = false
 
-	-- Credit the kill. Returns whether a TAG WAS THERE TO READ -- not whether
-	-- anything barked. A suicide reads a tag and deliberately says nothing, and
+	-- Credit the kill. Returns whether a tag was there to read, not whether
+	-- anything barked. A suicide reads a tag and says nothing, and
 	-- must not look like a failed read.
 	--
 	-- The distinction earns its keep because of the order inside TREK's own
@@ -162,7 +162,7 @@ local function onCharacter(player: Player?, character: Model)
 	--     target.Humanoid:TakeDamage(damage)
 	--     lbmodule.tagPlr(target.Humanoid, player)
 	--
-	-- The tag is written AFTER the damage. Under Roblox's default deferred
+	-- The tag is written after the damage. Under Roblox's default deferred
 	-- signal behaviour our handler is resumed after both lines have run, so the
 	-- first read finds it; on a place configured for immediate signals the
 	-- handler runs inside TakeDamage, before the tag exists. Hence the retry.
@@ -240,8 +240,8 @@ local function onCharacter(player: Player?, character: Model)
 
 			Any system that kills someone slowly and makes its own noise about
 			it sets this on the character. Without it, damage applied in small
-			repeated steps -- the gas grenade's nerve agent drains health every
-			quarter second for twelve seconds -- fires a hurt bark per step, so
+			repeated steps: the gas grenade's nerve agent drains health every
+			quarter second for twelve seconds, fires a hurt bark per step, so
 			a single death produces dozens of them over the top of whatever
 			sound that system is playing.
 
@@ -279,7 +279,7 @@ local function onCharacter(player: Player?, character: Model)
 end
 
 -- Anything with a Humanoid that turns up in Workspace: NPCs, dummies, clones.
--- Workspace.ChildAdded rather than DescendantAdded on purpose -- characters are
+-- Workspace.ChildAdded rather than DescendantAdded, characters are
 -- parented to Workspace directly, and DescendantAdded fires for every bullet,
 -- shell and effect part in a firefight.
 local function tryBindModel(instance: Instance)
@@ -288,8 +288,8 @@ local function tryBindModel(instance: Instance)
 	end
 
 	-- Fast path, hoisted out of the coroutine below. A model that already has its
-	-- Humanoid -- a clone, a prefab NPC, a character whose parts arrived before it
-	-- was parented -- binds immediately. Spawning a thread for it meant every such
+	-- Humanoid: a clone, a prefab NPC, a character whose parts arrived before it
+	-- was parented, binds immediately. Spawning a thread for it meant every such
 	-- model paid for a coroutine that was going to resolve on its first line.
 	local humanoid = instance:FindFirstChildOfClass("Humanoid")
 	if humanoid then
@@ -329,7 +329,7 @@ end
 	Characters within `radius` of a world point, optionally filtered to one team.
 	`team` nil means anyone.
 
-	Used by area events that have a world position but no particular speaker -- an
+	Used by area events that have a world position but no particular speaker: an
 	explosion, a captured point.
 
 	This used to build an intermediate array of every bound humanoid on the server
@@ -429,15 +429,15 @@ end
 	Hooked on BayonetOutcome, a BindableEvent that package fires with
 	(attacker, contact) once a thrust has been accepted and swept.
 
-	NOT on BayonetStab, which is the obvious choice and the wrong one. That remote
-	is the thrust REQUEST: it arrives before the rate limit, the equipment checks
+	Not on BayonetStab, which is the obvious choice and the wrong one. That remote
+	is the thrust request: it arrives before the rate limit, the equipment checks
 	and the sweep have run, so a listener on it cannot tell a hit from a miss, or
-	either from a thrust refused outright -- and it would bark for a swing that
+	either from a thrust refused outright, and it would bark for a swing that
 	never happened, including one a client invented. The outcome signal is the
 	only place the answer exists, which is why the bayonet package emits it.
 
-	Two things make this unlike the TREK hooks. The signal is created at RUNTIME
-	by BayonetService -- it is not in the shipped model -- so it can appear well
+	Two things make this unlike the TREK hooks. The signal is created at runtime
+	by BayonetService, it is not in the shipped model, so it can appear well
 	after this runs; and in a place without the bayonet installed it never appears
 	at all. Hence the wait, and hence doing it on its own thread: a package that
 	may not exist must not hold up the hooks behind it.
@@ -491,8 +491,8 @@ function Hooks.start()
 	-- TREK script is touched.
 	local remotes = (shared :: any).S.TREK_Remotes
 
-	-- Reload START. Gun fires GFX('Reload') at the top of reloadTypeOne, before
-	-- the ReloadSpeed wait -- so this is the moment the player is actually
+	-- Reload start. Gun fires GFX('Reload') at the top of reloadTypeOne, before
+	-- the ReloadSpeed wait, so this is the moment the player is actually
 	-- vulnerable and "reloading!" is worth shouting. The Reload remote below is
 	-- the wrong moment: Gun only fires it after the wait has finished, which on
 	-- the KT-60 is six seconds late.
@@ -510,11 +510,11 @@ function Hooks.start()
 		Service.request(character, "Reload")
 	end)
 
-	-- Reload END. TREK sends this after the ReloadSpeed wait.
+	-- Reload end. TREK sends this after the ReloadSpeed wait.
 	--
-	-- This no longer speaks for a normal reload -- there is no end-of-reload line
+	-- This no longer speaks for a normal reload: there is no end-of-reload line
 	-- any more. The stamp bookkeeping stays because it is what separates the two
-	-- reload types: a ReloadType 1 weapon already spoke at the START, via GFX
+	-- reload types: a ReloadType 1 weapon already spoke at the start, via GFX
 	-- above, and must not speak again here.
 	remotes:WaitForChild("Reload").OnServerEvent:Connect(function(player: Player)
 		local character = player.Character
@@ -537,7 +537,7 @@ function Hooks.start()
 	end)
 
 	-- Explosive impact. Gun and Turret both fire this with the blast position.
-	-- The bark goes to characters NEAR the blast rather than to whoever fired --
+	-- The bark goes to characters near the blast rather than to whoever fired,
 	-- a reaction to incoming fire is worth hearing; one bark per explosive round
 	-- from the shooter is just noise.
 	remotes:WaitForChild("Explosion").OnServerEvent:Connect(function(_player: Player, position: any)

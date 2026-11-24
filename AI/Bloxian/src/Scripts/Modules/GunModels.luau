@@ -95,6 +95,37 @@ local AR18 = {
 	muzzle = Vector3.new(0,0.24,-2.53),
 }
 
+--Korblox FN FAL, bayonet fixed.
+local FNFAL = {
+	model = "FNFAL",
+	forward = CFrame.Angles(0,math.pi,0),
+	boreAboveMag = 0.6,
+	scale = 1,
+	at = Vector3.new(0,0.24,0.3),
+	muzzle = Vector3.new(0,0.24,-2.59),
+}
+
+--Korblox KZW-A-4 bolt-action: no magazine, placed by its body.
+local KZW_A4 = {
+	model = "KZW-A-4",
+	reference = "Body",
+	forward = CFrame.Angles(0,math.pi,0),
+	boreAboveMag = 0.3,
+	scale = 1,
+	at = Vector3.new(0,0.24,0.1),
+	muzzle = Vector3.new(0,0.24,-2.67),
+}
+
+--Korblox Naval Infantry's rifle, wooden furniture.
+local NAVAL_RIFLE = {
+	model = "NavalRifle",
+	forward = CFrame.Angles(0,math.pi,0),
+	boreAboveMag = 0.35,
+	scale = 1,
+	at = Vector3.new(0,0.24,0.3),
+	muzzle = Vector3.new(0,0.24,-2.91),
+}
+
 gunModels.models = {
 	Rifle = FAL,
 	Carbine = FAL,
@@ -104,9 +135,15 @@ gunModels.models = {
 	M203 = XM177_M203,
 }
 
---Guns a uniform preset (UniformModule) swaps in for its own soldiers, by weapon.
+--Guns a uniform preset (UniformModule) swaps in for its own soldiers, by unit
+--(Settings.Unit) first, then by weapon. Shotguns always keep their own model.
 gunModels.presets = {
 	Bloxia = {Rifle = AR18, Carbine = AR18, DMR = AR18},
+	Korblox = {Rifle = FNFAL, Carbine = FNFAL, DMR = KZW_A4, Sniper = KZW_A4, Spotter = KZW_A4},
+	KorbloxNaval = {
+		Rifle = NAVAL_RIFLE, Carbine = NAVAL_RIFLE, DMR = NAVAL_RIFLE, LMG = NAVAL_RIFLE,
+		Sniper = NAVAL_RIFLE, M203 = NAVAL_RIFLE,
+	},
 }
 
 local function scalePart(part,scale)
@@ -122,7 +159,9 @@ end
 
 function gunModels.fit(weaponName)
 	local preset = gunModels.presets[marine:GetAttribute("UniformPreset") or "Bloxia"]
-	local spec = preset and preset[weaponName] or gunModels.models[weaponName]
+	local unitValue = marine.Settings:FindFirstChild("Unit")
+	local unit = marine:GetAttribute("Unit") or unitValue and unitValue.Value
+	local spec = weaponName ~= "Shotgun" and preset and (preset[unit] or preset[weaponName]) or gunModels.models[weaponName]
 	local folder = ServerStorage:FindFirstChild(FOLDER_NAME)
 	local template = spec and folder and folder:FindFirstChild(spec.model)
 	local templateReference = template and template:FindFirstChild(spec.reference or "Mag")

@@ -12,6 +12,7 @@
 ]]
 
 local runService = game:GetService("RunService")
+local debris = game:GetService("Debris")
 local collectionService = game:GetService("CollectionService")
 
 local sides = require(script.Parent:WaitForChild("Sides"))
@@ -19,7 +20,7 @@ local sides = require(script.Parent:WaitForChild("Sides"))
 local airDefense = {}
 
 --Flares, after the real dispensers: the flares each kind carries (a Phantom's
---two AN/ALE-40s hold 15 each, an Apache's M130 holds 30; the AC-130's is a
+--two an/ALE-40s hold 15 each, an Apache's M130 holds 30; the AC-130's is a
 --guess, there being no published figure), how many go in one salvo (the F-4's
 --programmer bursts 1, 2, 4 or 8), and the least time between salvos (its
 --shortest burst interval, 3 seconds: at most 20 salvos a minute, and the load
@@ -167,6 +168,8 @@ local function throwDecoys(craft,count,kind)
 		decoy:SetAttribute("Decoy",kind)
 		decoy:AddTag(FLARE_TAG)
 		decoy.Parent = workspace
+		--Its Heartbeat belongs to the shooter's script: Debris clears it if that goes first.
+		debris:AddItem(decoy,6)
 		--Chaff hangs in the air as a cloud; flares are thrown clear and drop.
 		local side = from.CFrame.RightVector*(math.random() - 0.5)*80
 		local velocity = if chaff then carried*0.15 + side*0.3 else carried*0.4 + back*60 + side + Vector3.new(0,-20,0)

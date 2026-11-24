@@ -15,11 +15,11 @@ extension point the bayonet fire mode plugs into.
 | `TREK_Modules/BulletModule.luau` | requires every module in `BulletTypes` by name |
 | `TREK_Modules/BulletTypes/{Hitscan,Projectile,Melee}.luau` | the shipped types |
 | `TREK_Modules/ShapecastHitbox/` | ShapecastHitbox by Phin, used by the `Melee` type |
-| `Example Weapon.luau` | reference only — not synced anywhere |
+| `Example Weapon.luau` | reference only - not synced anywhere |
 
 **Do not edit these.** They are a verbatim copy so that re-extracting the pack
 after an update is a clean overwrite. The bayonet adds its own bullet type from
-`src/Bayonet.luau`, which Rojo places alongside these — that is the
+`src/Bayonet.luau`, which Rojo places alongside these - that is the
 supported way to extend the pack, and it means nothing here has to change.
 
 `Melee` is shipped but unused: it detects on the client and reports through
@@ -39,7 +39,7 @@ Workspace > Installer  > Plugins > TREKCustomBullets
 ```
 
 plus `ServerStorage.TREKToolHandlers.Gun` directly, which is place content the installer
-does not recreate — delete it and guns stop equipping altogether.
+does not recreate - delete it and guns stop equipping altogether.
 
 **Nothing is mapped into `ReplicatedStorage.TREK_SERVICES`, and nothing ever should be.**
 `TREKServerGeneral` does `WaitForChild('TREK_SERVICES'):GetChildren()` during install; a

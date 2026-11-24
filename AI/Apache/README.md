@@ -74,7 +74,7 @@ script. The crew are protected while seated, as in the other vehicles.
   `Settings.RespawnDelay` if that's shorter), then fades out over 3 s.
   - **Placed by hand:** a fresh one appears where it was placed once the full
     `RespawnDelay` (30 s) is up.
-  - **From the Vehicle Spawner:** it's simply gone.
+  - **From the Vehicle Spawner:** it's gone.
 
 Every number is at the top of `Heli`.
 
