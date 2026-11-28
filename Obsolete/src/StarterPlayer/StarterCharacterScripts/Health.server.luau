@@ -1,0 +1,1 @@
+-- Empty on purpose: replaces Roblox's default Health regen. HP only comes back through Medical items.
